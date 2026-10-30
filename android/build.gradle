@@ -1,0 +1,4 @@
+// Gemeinsame Plugin-Version für beide Apps (AGP 8.9 passt zu Gradle 8.11)
+plugins {
+    id 'com.android.application' version '8.9.1' apply false
+}

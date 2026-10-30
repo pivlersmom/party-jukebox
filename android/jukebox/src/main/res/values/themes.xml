@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PJ.Base" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/pj_bg</item>
+        <item name="android:colorBackground">@color/pj_bg</item>
+        <item name="android:colorAccent">@color/pj_cyan</item>
+        <item name="android:colorPrimary">@color/pj_bg</item>
+        <item name="android:colorPrimaryDark">@color/pj_bg</item>
+        <item name="android:textColorPrimary">@color/pj_text</item>
+        <item name="android:textColorSecondary">@color/pj_text_dim</item>
+        <!-- Status-/Navigationsleiste in der Hintergrundfarbe der Jukebox (theme-color #0b0d14) -->
+        <item name="android:statusBarColor">#0B0D14</item>
+        <item name="android:navigationBarColor">#0B0D14</item>
+    </style>
+    <style name="Theme.PJ" parent="Theme.PJ.Base"/>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 15: kein erzwungenes Edge-to-Edge, damit die Seite nicht unter Status-/Navigationsleiste rutscht -->
+    <style name="Theme.PJ" parent="Theme.PJ.Base">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

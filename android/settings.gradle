@@ -1,0 +1,18 @@
+// Party-Jukebox – Android-Apps (WebView-Hüllen um die Seiten des Add-ons)
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'PartyJukeboxApps'
+include ':tv-kiosk'   // TV-Anzeige für Android-TV-Boxen / Fire TV
+include ':jukebox'    // Handy-Fernbedienung

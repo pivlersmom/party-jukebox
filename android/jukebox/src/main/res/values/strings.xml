@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Party-Jukebox</string>
+    <string name="setup_title">Party-Jukebox – Einrichtung</string>
+    <string name="setup_address_label">Adresse des Party-Jukebox-Add-ons</string>
+    <string name="setup_address_default">http://homeassistant.local:8099</string>
+    <string name="setup_address_hint">Tipp: Am zuverlässigsten ist die IP-Adresse von Home Assistant, z. B. http://192.168.x.x:8099. Ohne Port wird :8099 ergänzt. Das Handy muss im selben WLAN sein.</string>
+    <string name="setup_test">Testen</string>
+    <string name="setup_save">Speichern</string>
+    <string name="setup_cancel">Abbrechen</string>
+    <string name="setup_help">Später wieder hierher: App-Symbol lange drücken → „Einstellungen“, oder die Zurück-Taste lange drücken (bei Tasten-Navigation).</string>
+    <string name="setup_testing">Teste Verbindung …</string>
+    <string name="setup_empty">Bitte eine Adresse eingeben.</string>
+    <string name="shortcut_settings">Einstellungen</string>
+    <string name="shortcut_settings_long">Adresse der Party-Jukebox ändern</string>
+    <string name="offline_title">Keine Verbindung zur Party-Jukebox</string>
+    <string name="offline_retry_auto">Neuer Versuch alle 10 Sekunden …</string>
+    <string name="offline_retry">Neu laden</string>
+    <string name="offline_settings">Einstellungen</string>
+</resources>

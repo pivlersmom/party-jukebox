@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hauptschaltfläche (Speichern): Verlauf, Fokus mit hellem Rahmen -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="10dp"/>
+            <gradient android:angle="0" android:startColor="@color/pj_pink" android:endColor="#8B5CFF"/>
+            <stroke android:width="3dp" android:color="@color/pj_cyan"/>
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="10dp"/>
+            <gradient android:angle="0" android:startColor="#C0249A" android:endColor="#6A45C8"/>
+        </shape>
+    </item>
+</selector>
