@@ -12,6 +12,7 @@ Home Assistant und Music Assistant, damit im Browser keine Tokens nötig sind:
 """
 import asyncio
 import json
+from urllib.parse import parse_qs, urlparse
 import logging
 import os
 import re
@@ -319,16 +320,42 @@ async def party_ev(request):
         down, up, need = len(PARTY.down), len(PARTY.up), PARTY.need()
         if down >= need and down > up and PARTY.vq and _last_skip["u"] != PARTY.vu:
             _last_skip.update(u=PARTY.vu, t=now())
-            asyncio.create_task(skip(session, PARTY.vq))
+            asyncio.create_task(skip(session, PARTY.vq, PARTY.vu))
     return web.json_response({"ok": typ is not None, "type": typ})
 
 
-async def skip(session, queue_id):
+async def skip(session, queue_id, uri):
+    """Überspringt nur, wenn in der Queue wirklich noch der abgestimmte Song läuft (Gäste geben die Queue-ID vor)."""
     try:
-        await MAC.cmd(session, "player_queues/next", {"queue_id": queue_id})
-        log.info("Song übersprungen (Mehrheit 👎) in %s", queue_id)
+        qid = OPT.get("party_player") or queue_id
+        q = await MAC.cmd(session, "player_queues/get", {"queue_id": qid}) or {}
+        cur = ((q.get("current_item") or {}).get("media_item") or {}).get("uri") or ""
+        if not cur or cur != uri:
+            log.info("Kein Skip: laufender Song (%s) ist nicht der abgestimmte (%s)", cur, uri)
+            return
+        await MAC.cmd(session, "player_queues/next", {"queue_id": qid})
+        log.info("Song übersprungen (Mehrheit 👎) in %s", qid)
     except Exception as e:
         log.warning("Überspringen fehlgeschlagen: %s", e)
+
+
+_join = {"code": None, "url": None, "t": 0}
+
+
+async def party_join(request):
+    """Liefert den aktuellen MA-Party-Join-Code (für Gäste ohne QR-Parameter), 60 s zwischengespeichert."""
+    if not _join["code"] or now() - _join["t"] > 60:
+        try:
+            url = await MAC.cmd(request.app["session"], "party/url")
+            url = url if isinstance(url, str) else (url or {}).get("url", "")
+            code = parse_qs(urlparse(url).query).get("join", [None])[0]
+            _join.update(code=code, url=url, t=now())
+        except Exception as e:
+            log.info("Join-Code nicht abrufbar: %s", e)
+            return web.json_response({"code": None}, status=503, headers={"Cache-Control": "no-store"})
+    if not _join["code"]:
+        return web.json_response({"code": None}, status=503, headers={"Cache-Control": "no-store"})
+    return web.json_response({"code": _join["code"], "url": _join["url"]}, headers={"Cache-Control": "no-store"})
 
 
 async def party_wishes(request):
@@ -450,6 +477,7 @@ def make_app():
     app.router.add_post("/party/ev", party_ev)
     app.router.add_get("/party/wishes.json", party_wishes)
     app.router.add_get("/party/guests.json", party_guests)
+    app.router.add_get("/party/join.json", party_join)
     app.router.add_get("/ma/ws", ma_websocket)
     app.router.add_get("/ma/{path:.*}", ma_http)
     app.router.add_static("/", WWW, show_index=False)
