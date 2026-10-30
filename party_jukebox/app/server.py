@@ -439,6 +439,8 @@ async def ma_http(request):
 # ---------------------------------------------------------------- Statische Seiten
 @web.middleware
 async def no_cache_html(request, handler):
+    if request.path == "/":
+        raise web.HTTPFound("/start.html")
     resp = await handler(request)
     p = request.path
     if p.endswith((".html", ".js", ".css", ".json")) or p == "/":
