@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d14">
+<title>Party-Jukebox</title>
+<script src="config.js"></script>
+<style>
+  :root{--bg:#0b0d14;--card:#151926;--line:#262b3d;--txt:#eef0f6;--dim:#9aa1b6;--a1:#e040fb;--a2:#29b6f6}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       display:flex;flex-direction:column;align-items:center;padding:32px 16px}
+  h1{margin:8px 0 4px;font-size:28px;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  p.sub{margin:0 0 28px;color:var(--dim);text-align:center}
+  .grid{display:grid;gap:14px;width:100%;max-width:520px}
+  a.tile{display:flex;gap:16px;align-items:center;padding:18px;border-radius:18px;background:var(--card);border:1px solid var(--line);
+         color:inherit;text-decoration:none;transition:transform .15s,border-color .15s}
+  a.tile:hover,a.tile:focus{transform:translateY(-2px);border-color:var(--a2);outline:none}
+  .ic{font-size:34px;width:48px;text-align:center}
+  .t b{display:block;font-size:18px}
+  .t span{color:var(--dim);font-size:14px}
+  .warn{max-width:520px;width:100%;margin-bottom:18px;padding:14px 16px;border-radius:14px;background:#3a2410;border:1px solid #7a4a14;color:#ffd9a8;display:none}
+  footer{margin-top:auto;padding-top:32px;color:var(--dim);font-size:13px;text-align:center}
+  footer a{color:var(--a2)}
+</style>
+</head>
+<body>
+  <h1 id="ttl">Party-Jukebox</h1>
+  <p class="sub">Musik, Wünsche und Party-Anzeige für Home Assistant + Music Assistant</p>
+  <div class="warn" id="warn">Music Assistant ist noch nicht eingerichtet: Token in den Add-on-Optionen eintragen und das Add-on neu starten.</div>
+  <div class="grid">
+    <a class="tile" href="jukebox.html"><div class="ic">🎛️</div><div class="t"><b>Jukebox</b><span>Musik suchen, Warteschlange, Lautstärke – fürs Handy (zum Home-Bildschirm hinzufügen)</span></div></a>
+    <a class="tile" href="party.html"><div class="ic">🎉</div><div class="t"><b>Party-Seite</b><span>Für Gäste: Songs wünschen, vordrängeln, abstimmen, Nachschub bestellen</span></div></a>
+    <a class="tile" href="tv.html"><div class="ic">📺</div><div class="t"><b>TV-Anzeige</b><span>Für den Fernseher: Song, Warteschlange, QR-Code, Gäste, Getränke-Ranking</span></div></a>
+  </div>
+  <footer>Apps &amp; Anleitung: <a href="https://github.com/pivlersmom/party-jukebox" target="_blank" rel="noopener">github.com/pivlersmom/party-jukebox</a></footer>
+<script>
+  try{
+    const P=window.PJ||{};
+    if(P.name){document.title=P.name;document.getElementById("ttl").textContent=P.name;}
+    if(!P.maToken)document.getElementById("warn").style.display="block";
+  }catch(e){}
+</script>
+</body>
+</html>

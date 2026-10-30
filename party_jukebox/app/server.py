@@ -29,7 +29,6 @@ STATE_FILE = Path("/data/party.json")
 WWW = Path(__file__).parent / "www"
 SUP_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 HA_HTTP = "http://supervisor/core/api"
-HA_WS = "ws://supervisor/core/websocket"
 PORT = 8099
 
 DEFAULT_DRINKS = ["Bier|🍺|ein Bier"]
@@ -369,56 +368,8 @@ async def pump(src, dst, transform=None):
             break
 
 
-async def ha_websocket(request):
-    """HA-WebSocket: der Browser bekommt sofort auth_ok, die Anmeldung zu HA macht das Add-on."""
-    client = web.WebSocketResponse(heartbeat=30, max_msg_size=0)
-    await client.prepare(request)
-    session = request.app["session"]
-    try:
-        async with session.ws_connect(HA_WS, max_msg_size=0, heartbeat=30) as up:
-            first = await up.receive_json(timeout=10)          # auth_required
-            await up.send_json({"type": "auth", "access_token": SUP_TOKEN})
-            ok = await up.receive_json(timeout=10)
-            if ok.get("type") != "auth_ok":
-                await client.close(message=b"HA auth failed")
-                return client
-            await client.send_json({"type": "auth_required", "ha_version": first.get("ha_version")})
-            # Auth-Nachricht des Browsers schlucken und bestätigen
-            m = await client.receive()
-            if m.type != WSMsgType.TEXT:
-                return client
-            await client.send_json(ok)
-
-            def drop_auth(s):
-                try:
-                    if json.loads(s).get("type") == "auth":
-                        return None
-                except Exception:
-                    pass
-                return s
-
-            await asyncio.wait([asyncio.create_task(pump(client, up, drop_auth)),
-                                asyncio.create_task(pump(up, client))], return_when=asyncio.FIRST_COMPLETED)
-    except Exception as e:
-        log.info("HA-WebSocket beendet: %s", e)
-    await client.close()
-    return client
-
-
-HOP = {"host", "content-length", "transfer-encoding", "connection", "authorization", "cookie"}
-
-
-async def ha_rest(request):
-    path = request.match_info["path"]
-    session = request.app["session"]
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP}
-    headers["Authorization"] = f"Bearer {SUP_TOKEN}"
-    body = await request.read()
-    async with session.request(request.method, f"{HA_HTTP}/{path}", params=request.query, data=body or None,
-                               headers=headers, timeout=60) as r:
-        raw = await r.read()
-        return web.Response(body=raw, status=r.status,
-                            content_type=(r.content_type or "application/octet-stream"))
+# Kein HA-API-Proxy für den Browser: Gäste im Heimnetz dürfen Home Assistant nicht steuern.
+# HA wird nur serverseitig genutzt (Skripte für Lichteffekte, Benachrichtigungen).
 
 
 async def ma_websocket(request):
@@ -499,8 +450,6 @@ def make_app():
     app.router.add_post("/party/ev", party_ev)
     app.router.add_get("/party/wishes.json", party_wishes)
     app.router.add_get("/party/guests.json", party_guests)
-    app.router.add_get("/api/websocket", ha_websocket)
-    app.router.add_route("*", "/api/{path:.*}", ha_rest)
     app.router.add_get("/ma/ws", ma_websocket)
     app.router.add_get("/ma/{path:.*}", ma_http)
     app.router.add_static("/", WWW, show_index=False)
