@@ -1,0 +1,31 @@
+name: Add-on testen
+# Baut das Add-on-Image (amd64) und prüft, ob der Server startet und die Seiten ausliefert.
+on:
+  push:
+    branches: [main]
+    paths: ['party_jukebox/**', '.github/workflows/addon.yml']
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image bauen
+        run: docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.21 -t party-jukebox party_jukebox
+      - name: Starten und prüfen
+        run: |
+          mkdir -p data
+          echo '{"ma_url":"","ma_token":"","party_name":"CI-Party","party_player":"","notify_service":"","script_wish":"","script_boost":"","script_drink":"","skip_votes":true,"drinks":["Bier|🍺|ein Bier"]}' > data/options.json
+          docker run -d --name pj -p 8099:8099 -v "$PWD/data:/data" party-jukebox
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8099/config.js >/dev/null && break; sleep 1; done
+          docker logs pj
+          for p in start.html jukebox.html party.html tv.html config.js party/wishes.json party/guests.json manifest.webmanifest; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/$p")
+            echo "$p → $code"
+            [ "$code" = "200" ] || exit 1
+          done
+          curl -sf -X POST -d '{"id":"ci1","name":"CI"}' http://127.0.0.1:8099/party/hb
+          curl -sf -X POST -d '{"type":"beer","id":"ci1","name":"CI","d":"Bier","e":"🍺","p":"ein Bier"}' http://127.0.0.1:8099/party/ev
+          curl -sf http://127.0.0.1:8099/party/wishes.json | grep -q '"bt": 1'
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/api/states)
+          echo "api/states → $code (muss 404 sein)"; [ "$code" = "404" ]
