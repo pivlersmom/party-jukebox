@@ -1,0 +1,16 @@
+# Build-Ergebnisse und lokale Dateien – nicht ins Repo
+build/
+.gradle/
+.kotlin/
+.idea/
+*.iml
+local.properties
+captures/
+dist/
+*.apk
+*.aab
+# Signierschlüssel niemals einchecken
+*.keystore
+*.jks
+*.p12
+*.b64

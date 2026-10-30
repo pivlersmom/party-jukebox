@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Party-Jukebox TV</string>
+    <string name="setup_title">Party-Jukebox TV – Einrichtung</string>
+    <string name="setup_address_label">Adresse des Party-Jukebox-Add-ons</string>
+    <string name="setup_address_default">http://homeassistant.local:8099</string>
+    <string name="setup_address_hint">Tipp: Die IP-Adresse von Home Assistant verwenden, z. B. http://192.168.x.x:8099 – viele TV-Boxen finden „homeassistant.local“ nicht. Ohne Port wird :8099 ergänzt.</string>
+    <string name="setup_test">Testen</string>
+    <string name="setup_save">Speichern</string>
+    <string name="setup_cancel">Abbrechen</string>
+    <string name="setup_autostart">Nach dem Einschalten der Box automatisch starten</string>
+    <string name="setup_help">Später wieder hierher: Menü-Taste ☰ drücken, Zurück oder OK lange gedrückt halten oder 3× schnell Zurück.</string>
+    <string name="setup_testing">Teste Verbindung …</string>
+    <string name="setup_empty">Bitte eine Adresse eingeben.</string>
+    <string name="setup_overlay_hint">Damit der Autostart ab Android 10 klappt, bitte „Über anderen Apps einblenden“ für Party-Jukebox TV erlauben. Falls die Box diese Einstellung nicht anbietet, per ADB: adb shell appops set de.partyjukebox.tv SYSTEM_ALERT_WINDOW allow</string>
+    <string name="kiosk_offline">Keine Verbindung zur Party-Jukebox</string>
+    <string name="kiosk_retry">Neuer Versuch alle 10 Sekunden …</string>
+    <string name="kiosk_settings_hint">Einstellungen: Menü-Taste ☰ oder Zurück lange drücken</string>
+    <string name="kiosk_back_hint">Zurück: 2× = Beenden · 3× = Einstellungen</string>
+</resources>

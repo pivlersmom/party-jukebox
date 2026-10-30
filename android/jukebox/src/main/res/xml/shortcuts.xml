@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App-Symbol lange drücken → "Einstellungen" (ab Android 7.1) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_settings"
+        android:shortcutId="einstellungen"
+        android:shortcutLongLabel="@string/shortcut_settings_long"
+        android:shortcutShortLabel="@string/shortcut_settings">
+        <intent
+            android:action="de.partyjukebox.jukebox.EINSTELLUNGEN"
+            android:targetClass="de.partyjukebox.jukebox.MainActivity"
+            android:targetPackage="de.partyjukebox.jukebox"/>
+    </shortcut>
+</shortcuts>

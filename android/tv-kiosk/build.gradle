@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signierschlüssel kommt aus Umgebungsvariablen (GitHub-Secrets, siehe .github/workflows/apks.yml).
+// Ohne PJ_KEYSTORE wird lokal mit dem Debug-Schlüssel signiert.
+def ksPath = System.getenv('PJ_KEYSTORE')
+def hasKeystore = ksPath != null && !ksPath.isEmpty() && new File(ksPath).exists()
+
+android {
+    namespace 'de.partyjukebox.tv'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'de.partyjukebox.tv'
+        minSdk 21
+        targetSdk 35
+        versionCode Integer.parseInt(project.property('pjVersionCode').toString())
+        versionName project.property('pjVersionName').toString()
+    }
+
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile new File(ksPath)
+                storePassword System.getenv('PJ_KEYSTORE_PASS')
+                keyAlias System.getenv('PJ_KEY_ALIAS')
+                keyPassword System.getenv('PJ_KEY_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig hasKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+// Keine Bibliotheken nötig – nur das Android-Framework.
+dependencies {
+}

@@ -1,0 +1,140 @@
+name: Android-Apps
+# Baut die TV-App (android/tv-kiosk) und die Jukebox-App (android/jukebox).
+# Ergebnis: Actions → Lauf → Artifacts. Bei einem Tag v* zusätzlich GitHub-Release mit beiden APKs.
+#
+# Secrets (Settings → Secrets and variables → Actions), damit alle Builds gleich signiert sind
+# und sich Updates ohne Deinstallieren einspielen lassen:
+#   PJ_KEYSTORE_B64   Keystore als Base64 (z. B. base64 -w0 party-jukebox.jks)
+#   PJ_KEYSTORE_PASS  Keystore-Passwort
+#   PJ_KEY_ALIAS      Alias des Schlüssels (leer = erster Schlüssel im Keystore)
+#   PJ_KEY_PASS       Schlüssel-Passwort (leer = Keystore-Passwort)
+# Keystore anlegen (einmalig, lokal, NICHT ins Repo):
+#   keytool -genkeypair -keystore party-jukebox.jks -alias partyjukebox -keyalg RSA -keysize 2048 -validity 10000
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: ['android/**', '.github/workflows/apks.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # nur für das Release bei Tags nötig
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Version lesen
+        id: ver
+        run: |
+          V=$(grep -E '^pjVersionName=' gradle.properties | cut -d= -f2 | tr -d '\r ')
+          [ -n "$V" ] || { echo "::error::pjVersionName fehlt in android/gradle.properties"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Version: $V"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF_NAME#v}" != "$V" ]]; then
+            echo "::warning::Tag $GITHUB_REF_NAME passt nicht zu pjVersionName=$V (android/gradle.properties)."
+          fi
+
+      - name: Signierschlüssel
+        env:
+          KS: ${{ secrets.PJ_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.PJ_KEYSTORE_PASS }}
+          KEY_ALIAS: ${{ secrets.PJ_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.PJ_KEY_PASS }}
+        run: |
+          KSF="$RUNNER_TEMP/party-jukebox.keystore"
+          if [ -n "$KS" ]; then
+            # Leerzeichen/Zeilenumbrüche aus dem eingefügten Text entfernen, dann dekodieren und prüfen
+            printf '%s' "$KS" | tr -d ' \r\n\t' > "$RUNNER_TEMP/ks.b64"
+            if ! base64 -d -i "$RUNNER_TEMP/ks.b64" > "$KSF" 2>/dev/null; then
+              echo "::error::PJ_KEYSTORE_B64 ist kein gültiges Base64 (base64 -w0 <keystore> ausführen und die komplette Zeile eintragen)."
+              exit 1
+            fi
+            rm -f "$RUNNER_TEMP/ks.b64"
+            if [ -z "$KS_PASS" ]; then
+              echo "::error::PJ_KEYSTORE_PASS fehlt."
+              exit 1
+            fi
+            if [ -z "$KEY_ALIAS" ]; then
+              KEY_ALIAS=$(keytool -list -keystore "$KSF" -storepass "$KS_PASS" 2>/dev/null | grep -i 'PrivateKeyEntry' | head -1 | cut -d, -f1)
+            fi
+            [ -n "$KEY_PASS" ] || KEY_PASS="$KS_PASS"
+            if ! keytool -list -keystore "$KSF" -storepass "$KS_PASS" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
+              echo "::error::Keystore lässt sich nicht öffnen oder Alias '$KEY_ALIAS' fehlt (PJ_KEYSTORE_PASS / PJ_KEY_ALIAS prüfen)."
+              exit 1
+            fi
+            echo "Keystore aus Secret, Alias: $KEY_ALIAS"
+          else
+            echo "::warning::Kein PJ_KEYSTORE_B64-Secret – APKs werden mit einem Ersatz-Schlüssel signiert. Spätere Versionen lassen sich dann NICHT drüberinstallieren (vorher deinstallieren)."
+            KS_PASS=android
+            KEY_PASS=android
+            KEY_ALIAS=partyjukebox
+            keytool -genkeypair -keystore "$KSF" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KS_PASS" -keypass "$KEY_PASS" -dname "CN=Party-Jukebox (Ersatz),O=Party-Jukebox,C=DE"
+          fi
+          {
+            echo "PJ_KEYSTORE=$KSF"
+            echo "PJ_KEYSTORE_PASS=$KS_PASS"
+            echo "PJ_KEY_ALIAS=$KEY_ALIAS"
+            echo "PJ_KEY_PASS=$KEY_PASS"
+          } >> "$GITHUB_ENV"
+
+      - name: APKs bauen
+        run: |
+          chmod +x gradlew
+          ./gradlew :tv-kiosk:assembleRelease :jukebox:assembleRelease --no-daemon --stacktrace
+
+      - name: Umbenennen und Signatur prüfen
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p dist
+          TV=$(find tv-kiosk/build/outputs/apk/release -name '*.apk' | head -1)
+          JB=$(find jukebox/build/outputs/apk/release -name '*.apk' | head -1)
+          [ -n "$TV" ] && [ -n "$JB" ] || { echo "::error::APK nicht gefunden"; exit 1; }
+          cp "$TV" "dist/PartyJukebox-TV-$V.apk"
+          cp "$JB" "dist/PartyJukebox-Jukebox-$V.apk"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          for f in dist/*.apk; do
+            echo "== $f ($(du -h "$f" | cut -f1))"
+            "$BT/apksigner" verify --print-certs "$f" | grep -E 'DN|SHA-256'
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PartyJukebox-TV-${{ steps.ver.outputs.version }}
+          path: android/dist/PartyJukebox-TV-${{ steps.ver.outputs.version }}.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PartyJukebox-Jukebox-${{ steps.ver.outputs.version }}
+          path: android/dist/PartyJukebox-Jukebox-${{ steps.ver.outputs.version }}.apk
+          if-no-files-found: error
+
+      - name: GitHub-Release anlegen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Party-Jukebox ${{ github.ref_name }}
+          files: |
+            android/dist/PartyJukebox-TV-${{ steps.ver.outputs.version }}.apk
+            android/dist/PartyJukebox-Jukebox-${{ steps.ver.outputs.version }}.apk
+          body: |
+            **PartyJukebox-TV** – für Android-TV-Boxen und Fire TV (zeigt die TV-Anzeige des Add-ons).
+            **PartyJukebox-Jukebox** – Handy-Fernbedienung für Android.
+
+            Installation: APK auf das Gerät laden und öffnen („Unbekannte Apps installieren“ erlauben).
+            Beim ersten Start die Adresse des Add-ons eingeben, z. B. `http://192.168.x.x:8099`, „Testen“, „Speichern“.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Farben passend zu tv.css / jukebox.css -->
+    <color name="pj_bg">#05070C</color>
+    <color name="pj_surface">#1A2132</color>
+    <color name="pj_surface_focus">#2A3449</color>
+    <color name="pj_line">#2A3449</color>
+    <color name="pj_text">#F2F5FB</color>
+    <color name="pj_text_dim">#9AA6BF</color>
+    <color name="pj_pink">#FF2EC8</color>
+    <color name="pj_cyan">#00F0E0</color>
+    <color name="pj_ok">#3DDC84</color>
+    <color name="pj_err">#FF6B6B</color>
+</resources>
