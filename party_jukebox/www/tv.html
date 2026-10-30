@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Party-Jukebox TV</title>
+<link rel="stylesheet" href="tv.css">
+</head>
+<body class="paused">
+<div id="art-bg"></div>
+<div class="glow"></div>
+
+<div id="app">
+  <div class="top">
+    <div class="clk">
+      <div class="clkT"><span class="clkN" id="clkH">00</span><span class="clkC">:</span><span class="clkN" id="clkM">00</span></div>
+      <div class="clkD"><b id="clkW"></b><span id="clkDt"></span></div>
+    </div>
+    <!-- Gäste-Banner (tv-party.js) -->
+    <div id="gCard"><div class="gi"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14a6.5 6.5 0 0 1 3 6"/></svg></div><div class="gt" id="gT"></div></div>
+    <div class="brand">
+      <div id="gHd" class="hide"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14a6.5 6.5 0 0 1 3 6"/></svg><b id="gHn">0</b><span>dabei</span></div>
+      <svg class="logo" viewBox="-110 -110 220 220">
+        <defs><linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2ec8"/><stop offset=".55" stop-color="#8b5cff"/><stop offset="1" stop-color="#00f0e0"/></linearGradient></defs>
+        <g class="ring"><circle r="100" fill="none" stroke="url(#bg1)" stroke-width="10" stroke-dasharray="490 138" stroke-linecap="round"/></g>
+        <g class="eqb" fill="url(#bg1)" transform="translate(0 -8)">
+          <rect x="-57" y="-36" width="18" height="62" rx="9"/><rect x="-31" y="-22" width="18" height="82" rx="9"/>
+          <rect x="-9" y="-8" width="18" height="88" rx="9"/><rect x="13" y="-22" width="18" height="82" rx="9"/>
+          <rect x="39" y="-36" width="18" height="62" rx="9"/>
+        </g>
+      </svg>
+      <div class="txt"><b id="brandName">Party-Jukebox</b><span>HOME ENTERTAINMENT</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Läuft gerade -->
+    <div class="card now">
+      <div id="recWrap">
+        <div class="vinyl"><div class="disc"><div class="lbl" id="recLbl"></div></div></div>
+        <div class="art-wrap" id="art-wrap">
+          <img id="art-img" alt="" style="display:none">
+          <span id="art-emoji"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+        </div>
+      </div>
+      <div class="info">
+        <div class="where">Music Assistant · <span id="player-name">–</span></div>
+        <div class="now-title" id="now-title">Juke it!</div>
+        <div class="now-artist" id="now-artist">Bereit...</div>
+        <div class="now-album" id="now-album"></div>
+        <div class="wby" id="wBy"></div>
+      </div>
+      <div class="prog hide" id="progWrap">
+        <div class="trk"><div class="fill" id="prog"></div></div>
+        <div class="times"><span id="pos-t">0:00</span><span id="dur-t">0:00</span></div>
+      </div>
+      <div class="wvt" id="wVt"><span class="up" id="wUp">👍 0</span><span class="dn" id="wDn">👎 0</span></div>
+    </div>
+
+    <!-- Songtext / Zuletzt gespielt / Warteschlange -->
+    <div class="col">
+      <div class="card" id="lyrCard">
+        <div class="h"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Songtext</div>
+        <div class="lyr" id="lyrBox"><div class="in" id="lyrIn"></div></div>
+      </div>
+      <div class="card" id="recentCard">
+        <div class="h"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>Zuletzt gespielt</div>
+        <div id="rcGrid"></div>
+      </div>
+      <div class="card queue">
+        <div class="h"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h13M3 12h13M3 18h9"/><path d="M19 15v6M16 18h6"/></svg><span class="qhl"><span class="a">Als Nächstes</span><span class="b">🍻 Getränke-Ranking</span></span>
+          <span class="modes"><span class="mode f" id="mFade" style="display:none"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg><b>Übergänge</b></span></span>
+        </div>
+        <div id="q-list"></div>
+        <div id="beerBoard">
+          <div class="bbTop"><div class="bbMug">🍻</div><div class="bbBig"><b id="bbTot">0</b><span>Getränke auf der Party</span></div><div class="bbLast" id="bbLast"></div></div>
+          <div id="bbList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Party / QR -->
+    <div class="card party">
+      <div class="h"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>Juke it!</div>
+      <div class="hey"><b>Hey Freunde!</b><span id="heySub">Songs wünschen &amp; Getränke bestellen</span></div>
+      <div>
+        <div class="qr-frame" id="qr-frame"><img id="qr-img" alt="QR"></div>
+        <div class="qr-label" id="qr-label">SCANNEN &amp; WÜNSCHEN</div>
+      </div>
+      <div class="steps">
+        <div class="step"><b>1</b>QR-Code scannen</div>
+        <div class="step"><b>2</b>Song suchen &amp; wünschen</div>
+        <div class="step" id="step3"><b>3</b>🍺 Getränk leer? Bestellen!</div>
+      </div>
+      <div id="upNext"><div class="k">Als Nächstes</div><div class="cv" id="unCv"></div><div class="t" id="unT"></div><div class="a" id="unA"></div><div class="w" id="unW"></div><div class="in" id="unIn"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlays -->
+<div id="dedOv"><div class="bx" id="dedBx"><div class="k">💌 Widmung</div><div class="f" id="dedF"></div><div class="v" id="dedV"></div><div class="s" id="dedS"></div></div></div>
+<div id="boOv"><div class="bx" id="boBx"><div class="k">⚠️ Vordrängler!</div><div class="f" id="boF"></div><div class="v">drängelt sich vor 😤</div><div class="s" id="boS"></div><div class="buh">BUUUH! 👎</div></div></div>
+<div id="biFl"></div>
+<div id="biOv"><div class="bx"><div class="mug" id="biM">🍺</div><div class="k">NACHSCHUB!</div><div class="f" id="biF"></div><div class="v" id="biV"></div></div></div>
+<div id="setup"><b>Music Assistant im Add-on einrichten</b><span>Home Assistant → Einstellungen → Add-ons → Party-Jukebox → Konfiguration:<br>Token aus Music Assistant (Einstellungen → Profil) bei <i>ma_token</i> eintragen und das Add-on neu starten.</span></div>
+<div id="maNote"></div>
+<div id="lyr-hit"></div>
+<div id="lyr-bar"><span id="lyr-cap">VERSATZ</span><button id="lyr-minus">&minus;</button><span id="lyr-val">0.0s</span><button id="lyr-plus">+</button></div>
+
+<script src="config.js"></script>
+<script src="qrcode.min.js"></script>
+<script src="tv-core.js"></script>
+<script src="tv-lyrics.js"></script>
+<script src="tv-queue.js"></script>
+<script src="tv-party.js"></script>
+</body>
+</html>
