@@ -59,7 +59,7 @@ Die Apps (TV-APK, Jukebox-APK) gibt es künftig unter [Releases](https://github.
 - [x] Add-on-Grundgerüst, Server mit Party-Logik und Music-Assistant-Anbindung
 - [x] Party-Seite
 - [x] TV-Anzeige
-- [ ] Schlanke Jukebox (Web-App)
+- [x] Schlanke Jukebox (Web-App)
 - [ ] TV-APK und Jukebox-APK (automatischer Build, Download unter Releases)
 - [ ] Anleitung mit Bildern
 - [ ] Test-Installation

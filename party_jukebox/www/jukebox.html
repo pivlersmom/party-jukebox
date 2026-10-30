@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d14">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jukebox">
+<meta name="format-detection" content="telephone=no">
+<title>Jukebox</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="jukebox.css">
+<script src="config.js"></script>
+<script src="jukebox.js" defer></script>
+</head>
+<body data-tab="now">
+<div id="glow"></div>
+
+<header id="top">
+  <div class="brand"><span class="logo" data-ic="note"></span><span id="appName">Jukebox</span></div>
+  <button class="plbtn" id="plBtn" aria-label="Lautsprecher wählen">
+    <span class="ic" data-ic="speaker"></span><span id="plName">Lautsprecher …</span><span class="chev" data-ic="chev"></span>
+  </button>
+</header>
+<div id="banner" hidden></div>
+
+<main>
+  <!-- Jetzt läuft -->
+  <section class="view on" id="v-now">
+    <div class="nowin">
+      <div class="cover" id="cover"><span class="ph" data-ic="note"></span><img id="coverImg" alt=""></div>
+      <div class="meta">
+        <div class="t" id="npTitle"></div>
+        <div class="a" id="npArtist"></div>
+      </div>
+      <div class="prog">
+        <div class="sl" id="seek"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div>
+        <div class="times"><span id="tCur">0:00</span><span id="tDur"></span></div>
+      </div>
+      <div class="ctl">
+        <button class="sm" id="bSh" aria-label="Zufall" data-ic="shuffle"></button>
+        <button id="bPrev" aria-label="Zurück" data-ic="prev"></button>
+        <button class="pp" id="bPp" aria-label="Abspielen/Pause"><span class="i-play" data-ic="play"></span><span class="i-pause" data-ic="pause"></span></button>
+        <button id="bNext" aria-label="Weiter" data-ic="next"></button>
+        <button class="sm" id="bRp" aria-label="Wiederholen"><span data-ic="repeat"></span><span class="one">1</span></button>
+      </div>
+      <div class="vol" id="volBox">
+        <div class="vrow">
+          <button id="vDn" aria-label="Leiser" data-ic="vlo"></button>
+          <div class="sl" id="vol"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div>
+          <button id="vUp" aria-label="Lauter" data-ic="vhi"></button>
+          <b id="vVal">–</b>
+        </div>
+        <div class="vg" id="vGrp"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Suche -->
+  <section class="view" id="v-search">
+    <div class="sbox">
+      <div class="sfield">
+        <span class="sic" data-ic="search"></span>
+        <input id="q" type="search" placeholder="Titel, Künstler, Album …" enterkeyhint="search"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button id="qClr" aria-label="Leeren" data-ic="x" hidden></button>
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip on" data-f="all">Alles</button>
+        <button class="chip" data-f="track">Titel</button>
+        <button class="chip" data-f="artist">Künstler</button>
+        <button class="chip" data-f="album">Alben</button>
+        <button class="chip" data-f="playlist">Playlists</button>
+      </div>
+    </div>
+    <div id="sRes"><div class="empty">Wonach suchst du?</div></div>
+  </section>
+
+  <!-- Warteschlange -->
+  <section class="view" id="v-queue">
+    <div class="qhead"><h2>Warteschlange</h2><span id="qCount"></span></div>
+    <div id="qList"></div>
+  </section>
+
+  <div id="stateBox" hidden></div>
+</main>
+
+<button id="mini" class="empty" aria-label="Jetzt läuft">
+  <span class="th" id="miniTh"><span data-ic="note"></span><img id="miniImg" alt=""></span>
+  <span class="rm"><span class="r1" id="miniT"></span><span class="r2" id="miniA"></span></span>
+  <span class="mpp" id="miniPp"><span class="i-play" data-ic="play"></span><span class="i-pause" data-ic="pause"></span></span>
+</button>
+
+<nav id="nav">
+  <button class="on" data-t="now"><span data-ic="disc"></span><span>Läuft</span></button>
+  <button data-t="search"><span data-ic="search"></span><span>Suche</span></button>
+  <button data-t="queue"><span data-ic="list"></span><span>Warteschlange</span><b class="badge" id="qBadge" hidden></b></button>
+</nav>
+
+<div class="sheet" id="sheet" hidden><div class="sh-bg" id="sheetBg"></div><div class="sh-card" id="sheetCard"></div></div>
+<div id="toast" role="status"></div>
+<noscript><p style="padding:24px;text-align:center">Für die Jukebox wird JavaScript benötigt.</p></noscript>
+</body>
+</html>
