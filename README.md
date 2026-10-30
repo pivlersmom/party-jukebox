@@ -60,8 +60,9 @@ Die Apps (TV-APK, Jukebox-APK) gibt es künftig unter [Releases](https://github.
 - [x] Party-Seite
 - [x] TV-Anzeige
 - [x] Schlanke Jukebox (Web-App)
-- [ ] TV-APK und Jukebox-APK (automatischer Build, Download unter Releases)
-- [ ] Anleitung mit Bildern
+- [x] TV-APK und Jukebox-APK (automatischer Build über GitHub Actions)
+- [x] Anleitung (Add-on-Reiter „Dokumentation“)
+- [ ] Erstes Release mit festem Signierschlüssel
 - [ ] Test-Installation
 
 ## Lizenz
