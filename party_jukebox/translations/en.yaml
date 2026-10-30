@@ -1,0 +1,33 @@
+configuration:
+  ma_url:
+    name: Music Assistant URL
+    description: Leave empty to detect the Music Assistant add-on automatically. Otherwise e.g. http://192.168.1.10:8095
+  ma_token:
+    name: Music Assistant token
+    description: Create a token in Music Assistant under Settings → Profile and paste it here.
+  party_name:
+    name: Party name
+    description: Title shown on the TV display and the party page.
+  party_player:
+    name: Party player
+    description: Music Assistant player (name or ID) for TV and jukebox. Empty = the player currently playing.
+  notify_service:
+    name: Drink order notification
+    description: e.g. notify.mobile_app_my_phone – you get a message when a guest orders a drink. Empty = off.
+  script_wish:
+    name: Script on song wish
+    description: Optional HA script (e.g. a light effect) that runs when a guest wishes a song.
+  script_boost:
+    name: Script on queue jump
+    description: Optional HA script that runs when a guest jumps the queue.
+  script_drink:
+    name: Script on drink order
+    description: Optional HA script that runs when a guest orders a drink.
+  skip_votes:
+    name: Votes skip songs
+    description: Skip the current song when the majority of guests vote 👎.
+  drinks:
+    name: Drinks
+    description: One line per drink in the format Name|Emoji|Phrase, e.g. Beer|🍺|a beer
+network:
+  8099/tcp: Web pages (jukebox, party page, TV display) on your home network
