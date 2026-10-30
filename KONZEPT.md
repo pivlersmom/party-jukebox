@@ -20,7 +20,7 @@ party-jukebox/                 (GitHub-Repo = Add-on-Repository)
 
 ## Server im Add-on
 - Liefert die Seiten auf Port **8099** im Heimnetz aus (Gäste ohne HA-Login).
-- `/api/*` und `/api/websocket` → Home Assistant (Supervisor-Token wird serverseitig eingesetzt).
+- Kein HA-API-Zugriff für den Browser (Gäste im Heimnetz dürfen HA nicht steuern). HA nutzt nur das Add-on selbst (Skripte, Benachrichtigungen).
 - `/ma/ws` → Music Assistant (MA-Token aus den Add-on-Optionen wird serverseitig eingesetzt).
 - `/party/*` → Party-Logik direkt im Add-on (bisher Template-Sensoren + Automationen in HA):
   Teilnehmer/Herzschlag, Wünsche + Widmung, Vordrängeln, Abstimmung (Skip bei Mehrheit),
