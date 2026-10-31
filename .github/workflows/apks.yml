@@ -63,6 +63,11 @@ jobs:
               exit 1
             fi
             rm -f "$RUNNER_TEMP/ks.b64"
+            # Beim Einfügen ins Secret-Feld rutschen oft Leerzeichen/Zeilenumbrüche mit → entfernen
+            KS_PASS=$(printf '%s' "$KS_PASS" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            KEY_PASS=$(printf '%s' "$KEY_PASS" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            KEY_ALIAS=$(printf '%s' "$KEY_ALIAS" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            echo "Keystore: $(wc -c < "$KSF") Bytes, SHA-256 $(sha256sum "$KSF" | cut -c1-16)…, Passwort-Länge ${#KS_PASS}, Alias-Länge ${#KEY_ALIAS}"
             if [ -z "$KS_PASS" ]; then
               echo "::error::PJ_KEYSTORE_PASS fehlt."
               exit 1
@@ -71,6 +76,11 @@ jobs:
               KEY_ALIAS=$(keytool -list -keystore "$KSF" -storepass "$KS_PASS" 2>/dev/null | grep -i 'PrivateKeyEntry' | head -1 | cut -d, -f1)
             fi
             [ -n "$KEY_PASS" ] || KEY_PASS="$KS_PASS"
+            if ! keytool -list -keystore "$KSF" -storepass "$KS_PASS" -alias "$KEY_ALIAS" > /dev/null 2>&1 && \
+               keytool -list -keystore "$KSF" -storepass "$KS_PASS" > /dev/null 2>&1; then
+              echo "::warning::Alias aus PJ_KEY_ALIAS nicht im Keystore – nehme den ersten Schlüssel."
+              KEY_ALIAS=$(keytool -list -keystore "$KSF" -storepass "$KS_PASS" 2>/dev/null | grep -i 'PrivateKeyEntry' | head -1 | cut -d, -f1)
+            fi
             if ! keytool -list -keystore "$KSF" -storepass "$KS_PASS" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
               echo "::error::Keystore lässt sich nicht öffnen oder Alias '$KEY_ALIAS' fehlt (PJ_KEYSTORE_PASS / PJ_KEY_ALIAS prüfen)."
               exit 1
