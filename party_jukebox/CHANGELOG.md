@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.43
+- Gäste-Seite: Zurück-Pfeil vor dem Jukebox-Logo
+
 ## 0.1.42
 - Gäste-Seite: Knopf zur Jukebox jetzt nur als Jukebox-Logo
 
