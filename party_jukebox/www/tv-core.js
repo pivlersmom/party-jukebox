@@ -18,13 +18,41 @@ var $=TV.$=function(i){ return document.getElementById(i); };
 TV.esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
 TV.nz=function(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9äöüß]/g,''); };
 TV.fmt=function(s){ s=Math.max(0,Math.floor(+s||0)); return Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60); };
+/* Hintergrund: Cover winzig (48×27) in ein Canvas, dort weichzeichnen/abdunkeln → als Bild hinterlegen.
+   Spart Grafikspeicher (früher CSS-blur(70px) auf einer bildschirmgroßen Ebene → Absturz auf schwachen TV-Boxen). */
+TV.setBg=(function(){
+  var gen=0;
+  return function(src){
+    var bg=document.getElementById('art-bg'); if(!bg) return;
+    var g=++gen;
+    if(!src){ bg.style.backgroundImage='none'; return; }
+    var small=src.replace(/size=\d+/,'size=80'), im=new Image();
+    im.onload=function(){
+      if(g!==gen) return;
+      try{
+        var c=document.createElement('canvas'); c.width=48; c.height=27;
+        var x=c.getContext('2d');
+        if('filter' in x) x.filter='blur(3px) brightness(0.3) saturate(1.6)';
+        var r=Math.max(48/im.width,27/im.height), w=im.width*r, h=im.height*r;
+        x.drawImage(im,(48-w)/2,(27-h)/2,w,h);
+        if(!('filter' in x)){ x.fillStyle='rgba(5,7,12,.7)'; x.fillRect(0,0,48,27); }
+        bg.style.backgroundImage='url('+c.toDataURL('image/jpeg',0.8)+')'; bg.classList.remove('raw');
+      }catch(e){ raw(); }   /* fremde Bildadresse ohne CORS: Canvas gesperrt → Notlösung mit CSS */
+    };
+    im.onerror=function(){ if(g===gen) raw(); };
+    function raw(){ if(g!==gen) return; if(TV.lite){ bg.style.backgroundImage='none'; return; } bg.style.backgroundImage=TV.cssUrl(src); bg.classList.add('raw'); }
+    if(/^https?:/i.test(small) && small.indexOf(location.origin)!==0) im.crossOrigin='anonymous';
+    im.src=small;
+  };
+})();
 TV.cssUrl=function(u){ return u?'url("'+String(u).replace(/["\\\n\r]/g,function(c){ return encodeURIComponent(c); })+'")':''; };
 TV.NOTE='<svg class="ic" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 function noop(){}
 
 /* ---------- Lite-Modus + TV-Einstellungen aus der Jukebox ---------- */
 (function(){
-  var ua=navigator.userAgent+' '+(navigator.platform||''), auto=/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua), q=null;
+  var ua=navigator.userAgent+' '+(navigator.platform||''), mem=+navigator.deviceMemory||0,
+      auto=(/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua)) || (mem>0&&mem<=1), q=null;  /* Pi oder Gerät mit ≤1 GB RAM */
   try{ q=new URLSearchParams(location.search).get('lite'); localStorage.removeItem('tv_lite'); }catch(e){}
   TV.set={lyr_offset:0.5,tv_lite:'auto'};
   function apply(){
@@ -299,8 +327,8 @@ function paintNow(){
   var c=TV.cur, img=$('art-img'), em=$('art-emoji'), src=(c&&c.image)||'';
   if(src!==lastImg){
     lastImg=src;
-    if(src){ img.src=src; img.style.display='block'; em.style.display='none'; $('art-bg').style.backgroundImage=TV.cssUrl(src); }
-    else{ img.removeAttribute('src'); img.style.display='none'; em.style.display=''; $('art-bg').style.backgroundImage='none'; }
+    if(src){ img.src=src; img.style.display='block'; em.style.display='none'; TV.setBg(src); }
+    else{ img.removeAttribute('src'); img.style.display='none'; em.style.display=''; TV.setBg(''); }
   }
   setText('now-title',(c&&c.title)||'Juke it!');
   setText('now-artist',c?(c.artist||''):'Bereit...');

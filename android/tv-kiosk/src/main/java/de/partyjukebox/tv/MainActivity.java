@@ -188,6 +188,8 @@ public class MainActivity extends Activity {
                 web.destroy();
                 createWebView();
                 if (!target.isEmpty()) {
+                    // nach einem Absturz im Spar-Modus weiter (weniger Grafikspeicher auf schwachen Boxen)
+                    if (!target.contains("lite=")) target = target + (target.contains("?") ? "&" : "?") + "lite=1";
                     handler.removeCallbacks(retry);
                     handler.postDelayed(retry, 1_000);
                 }

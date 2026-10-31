@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.35
+- TV-Anzeige: deutlich weniger Grafikspeicher beim Songwechsel (unscharfes Cover-Hintergrundbild wird klein vorberechnet statt per Weichzeichner über den ganzen Bildschirm) – behebt Abstürze auf schwachen TV-Boxen
+- Spar-Modus schaltet sich auf Geräten mit ≤ 1 GB Arbeitsspeicher automatisch ein
+- TV-App 0.1.2: nach einem Absturz der Anzeige geht es automatisch im Spar-Modus weiter
+
 ## 0.1.34
 - TV-Anzeige im Browser (Samsung, LG, PC): Hinweis „OK / Enter = Vollbild“, ein Tastendruck oder Klick schaltet auf Vollbild
 - Neu im Repo: Samsung-App (Tizen) im Ordner `tizen-tv` mit Anleitung

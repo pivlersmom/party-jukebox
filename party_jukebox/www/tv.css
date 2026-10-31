@@ -11,7 +11,8 @@ html,body{width:100vw;height:100vh;overflow:hidden;background:var(--bg);color:va
 .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* Hintergrund: Cover unscharf + Farbschimmer */
-#art-bg{position:fixed;inset:-8%;background:center/cover no-repeat;filter:blur(70px) brightness(.26) saturate(1.6);z-index:0}
+#art-bg{position:fixed;inset:0;background:center/cover no-repeat;z-index:0}
+#art-bg.raw{inset:-6%;filter:blur(40px) brightness(.26) saturate(1.5)}
 .glow{position:fixed;inset:0;z-index:0;pointer-events:none;
   background:radial-gradient(60vmax 60vmax at -5% -10%,rgba(255,46,200,.15),transparent 60%),
              radial-gradient(55vmax 55vmax at 105% 15%,rgba(139,92,255,.13),transparent 60%),
@@ -71,7 +72,7 @@ body.paused .fill{opacity:.55}
 
 /* Plattenwechsler: Cover mittig, Platte schaut leicht raus */
 #recWrap{position:relative;width:min(84%,44vh);aspect-ratio:1/1;flex:none;margin-left:auto;margin-right:auto;align-self:center}
-#recWrap .art-wrap{position:relative;z-index:2;transition:transform .55s cubic-bezier(.4,0,.2,1),filter .55s}
+#recWrap .art-wrap{position:relative;z-index:2;transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .55s}
 #recWrap .vinyl{position:absolute;top:4%;left:4%;width:92%;height:92%;z-index:1;transform:translateX(11%);transition:transform .6s cubic-bezier(.4,0,.2,1)}
 #recWrap .disc{width:100%;height:100%;border-radius:50%;position:relative;will-change:transform;
   background:radial-gradient(circle,transparent 0 17%,#0c0c0f 17.5%),repeating-radial-gradient(circle,#141418 0 1px,#0a0a0d 1.5px 3px);
@@ -83,7 +84,7 @@ body.paused .fill{opacity:.55}
 body.paused #recWrap .disc{animation-play-state:paused}
 body.paused #recWrap .vinyl{transform:translateX(5%)}
 #recWrap.swap .vinyl{transform:translateX(0)}
-#recWrap.swap .art-wrap{transform:perspective(900px) rotateY(80deg) scale(.92);filter:brightness(.6)}
+#recWrap.swap .art-wrap{transform:perspective(900px) rotateY(80deg) scale(.92);opacity:.6}
 
 /* gewünscht von / Abstimmung */
 .wby{display:none;margin-top:1.2vh;font-size:2vh;font-weight:800;color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
