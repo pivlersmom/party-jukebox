@@ -225,3 +225,13 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;width:28px;hei
 .grow.on .gsw{background:var(--grad)}
 .grow.on .gsw i{transform:translateX(18px)}
 .grow:disabled{opacity:.6}
+
+/* Gruppe aufklappen */
+button.vg{display:block;width:100%;background:none;border:0;padding:4px 0 2px;font-family:inherit;cursor:default}
+button.vg.tap{cursor:pointer}
+button.vg.tap:hover{color:var(--tx)}
+.vmem{margin-top:6px;padding-top:8px;border-top:1px solid var(--line);display:grid;gap:4px}
+.vmem[hidden]{display:none}
+.vm{display:grid;grid-template-columns:minmax(70px,30%) 1fr 30px;align-items:center;gap:10px;padding:0 4px}
+.vmn{font-size:13px;font-weight:600;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vmv{font-size:13px;text-align:right}
