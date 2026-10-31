@@ -204,9 +204,21 @@ document.addEventListener('visibilitychange',function(){ if(!document.hidden && 
 /* ---------- Suche: Bibliothek sofort, Streaming-Treffer nachladen ---------- */
 var sT=null, sGen=0, results=[], sCache={}, sOrder=[];
 $('q').addEventListener('input',function(){ var v=this.value.trim(); $('sbox').classList.toggle('has',!!v); clearTimeout(sT);
-  if(!v){ sGen++; $('resCard').classList.add('hide'); return; } if(v.length<2) return; sT=setTimeout(function(){ search(v); },250); });
+  if(!v){ sGen++; if(sOpen) sHint(); else $('resCard').classList.add('hide'); return; } if(v.length<2) return; sT=setTimeout(function(){ search(v); },250); });
 $('q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ clearTimeout(sT); var v=this.value.trim(); if(v) search(v); this.blur(); } });
-$('qx').onclick=function(){ sGen++; $('q').value=''; $('sbox').classList.remove('has'); $('resCard').classList.add('hide'); $('q').focus(); };
+$('qx').onclick=function(){ sGen++; $('q').value=''; $('sbox').classList.remove('has'); if(sOpen) sHint(); else $('resCard').classList.add('hide'); $('q').focus(); };
+/* Such-Popup: beim Antippen des Suchfelds Vollbild, Treffer direkt unter dem Feld – kein Scrollen */
+var sOpen=false;
+function sHint(){ if(!$('q').value.trim()) $('res').innerHTML='<div class="shint">Tippe einen Song oder Interpreten ein …</div>'; }
+function srchOpen(){ if(sOpen) return; sOpen=true; document.body.classList.add('srch'); sHint();
+  try{ history.pushState({pjs:1},''); }catch(e){} }
+function srchClose(fromPop){ if(!sOpen) return; sOpen=false; document.body.classList.remove('srch'); $('q').blur();
+  $('resCard').classList.add('hide');
+  if(!fromPop){ try{ if(history.state&&history.state.pjs) history.back(); }catch(e){} } }
+$('q').addEventListener('focus',srchOpen);
+$('sClose').onclick=function(){ srchClose(false); };
+window.addEventListener('popstate',function(){ srchClose(true); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&sOpen) srchClose(false); });
 function rowHtml(t,i,b){
   var u=img(t), ver=t.version?' <span style="color:var(--tx3);font-weight:600">('+esc(t.version)+')</span>':'';
   return '<div class="row"><div class="cv"'+bg(u)+'>'+(u?'':NOTE)+'</div><div class="m"><div class="it1">'+esc(t.name)+ver+'</div><div class="it2">'+esc(artists(t))+(t.duration?' · '+fmt(t.duration):'')+'</div></div>'+
