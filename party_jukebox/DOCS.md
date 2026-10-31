@@ -2,8 +2,8 @@
 
 ## 1. Music Assistant vorbereiten
 1. Music Assistant (ab Version 2.x) muss laufen und deine Lautsprecher kennen.
-2. In Music Assistant unter **Einstellungen → Plugins** das Plugin **Party** hinzufügen und aktivieren.
-   Darüber melden sich die Gäste an (QR-Code mit Join-Code).
+2. Plugin **Party**: am einfachsten später in der Jukebox unter ⚙ → **Party-Plugin → Installieren** (dort auch ein/aus).
+   Alternativ in Music Assistant unter **Einstellungen → Plugins** hinzufügen. Darüber melden sich die Gäste an (QR-Code mit Join-Code).
 3. Unter **Einstellungen → Profil** einen **Token** erstellen und kopieren.
 4. Optional für Songtexte auf dem TV: unter **Einstellungen → Anbieter** die Metadaten-Anbieter **LRCLIB** und/oder **Genius Lyrics** hinzufügen.
    Ohne sie sucht die TV-Anzeige selbst bei lrclib.net (der Fernseher braucht dafür Internet).
@@ -47,7 +47,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 | Problem | Lösung |
 |---|---|
 | „Music Assistant ist noch nicht eingerichtet“ | Token in der Konfiguration eintragen, Add-on neu starten |
-| TV zeigt keinen QR-Code bzw. Gäste kommen nicht rein | Party-Plugin in Music Assistant aktivieren |
+| TV zeigt keinen QR-Code bzw. Gäste kommen nicht rein | Jukebox ⚙ → Party-Plugin installieren bzw. einschalten |
 | Handy öffnet den QR-Code nicht | TV-Seite über die IP-Adresse statt `homeassistant.local` öffnen |
 | Falscher Lautsprecher | **Party-Player** in der Konfiguration setzen bzw. in der Jukebox oben rechts wechseln |
 | Songtext läuft zu früh/zu spät | Jukebox ⚙ → **Songtext-Versatz** anpassen (+ = Text früher) |

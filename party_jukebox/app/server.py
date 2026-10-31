@@ -460,12 +460,23 @@ LIMIT_KEYS = {  # Gast-Limits im Party-Plugin von Music Assistant
 }
 
 
-async def party_provider(session):
+async def party_provider_conf(session):
     lst = await MAC.cmd(session, "config/providers", {"provider_domain": "party"}) or []
     for p in lst:
         if (p.get("domain") or p.get("provider_domain")) == "party" or str(p.get("instance_id", "")).startswith("party"):
-            return p.get("instance_id")
+            return p
     return None
+
+
+async def party_provider(session):
+    p = await party_provider_conf(session)
+    return p.get("instance_id") if p else None
+
+
+def ma_web():
+    """MA-Adresse für den Browser – None, wenn nur intern erreichbar (dann nimmt die Jukebox <Host>:8095)."""
+    b = getattr(MAC, "base", None) or ""
+    return None if (not b or "172.30." in b or "localhost" in b or "127.0.0.1" in b) else b
 
 
 def _values(cfg):
@@ -488,9 +499,11 @@ async def party_settings_get(request):
            **tv_settings(),
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
-           "limits": None}
+           "limits": None, "plugin": None, "ma_web": ma_web()}
     try:
-        iid = await party_provider(request.app["session"])
+        pc = await party_provider_conf(request.app["session"])
+        iid = pc.get("instance_id") if pc else None
+        out["plugin"] = {"installed": bool(iid), "enabled": bool(pc.get("enabled", True)) if pc else False, "instance_id": iid}
         if iid:
             vals = _values(await MAC.cmd(request.app["session"], "config/providers/get", {"instance_id": iid}))
             out["limits"] = {k: vals.get(k) for k in LIMIT_KEYS if k in vals}
@@ -512,6 +525,24 @@ async def party_settings_post(request):
     if data.get("tv_lite") in ("auto", "on", "off"):
         SETTINGS["tv_lite"] = data["tv_lite"]
     save_settings()
+    pl = data.get("plugin")
+    if pl in ("install", "on", "off"):
+        try:
+            iid = await party_provider(request.app["session"])
+            if pl == "install" and not iid:
+                vals = {"party_name": OPT["party_name"]} if OPT.get("party_name") else {}
+                await MAC.cmd(request.app["session"], "config/providers/save", {"provider_domain": "party", "values": vals})
+                log.info("Party-Plugin in Music Assistant installiert")
+                await asyncio.sleep(2)
+            elif iid and pl in ("on", "off"):
+                await MAC.cmd(request.app["session"], "config/providers/save",
+                              {"provider_domain": "party", "instance_id": iid, "values": {"enabled": pl == "on"}})
+                log.info("Party-Plugin %s", "eingeschaltet" if pl == "on" else "ausgeschaltet")
+                await asyncio.sleep(1.5)
+            elif not iid:
+                return web.json_response({"ok": False, "error": "Party-Plugin ist nicht installiert"}, status=404)
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=502)
     if data.get("tv_only"):
         return web.json_response({"ok": True, **tv_settings()}, headers={"Cache-Control": "no-store"})
     lim = data.get("limits")

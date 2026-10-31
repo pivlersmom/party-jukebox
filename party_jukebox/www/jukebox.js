@@ -642,8 +642,17 @@ function renderSettings() {
   html += '<div class="segrow"><span class="r1">Darstellung</span><span class="seg">' +
     [["auto", "Automatisch"], ["off", "Volle Optik"], ["on", "Spar-Modus"]].map(([v, t]) => '<button data-v="' + v + '"' + (lm === v ? ' class="on"' : "") + ">" + t + "</button>").join("") +
     '</span><span class="r2">Spar-Modus: ohne unscharfes Cover und Animationen – für langsame Geräte (Automatisch = nur Raspberry Pi)</span></div>';
+  const P = d.plugin, maBase = d.ma_web || (location.protocol + "//" + location.hostname + ":8095");
+  const maLink = maBase + "/#/settings/" + (P && P.installed ? "editprovider/" + encodeURIComponent(P.instance_id) : "providers");
+  html += '<div class="shh gsh">Party-Plugin (Music Assistant)</div>';
+  if (!P) html += '<div class="empty">Music Assistant nicht erreichbar</div>';
+  else if (!P.installed) html += '<div class="prow"><span class="rm"><span class="r1">Nicht installiert</span><span class="r2">Nötig für QR-Code, Gäste-Anmeldung und Limits</span></span>' +
+    '<button class="pbtn" id="plInst">Installieren</button></div>';
+  else html += swRow("plugin", "Party-Plugin", P.enabled ? "Gäste können per QR-Code mitmachen" : "ausgeschaltet – keine Gäste-Anmeldung", P.enabled);
+  html += '<a class="row lrow" href="' + esc(maLink) + '" target="_blank" rel="noopener"><span class="rm"><span class="r1">In Music Assistant öffnen</span>' +
+    '<span class="r2">alle Plugin-Einstellungen (Party-Name, Player, Farben …)</span></span><span class="lic">↗</span></a>';
   html += '<div class="shh gsh">Gäste</div>';
-  if (!L) html += '<div class="empty">Party-Plugin in Music Assistant nicht gefunden</div>';
+  if (!L) html += '<div class="empty">' + (P && !P.installed ? "Erst das Party-Plugin installieren" : "Party-Plugin in Music Assistant nicht gefunden") + '</div>';
   else {
     const lim = L.enable_rate_limiting !== false;
     html += swRow("enable_rate_limiting", "Begrenzen", lim ? "jeder Gast hat ein Kontingent" : "unbegrenzt wünschen und vordrängeln", lim);
@@ -658,8 +667,12 @@ function renderSettings() {
     c.querySelectorAll(".srow").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
-      if (k === "effects" || k === "skip_votes") setSave({ [k]: on }); else setSave({ limits: { [k]: on } });
+      if (k === "effects" || k === "skip_votes") setSave({ [k]: on });
+      else if (k === "plugin") { b.disabled = true; setSave({ plugin: on ? "on" : "off" }); }
+      else setSave({ limits: { [k]: on } });
     });
+    const inst = c.querySelector("#plInst");
+    if (inst) inst.onclick = () => { inst.disabled = true; inst.textContent = "Installiere …"; setSave({ plugin: "install" }); };
     c.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
       c.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
       setData.tv_lite = b.dataset.v; setSave({ tv_lite: b.dataset.v });

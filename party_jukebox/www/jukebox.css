@@ -258,6 +258,14 @@ button.vg.tap:hover{color:var(--tx)}
 .stp button{width:32px;height:32px;border-radius:10px;background:var(--card2);font-size:18px;font-weight:700;color:var(--tx)}
 .stp b{min-width:28px;text-align:center;font-size:15px}
 .nrow .r1 small{display:block;font-size:11px;font-weight:500;color:var(--dim);margin-top:2px}
+.prow{display:flex;align-items:center;gap:12px;padding:7px 6px}
+.prow .rm{flex:1;min-width:0;display:flex;flex-direction:column}
+.prow .r2{white-space:normal}
+.pbtn{flex:none;padding:9px 14px;border-radius:12px;background:var(--grad);color:#fff;font-weight:700;font-size:14px}
+.pbtn:disabled{opacity:.6}
+.lrow{color:inherit;text-decoration:none}
+.lrow .rm{flex:1;min-width:0;display:flex;flex-direction:column}
+.lic{flex:none;width:32px;height:32px;border-radius:10px;background:var(--card2);display:grid;place-items:center;font-weight:800;color:var(--tx)}
 .segrow{padding:8px 6px 10px;display:flex;flex-direction:column;gap:8px}
 .segrow .r1{font-size:14px;font-weight:600}
 .segrow .r2{font-size:11px;color:var(--dim);white-space:normal}
