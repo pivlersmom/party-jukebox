@@ -215,3 +215,13 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;width:28px;hei
   background:#232a40;border:1px solid var(--line);color:var(--tx);font-size:14px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5);
   opacity:0;transform:translateY(-10px);transition:opacity .2s,transform .2s;pointer-events:none}
 #toast.on{opacity:1;transform:none}
+
+/* Gruppieren */
+.gsh{margin-top:18px}
+.grow .pic{width:44px;height:44px;border-radius:12px;background:var(--card2);display:grid;place-items:center;color:var(--dim);flex:none}
+.grow.on .pic{color:var(--a2)}
+.gsw{flex:none;width:44px;height:26px;border-radius:13px;background:var(--card2);position:relative;transition:background .2s}
+.gsw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.grow.on .gsw{background:var(--grad)}
+.grow.on .gsw i{transform:translateX(18px)}
+.grow:disabled{opacity:.6}
