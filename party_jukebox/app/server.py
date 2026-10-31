@@ -242,6 +242,13 @@ async def notify_drink(session, x):
 async def discover_ma(session):
     """MA-Adresse: Option, sonst MA-Add-on über den Supervisor finden, sonst Host:8095."""
     u = (OPT.get("ma_url") or "").strip().rstrip("/")
+    if u and not re.fullmatch(r"(https?://)?[A-Za-z0-9.\-]+(:\d+)?", u):
+        # z. B. vom Browser automatisch eingetragener Benutzername ("Admin")
+        log.warning("Music-Assistant-Adresse '%s' ist keine gültige Adresse – wird ignoriert, suche automatisch", u)
+        u = ""
+    if u and "." not in u and "://" not in u and u.lower() not in ("localhost",):
+        log.warning("Music-Assistant-Adresse '%s' sieht nicht nach Host/IP aus – wird ignoriert, suche automatisch", u)
+        u = ""
     if u:
         # Nachsichtig: "192.168.1.10" → "http://192.168.1.10:8095"
         if "://" not in u:
