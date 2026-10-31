@@ -251,7 +251,33 @@ window.playerCmd = c => {
   else if (c === "play") { if (!isPlaying()) togglePlay(); }
   else if (c === "pause") { if (isPlaying()) togglePlay(); }
   else if (c === "play_pause" || c === "toggle") togglePlay();
+  else if (String(c).startsWith("jump:")) {
+    const it = qList[+String(c).slice(5)], qid = S.qid || S.pid;
+    if (it && qid) cmd("player_queues/play_index", { queue_id: qid, index: it.queue_item_id }).catch(e => toast("Music Assistant: " + ((e && e.message) || e)));
+  }
 };
+
+/* Warteschlange für Uhr / Sperrbildschirm (laufender Titel + die nächsten bis zu 30) */
+let qList = [], qKey = "", qBusy = false;
+async function syncQueue() {
+  const q = S.q, qid = S.qid || S.pid;
+  if (!q || !qid || qBusy || typeof A.updateQueue !== "function") return;
+  const cur = q.current_item ? q.current_item.queue_item_id : "";
+  const k = qid + "|" + cur + "|" + q.items + "|" + q.current_index;
+  if (k === qKey) return;
+  qBusy = true;
+  try {
+    const ci = q.current_index != null ? q.current_index : 0;
+    const r = await cmd("player_queues/items", { queue_id: qid, limit: 31, offset: Math.max(0, ci) });
+    let list = (r || []).filter(Boolean);
+    if (cur && !(list[0] && list[0].queue_item_id === cur) && q.current_item) list = [q.current_item].concat(list.filter(x => x.queue_item_id !== cur));
+    qList = list.slice(0, 31);
+    const data = qList.map(x => { const m = x.media_item || {}; return { t: m.name || x.name || "", a: (m.artists || []).map(a => a && a.name).filter(Boolean).join(", ") }; });
+    call("updateQueue", JSON.stringify(data), 0);
+    qKey = k;
+  } catch (e) {}
+  qBusy = false;
+}
 Object.defineProperty(window, "ms", { configurable: true, get: () => ({ state: isPlaying() ? "playing" : "paused" }) });
 
 /* Lautstärketasten des Handys bzw. Regler der Systemleiste/Uhr */
@@ -272,6 +298,7 @@ function sync() {
   const v = curVol(), vm = v != null;
   if (vm !== vmLast) { vmLast = vm; call("setVolumeMode", vm); }
   if (vm && v !== vLast) { vLast = v; call("setVolume", v); }
+  syncQueue();
 }
 setInterval(sync, 1000);
 setTimeout(sync, 1500);
