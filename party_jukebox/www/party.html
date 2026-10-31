@@ -191,6 +191,14 @@ body.srch #resCard .h{display:none}
    Logo lange drücken → Gastgeber-Anmeldung (PIN) → Jukebox. */
 (function(){
   var hb=document.getElementById('hostBtn'), flag=false;
+  /* Android-Browser: erst die Jukebox-App öffnen (partyjukebox://open), ist keine installiert → Web-Jukebox.
+     In der App selbst (WebView) und auf dem iPhone einfach die Seite wechseln. */
+  var inApp=!!(window.PartyJukeboxApp||window.AndroidMediaSession), standalone=false;
+  try{ standalone=matchMedia('(display-mode: standalone)').matches; }catch(e){}
+  if(/Android/i.test(navigator.userAgent)&&!inApp&&!standalone){
+    var web=new URL('jukebox.html',location.href).href;
+    hb.href='intent://open#Intent;scheme=partyjukebox;S.browser_fallback_url='+encodeURIComponent(web)+';end';
+  }
   try{ flag=localStorage.getItem('pj_host')==='1'; }catch(e){}
   fetch('party/host?_='+Date.now(),{cache:'no-store'}).then(function(r){ return r.json(); })
     .then(function(j){ if(j.pin?j.host:flag) hb.classList.remove('hide'); }).catch(function(){});

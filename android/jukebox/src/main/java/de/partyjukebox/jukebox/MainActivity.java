@@ -77,7 +77,18 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
         if (isSettingsIntent(intent)) openSetup();
+        else if (isOpenIntent(intent) && !ServerAddress.get(this).isEmpty() && web != null) {
+            // partyjukebox://open (Jukebox-Logo auf der Gäste-Seite): zurück zur Jukebox
+            String u = web.getUrl();
+            if (u == null || !u.contains("/jukebox.html")) load();
+        }
+    }
+
+    private static boolean isOpenIntent(Intent i) {
+        return i != null && Intent.ACTION_VIEW.equals(i.getAction()) && i.getData() != null
+                && "partyjukebox".equals(i.getData().getScheme());
     }
 
     private static boolean isSettingsIntent(Intent i) {

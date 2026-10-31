@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.44
+- Gäste-Seite im Android-Browser: Jukebox-Logo öffnet die Jukebox-App (ab App 0.1.3), ohne App die Web-Jukebox
+
 ## 0.1.43
 - Gäste-Seite: Zurück-Pfeil vor dem Jukebox-Logo
 
