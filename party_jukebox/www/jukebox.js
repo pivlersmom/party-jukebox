@@ -207,13 +207,13 @@ function onEvent(m) {
       later(renderAll, 80, "ra");
       return;
     case "queue_updated":
-      if (id === S.qid && d) setQueue(d);
+      if (id === (S.qid || S.pid) && d) { if (!S.qid) S.qid = id; setQueue(d); }
       return;
     case "queue_items_updated":
-      if (id === S.qid) itemsDirty();
+      if (id === (S.qid || S.pid)) itemsDirty();
       return;
     case "queue_time_updated":
-      if (id === S.qid) timeUpdate(d);
+      if (id === (S.qid || S.pid)) timeUpdate(d);
       return;
   }
 }
@@ -263,7 +263,7 @@ async function loadQueue() {
   try { q = await cmd("player_queues/get_active_queue", { player_id: pid }); } catch (e) {}
   if (!q) { try { q = await cmd("player_queues/get", { queue_id: pid }); } catch (e) {} }
   if (pid !== S.pid) return;
-  S.qid = q ? q.queue_id : pid;
+  S.qid = (q && q.queue_id) || pid;
   S.q = null; setQueue(q);
 }
 async function refreshQueue(force) {
@@ -448,8 +448,11 @@ $("#vUp").onclick = () => volStep(3);
 
 /* ---------- Steuerung ---------- */
 function qc(c, args) {
-  if (!S.qid) { toast("Erst einen Lautsprecher wählen"); return Promise.resolve(false); }
-  return cmd("player_queues/" + c, Object.assign({ queue_id: S.qid }, args || {}))
+  // Queue noch nicht geladen (z. B. direkt nach dem Verbinden) → Player-ID als Queue-ID nehmen, Queue nachladen
+  const qid = S.qid || S.pid;
+  if (!qid) { toast("Erst einen Lautsprecher wählen"); return Promise.resolve(false); }
+  if (!S.qid) later(loadQueue, 50, "lq");
+  return cmd("player_queues/" + c, Object.assign({ queue_id: qid }, args || {}))
     .then(() => true, e => { toast("Music Assistant: " + errText(e)); return false; });
 }
 function togglePlay() {
