@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.32
+- Autoplay-Knopf rechts neben dem AI DJ, links nur Übergänge
+
 ## 0.1.31
 - Autoplay-Knopf: ∞ bleibt als Zeichen erkennbar, wenn an pulsiert er leicht
 
