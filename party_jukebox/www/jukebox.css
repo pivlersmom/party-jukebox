@@ -311,3 +311,15 @@ body.dragq .grip{cursor:grabbing}
 .bact.pri svg{fill:#fff;stroke:none}
 .sech .bmore{color:var(--a2);font-size:13px;text-transform:none;letter-spacing:0;font-weight:700;padding:4px 0 4px 12px}
 .tno{width:48px;flex:none;text-align:center;color:var(--dim);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Favorit am Cover (lange drücken) */
+#cover{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;transition:transform .2s,box-shadow .35s}
+#cover img{-webkit-touch-callout:none;-webkit-user-drag:none;pointer-events:none}
+#cover.press{transform:scale(.96)}
+#cover .favfr{position:absolute;inset:0;border-radius:inherit;padding:5px;pointer-events:none;z-index:3;opacity:0;background:var(--grad);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);transition:opacity .35s}
+#cover.fav .favfr{opacity:1}
+#cover.fav{box-shadow:0 22px 50px rgba(0,0,0,.55),0 0 26px rgba(224,64,251,.35),0 0 34px rgba(41,182,246,.25)}
+#cover.pop{animation:favPop .6s ease}
+@keyframes favPop{40%{transform:scale(1.04)}}

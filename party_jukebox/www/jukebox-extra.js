@@ -6,7 +6,7 @@
 (function () {
 "use strict";
 const JB = window.JB; if (!JB) return;
-const { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed } = JB;
+const { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast } = JB;
 
 /* ---------- Teilnehmer ---------- */
 const bar = document.createElement("div");
@@ -31,6 +31,68 @@ function loadGuests() {
 loadGuests();
 setInterval(() => { if (!document.hidden) loadGuests(); }, 10000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) loadGuests(); });
+
+/* ---------- Favorit: Cover lange drücken (0,6 s) = zu Favoriten hinzufügen / entfernen ----------
+   Favoriten haben einen Rahmen im Farbverlauf. Geprüft wird nur der laufende Titel (bei Wechsel + alle 20 s).
+   Titel direkt von Tidal & Co. werden in der MA-Bibliothek nachgeschlagen (nur so lässt sich ein Favorit entfernen). */
+(function () {
+  const cv = $("#cover"); if (!cv) return;
+  const fr = document.createElement("div"); fr.className = "favfr"; cv.appendChild(fr);
+  let mi = null, lib = null, local = {}, busy = false, key = "";
+  const curMi = () => { const ci = S.q && S.q.current_item; return (ci && ci.media_item) || null; };
+  const isFav = () => !mi ? false : local[mi.uri] != null ? local[mi.uri] : lib ? !!lib.favorite : !!mi.favorite;
+  const paint = () => cv.classList.toggle("fav", isFav());
+  async function libOf(m) {
+    if (!m) return null;
+    if (m.provider === "library") return m;
+    try { return await cmd("music/get_library_item", { media_type: m.media_type || "track", item_id: String(m.item_id), provider_instance_id_or_domain: m.provider }); }
+    catch (e) { return null; }
+  }
+  async function load() {
+    if (busy || !S.ready) return; busy = true;
+    try { const m = curMi(); if (!m) { mi = null; lib = null; } else { if (!mi || mi.uri !== m.uri) delete local[m.uri]; mi = m; lib = await libOf(m); } }
+    catch (e) {}
+    busy = false; paint();
+  }
+  async function toggle() {
+    const m = curMi(); if (!m) { toast("Gerade läuft kein Titel"); return; }
+    if (!mi || mi.uri !== m.uri) { mi = m; lib = null; }
+    const on = !isFav(); local[m.uri] = on; paint();
+    try {
+      if (on) { await cmd("music/favorites/add_item", { item: m.uri }); toast("❤️ Zu Favoriten hinzugefügt"); }
+      else {
+        const l = lib || await libOf(m);
+        if (l && l.item_id != null) await cmd("music/favorites/remove_item", { media_type: l.media_type || m.media_type || "track", library_item_id: l.item_id });
+        toast("Aus Favoriten entfernt");
+      }
+      setTimeout(() => { if (mi && mi.uri === m.uri) { delete local[m.uri]; lib = null; load(); } }, 2500);
+    } catch (e) { local[m.uri] = !on; paint(); toast("Favorit ging nicht: " + ((e && e.message) || e)); }
+  }
+  let t = null, fired = false, x0 = 0, y0 = 0;
+  const start = (x, y) => {
+    fired = false; x0 = x; y0 = y; cv.classList.add("press"); clearTimeout(t);
+    t = setTimeout(() => {
+      fired = true; cv.classList.remove("press");
+      try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
+      toggle();
+      cv.classList.remove("pop"); void cv.offsetWidth; cv.classList.add("pop");
+      setTimeout(() => cv.classList.remove("pop"), 700);
+    }, 600);
+  };
+  const stop = () => { clearTimeout(t); cv.classList.remove("press"); };
+  cv.addEventListener("touchstart", e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  cv.addEventListener("touchmove", e => { const p = e.touches[0]; if (Math.abs(p.clientX - x0) > 10 || Math.abs(p.clientY - y0) > 10) stop(); }, { passive: true });
+  cv.addEventListener("touchend", stop); cv.addEventListener("touchcancel", stop);
+  cv.addEventListener("mousedown", e => start(e.clientX, e.clientY));
+  cv.addEventListener("mouseup", stop); cv.addEventListener("mouseleave", stop);
+  cv.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("click", e => { if (fired && e.target.closest && e.target.closest("#cover")) { e.stopPropagation(); e.preventDefault(); fired = false; } }, true);
+  let n = 0;
+  setInterval(() => {
+    const m = curMi(), k = m ? m.uri : "";
+    if (k !== key) { key = k; load(); } else if (++n % 20 === 0 && !document.hidden) load();
+  }, 1000);
+})();
 
 /* ---------- Android-Medien-Anbindung ---------- */
 const A = window.AndroidMediaSession;
