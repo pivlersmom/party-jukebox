@@ -441,3 +441,10 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
 .gstbtn{flex:none;display:flex;align-items:center;gap:1px;height:38px;text-decoration:none}
 .gstbtn img{width:36px;height:36px;border-radius:10px;display:block;box-shadow:0 0 0 1px var(--line),0 4px 14px rgba(255,46,200,.3)}
 .gstbtn svg{width:18px;height:18px;fill:none;stroke:var(--a2);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
+/* Kopf: Lautsprecher-Auswahl mittig (links Logo + ⚙, rechts Party-Logo) */
+header{display:grid;grid-template-columns:minmax(72px,1fr) minmax(0,auto) minmax(72px,1fr);gap:8px}
+header .hl{display:flex;align-items:center;gap:8px;justify-self:start;min-width:0}
+header .plbtn{margin:0;max-width:100%;justify-self:center}
+header .gstbtn{justify-self:end}
+@media (max-width:380px){header .setbtn{width:34px;height:34px}header .gstbtn img{width:34px;height:34px}}

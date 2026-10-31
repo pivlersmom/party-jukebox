@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.47
+- Jukebox-Kopf: Lautsprecher-Auswahl wieder mittig (⚙ links neben dem Logo)
+
 ## 0.1.46
 - Jukebox: Party-Logo mit Pfeil oben rechts führt zur Gäste-Seite
 
