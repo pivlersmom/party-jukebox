@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.33
+- Song-Radio-Knopf (links): 2× tippen = ab dem laufenden Titel endlos ähnliche Musik (ersetzt die kommenden Titel), animiert solange aktiv
+
 ## 0.1.32
 - Autoplay-Knopf rechts neben dem AI DJ, links nur Übergänge
 

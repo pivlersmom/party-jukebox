@@ -422,3 +422,11 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
 .modes .mside.r{justify-content:flex-start}
 .modes .mmid{display:flex;justify-content:center;min-width:44px}
 .aq{max-width:none}
+
+.mbtn.radio svg{position:absolute;top:50%;left:50%;width:22px;height:22px;margin:-11px 0 0 -11px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.mbtn.radio svg circle{fill:currentColor;stroke:none}
+.mbtn.radio.on{color:#ffb35c;background:rgba(255,179,92,.1);border-color:rgba(255,179,92,.45)}
+.mbtn.radio.on .w1{animation:rdW 1.8s ease-in-out infinite}
+.mbtn.radio.on .w2{animation:rdW 1.8s ease-in-out .3s infinite}
+.mbtn.radio.arm{color:#ffb35c;border-color:#ffb35c}
+@keyframes rdW{0%,100%{opacity:.25}50%{opacity:1}}

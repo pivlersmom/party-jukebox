@@ -240,13 +240,36 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
 (function () {
   const meta = document.querySelector("#v-now .meta"); if (!meta) return;
   const row = document.createElement("div"); row.className = "modes";
-  row.innerHTML = '<span class="mside l"><button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button></span>' +
+  row.innerHTML = '<span class="mside l"><button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>' +
+    '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button></span>' +
     '<span class="mmid"><button class="aq" id="mAq" hidden></button></span>' +
     '<span class="mside r"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>' +
     '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button></span>';
   meta.after(row);
   const det = document.createElement("div"); det.className = "aqd"; row.after(det);
-  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto");
+  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio");
+
+  /* Song-Radio: ab dem laufenden Titel endlos ähnliche Musik (ersetzt die kommenden Titel, 2× tippen) */
+  const radioKey = id => "pj_radio_" + id;
+  const radioOn = () => {
+    const q = S.q, id = qid(); if (!q || !id) return false;
+    if (Array.isArray(q.radio_source) && q.radio_source.length) return true;
+    try { const t = +sessionStorage.getItem(radioKey(id)) || 0; return Date.now() - t < 3 * 3600e3; } catch (e) { return false; }
+  };
+  let radioArm = 0;
+  bR.onclick = async () => {
+    const id = qid(), ci = S.q && S.q.current_item, mi = ci && ci.media_item;
+    if (!id || !S.ready) { toast("Music Assistant nicht verbunden"); return; }
+    if (!mi || !mi.uri) { toast("Gerade läuft kein Titel"); return; }
+    if (Date.now() > radioArm) { radioArm = Date.now() + 3500; toast("Nochmal tippen: Song-Radio zu „" + (mi.name || "diesem Titel") + "“ – ersetzt die kommenden Titel"); bR.classList.add("arm"); setTimeout(() => bR.classList.remove("arm"), 3500); return; }
+    radioArm = 0; bR.classList.remove("arm");
+    try {
+      await cmd("player_queues/play_media", { queue_id: id, media: mi.uri, option: "replace_next", radio_mode: true }, 30000);
+      try { sessionStorage.setItem(radioKey(id), String(Date.now())); } catch (e) {}
+      toast("📻 Song-Radio läuft – ähnliche Titel folgen");
+    } catch (e) { toast("Song-Radio: " + ((e && e.message) || e)); }
+    paint();
+  };
   const qid = () => S.qid || S.pid;
 
   /* Übergänge */
@@ -323,13 +346,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     bF.classList.toggle("on", fadeOn());
     bF.hidden = !S.q;
     bA.classList.toggle("on", autoOn()); bA.hidden = !S.q;
+    bR.classList.toggle("on", radioOn()); bR.hidden = !S.q;
     const a = aq();
     bQ.hidden = !a;
     if (a) { bQ.textContent = a.short; bQ.classList.toggle("ll", a.lossless); bQ.classList.toggle("hr", a.hires); bQ.classList.toggle("open", aqOpen); }
     det.textContent = a && aqOpen ? a.long : ""; det.classList.toggle("on", !!(a && aqOpen));
     const id = qid(), dj = id && djStatus[id];
     bD.hidden = !djAvail; bD.classList.toggle("on", !!dj); bD.title = dj ? "AI DJ · " + hostName(dj) : "AI DJ";
-    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden);
+    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden);
   }
   let lastQ = "", n = 0;
   setInterval(() => {
