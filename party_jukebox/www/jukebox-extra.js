@@ -94,6 +94,129 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   }, 1000);
 })();
 
+
+/* ---------- Cover antippen: dreht sich einmal und zeigt den Songtext (wie auf dem TV) ----------
+   Quellen: Music Assistant (LRC am Titel / Lyrics-Anbieter) → lrclib.net → normaler Text über die Songlänge verteilt.
+   Versatz wie auf dem TV (Jukebox ⚙ → Songtext-Versatz). Nochmal antippen = zurück zum Cover. */
+(function () {
+  const cv = $("#cover"); if (!cv) return;
+  const box = document.createElement("div"); box.className = "clyr";
+  box.innerHTML = '<div class="cin"></div><div class="cmsg"></div>';
+  cv.appendChild(box);
+  const inner = box.querySelector(".cin"), msg = box.querySelector(".cmsg");
+  let on = false, lines = null, key = "", act = -2, look = 0.5, gen = 0;
+  const cache = {};
+  const loadOff = () => fetch("party/tv.json?_=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.json() : null)
+    .then(j => { if (j && typeof j.lyr_offset === "number") look = j.lyr_offset; }).catch(() => {});
+  loadOff();
+
+  const isLrc = raw => /\[\d+:\d+(\.\d+)?\]/.test(String(raw || ""));
+  function parseLrc(raw) {
+    const out = [];
+    String(raw || "").split(/\r?\n/).forEach(line => {
+      const re = /\[(\d+):(\d+(?:\.\d+)?)\]/g; let m, last = 0; const ts = [];
+      while ((m = re.exec(line)) && m.index === last) { ts.push(parseInt(m[1], 10) * 60 + parseFloat(m[2])); last = re.lastIndex; }
+      if (!ts.length) return;
+      const txt = line.slice(last).trim();
+      ts.forEach(t => out.push({ t, text: txt }));
+    });
+    out.sort((a, b) => a.t - b.t);
+    return out.length ? out : null;
+  }
+  const clean = t => String(t || "").replace(/\s*[\(\[][^\)\]]*(mix|remix|edit|version|remake|bootleg|extended|instrumental|live)[^\)\]]*[\)\]]/gi, "")
+    .replace(/\s*-\s*(extended|radio|club|original)\s+(mix|edit|version).*$/gi, "").trim();
+  const norm = x => String(x || "").toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").replace(/[^a-z0-9]/g, "");
+  function hitOk(h, a, t) {
+    if (!h) return false;
+    const ha = norm(h.artistName), aa = norm(a), ht = norm(h.trackName), tt = norm(clean(t));
+    return !!(ha && aa && ht && tt) && (ha.includes(aa) || aa.includes(ha)) && (ht.includes(tt) || tt.includes(ht));
+  }
+  const md = o => { const m = o && o.metadata; return (m && (m.lrc_lyrics || m.lyrics)) || ""; };
+  async function maRaw(mi) {
+    let r = md(mi); if (r) return r;
+    if (!mi || !mi.uri) return "";
+    try {
+      const t = await cmd("music/item_by_uri", { uri: mi.uri }); r = md(t); if (r) return r;
+      if (!t || (t.media_type && t.media_type !== "track")) return "";
+      const x = await cmd("metadata/get_track_lyrics", { track: t }, 20000);
+      if (typeof x === "string") return x;
+      if (Array.isArray(x)) return x[1] || x[0] || "";
+      return (x && (x.lrc_lyrics || x.lyrics)) || "";
+    } catch (e) { return ""; }
+  }
+  const LRCLIB = "https://lrclib.net/api/";
+  const lrcGet = (a, t) => fetch(LRCLIB + "get?artist_name=" + encodeURIComponent(a) + "&track_name=" + encodeURIComponent(t)).then(r => r.ok ? r.json() : null).catch(() => null);
+  const lrcSearch = (a, t) => fetch(LRCLIB + "search?artist_name=" + encodeURIComponent(a) + "&track_name=" + encodeURIComponent(t)).then(r => r.ok ? r.json() : []).then(l => Array.isArray(l) ? l : []).catch(() => []);
+  async function find(mi, n) {
+    let plain = "";
+    const take = raw => { if (!raw) return null; if (isLrc(raw)) { const l = parseLrc(raw); if (l) return l; } if (!plain) plain = raw; return null; };
+    const a1 = String(n.artist || "").split("/")[0].split(",")[0].trim(), t = n.title || "", t2 = clean(t);
+    const lr = h => { if (!hitOk(h, a1, t)) return null; if (h.syncedLyrics) { const l = parseLrc(h.syncedLyrics); if (l) return l; } if (h.plainLyrics && !plain) plain = h.plainLyrics; return null; };
+    let l = take(await maRaw(mi)); if (l) return { lines: l };
+    if (a1 && t) {
+      l = lr(await lrcGet(a1, t)); if (l) return { lines: l };
+      if (t2 && t2 !== t) { l = lr(await lrcGet(a1, t2)); if (l) return { lines: l }; }
+      for (const h of await lrcSearch(a1, t2 || t)) { l = lr(h); if (l) return { lines: l }; }
+    }
+    return plain ? { plain } : null;
+  }
+  function spread(raw, dur) {
+    const ls = String(raw || "").split(/\r?\n/).map(x => x.trim()).filter(x => x && !/^[\[(].*[\])]$/.test(x));
+    if (ls.length < 3 || !dur) return null;
+    const st = Math.min(15, dur * 0.08), step = (dur * 0.93 - st) / ls.length;
+    return ls.map((x, i) => ({ t: st + i * step, text: x }));
+  }
+  function show(l, note) {
+    lines = l && l.length ? l : null; act = -2;
+    inner.innerHTML = lines ? lines.map(x => '<div class="l"><span>' + esc(x.text || "♪") + "</span></div>").join("") : "";
+    inner.style.transform = "translateY(0)";
+    msg.textContent = lines ? "" : (note || "");
+  }
+  async function load() {
+    const n = nowInfo(), ci = S.q && S.q.current_item, mi = ci && ci.media_item;
+    const k = n ? (n.key || "") + "|" + n.title : "";
+    if (k === key) return; key = k;
+    if (!n) { show(null, "Gerade läuft nichts"); return; }
+    if (cache[k]) { apply(cache[k], n); return; }
+    show(null, "Songtext wird gesucht …");
+    const g = ++gen, res = await find(mi, n);
+    cache[k] = res || { none: true };
+    if (g === gen) apply(cache[k], n);
+  }
+  function apply(res, n) {
+    if (res.lines) show(res.lines);
+    else if (res.plain) show(spread(res.plain, n.dur), "Kein Songtext gefunden");
+    else show(null, "Kein Songtext gefunden");
+  }
+  function tickL() {
+    if (!on || !lines) return;
+    const pos = elapsed() + look;
+    let i = -1;
+    for (let k = 0; k < lines.length; k++) { if (lines[k].t <= pos) i = k; else break; }
+    const kids = inner.children;
+    if (i !== act) {
+      act = i;
+      for (let k = 0; k < kids.length; k++) { kids[k].classList.remove("cur", "nx", "past"); if (k < i) kids[k].classList.add("past"); }
+      if (i >= 0 && kids[i]) kids[i].classList.add("cur");
+      if (kids[i + 1]) kids[i + 1].classList.add("nx");
+    }
+    const t = kids[Math.max(i, 0)]; if (!t || !box.clientHeight) return;
+    const tr = "translateY(" + Math.round(box.clientHeight * 0.42 - (t.offsetTop + t.offsetHeight / 2)) + "px)";
+    if (inner.style.transform !== tr) inner.style.transform = tr;
+  }
+  function flip() {
+    cv.classList.remove("spin"); void cv.offsetWidth; cv.classList.add("spin");
+    setTimeout(() => {
+      on = !on; cv.classList.toggle("lyr", on);
+      if (on) { loadOff(); key = ""; load(); act = -2; tickL(); }
+    }, 300);
+    setTimeout(() => cv.classList.remove("spin"), 650);
+  }
+  cv.addEventListener("click", () => { if (cv.classList.contains("press")) return; flip(); });
+  setInterval(() => { if (on) { load(); tickL(); } }, 250);
+  window.addEventListener("resize", () => { act = -2; });
+})();
+
 /* ---------- Android-Medien-Anbindung ---------- */
 const A = window.AndroidMediaSession;
 if (!A) return;

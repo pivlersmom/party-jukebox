@@ -18,7 +18,7 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Suchen nach Titeln, Künstlern, Alben und Playlists. Künstler, Alben und Playlists lassen sich öffnen und durchklicken.
 - Warteschlange: Titel per Griff ≡ verschieben, entfernen, Titel als Nächstes einreihen
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
-- **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
+- **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
 - In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik
 

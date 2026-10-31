@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.21
+- Jukebox: Cover kurz antippen → dreht sich und zeigt den Songtext mitlaufend (wie auf dem TV, gleicher Versatz); nochmal antippen = zurück zum Cover
+
 ## 0.1.20
 - Anleitung: Abschnitt zu den Jukebox-Einstellungen (Räume, TV, Favoriten)
 

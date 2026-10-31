@@ -49,6 +49,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
   - Läuft an der Soundbar gerade TV-Ton, wird nichts verbunden oder getrennt.
 - **Party-Plugin** – in Music Assistant installieren, ein-/ausschalten, Link zu allen Plugin-Einstellungen.
 - **Favoriten** – im Reiter „Läuft“ das Cover lange drücken.
+- **Songtext** – im Reiter „Läuft“ das Cover kurz antippen.
 
 ## 5. Sicherheit
 - Die Seiten sind ohne Anmeldung im Heimnetz erreichbar. Wer im WLAN ist, kann auch die Jukebox öffnen.
