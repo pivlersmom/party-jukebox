@@ -49,6 +49,7 @@ const ICON = {
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   nextup: '<svg viewBox="0 0 24 24"><path d="M4 6h10M4 11h10M4 16h6"/><path d="M18 8v11M15 16l3 3 3-3"/></svg>',
+  back: '<svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg>',
   dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
   wifi: '<svg viewBox="0 0 24 24"><path d="M2 8.8a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16.2a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1"/><path d="M3 3l18 18"/></svg>',
@@ -715,6 +716,7 @@ function subOf(it) {
   return "";
 }
 async function doSearch() {
+  navReset();
   const term = $("#q").value.trim(), box = $("#sRes");
   $("#qClr").hidden = !term;
   const seq = ++S.sSeq;
@@ -731,6 +733,7 @@ async function doSearch() {
   }
 }
 function renderResults() {
+  if (S.nav && S.nav.length) { renderNav(); return; }
   const r = S.sRes, box = $("#sRes"); S.sItems = [];
   if (!r) return;
   const all = S.filter === "all";
@@ -761,10 +764,82 @@ $("#q").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout
 $("#qClr").onclick = () => { $("#q").value = ""; doSearch(); $("#q").focus(); };
 $("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) setFilter(c.dataset.f); };
 $("#sRes").onclick = e => {
+  if (e.target.closest(".bback")) { history.back(); return; }
+  const ba = e.target.closest(".bact"); if (ba) { const n = S.nav[S.nav.length - 1]; if (n) enqueue(n.it, ba.dataset.o); return; }
+  const tg = e.target.closest(".bmore"); if (tg) { const n = S.nav[S.nav.length - 1]; if (n) { n.all = !n.all; renderNav(); } return; }
   const more = e.target.closest(".more"); if (more) { setFilter(more.dataset.f); return; }
   const row = e.target.closest(".row"); if (!row) return;
-  const it = S.sItems[+row.dataset.i]; if (it) openItem(it);
+  const it = S.sItems[+row.dataset.i]; if (!it) return;
+  /* Künstler/Album/Playlist antippen = öffnen, ⋯ = Abspiel-Menü; Titel = Abspiel-Menü */
+  if (it.media_type === "track" || e.target.closest(".go")) openItem(it); else navPush(it);
 };
+
+/* ---------- Durchklicken: Künstler → Titel/Alben, Album/Playlist → Titel ---------- */
+S.nav = [];
+function navReset() { if (!S.nav.length) return; S.nav = []; S.navSeq = (S.navSeq || 0) + 1; }
+function navPush(it) {
+  S.nav.push({ it, data: null, all: false });
+  try { history.pushState({ jbNav: S.nav.length }, ""); } catch (e) {}
+  renderNav(); loadNav(S.nav[S.nav.length - 1]);
+  $("#v-search").scrollTop = 0;
+}
+window.addEventListener("popstate", () => {
+  if (!S.nav.length) return;
+  S.nav.pop(); S.navSeq = (S.navSeq || 0) + 1;
+  if (S.nav.length) renderNav(); else renderResults();
+  $("#v-search").scrollTop = 0;
+});
+async function loadNav(n) {
+  const it = n.it, a = { item_id: String(it.item_id), provider_instance_id_or_domain: it.provider }, seq = S.navSeq = (S.navSeq || 0) + 1;
+  try {
+    let d;
+    if (it.media_type === "artist") {
+      const [tr, al] = await Promise.all([cmd("music/artists/artist_tracks", a, 25000).catch(() => []), cmd("music/artists/artist_albums", a, 25000).catch(() => [])]);
+      d = { tracks: tr || [], albums: al || [] };
+    } else if (it.media_type === "album") d = { tracks: await cmd("music/albums/album_tracks", a, 25000) || [] };
+    else d = { tracks: await cmd("music/playlists/playlist_tracks", a, 40000) || [] };
+    n.data = d;
+  } catch (e) { n.data = { err: errText(e) }; }
+  if (seq === S.navSeq && S.nav[S.nav.length - 1] === n) renderNav();
+}
+function renderNav() {
+  const n = S.nav[S.nav.length - 1], box = $("#sRes"); if (!n) return;
+  const it = n.it, d = n.data, art = it.media_type === "artist";
+  S.sItems = [];
+  let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' + thumb(imgUrl(it, 240), "lg" + (art ? " round" : "")) +
+    '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span></div>' +
+    '<div class="bacts"><button class="bact pri" data-o="play">' + ICON.play + 'Abspielen</button><button class="bact" data-o="next">' + ICON.nextup +
+    'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>';
+  if (!d) html += '<div class="spin"></div>';
+  else if (d.err) html += '<div class="empty">Nicht ladbar: ' + esc(d.err) + "</div>";
+  else {
+    const tr = (d.tracks || []).filter(x => x && x.uri), max = art && !n.all ? 10 : 300;
+    if (tr.length) {
+      html += '<div class="sec"><div class="sech"><span>' + (art ? "Titel" : tr.length + " Titel") + "</span>" +
+        (art && tr.length > 10 ? '<button class="bmore">' + (n.all ? "Weniger" : "Alle " + tr.length) + "</button>" : "") + "</div>";
+      tr.slice(0, max).forEach((t, k) => {
+        const i = S.sItems.push(t) - 1, no = it.media_type === "album" ? (t.track_number || k + 1) : null;
+        html += '<button class="row" data-i="' + i + '">' + (no != null ? '<span class="tno">' + no + "</span>" : thumb(imgUrl(t, 120))) +
+          '<span class="rm"><span class="r1">' + esc(t.name) + '</span><span class="r2">' + esc(it.media_type === "album" ? (artistsOf(t) || fmt(t.duration)) : subOf(t)) +
+          '</span></span><span class="go">' + ICON.dots + "</span></button>";
+      });
+      html += "</div>";
+    }
+    const al = (d.albums || []).filter(x => x && x.uri);
+    if (al.length) {
+      html += '<div class="sec"><div class="sech"><span>Alben</span></div>';
+      al.sort((x, y) => (+y.year || 0) - (+x.year || 0)).forEach(x => {
+        const i = S.sItems.push(x) - 1;
+        html += '<button class="row" data-i="' + i + '">' + thumb(imgUrl(x, 120)) + '<span class="rm"><span class="r1">' + esc(x.name) +
+          '</span><span class="r2">' + esc([x.year, x.album_type && x.album_type !== "unknown" ? ({ album: "Album", single: "Single", ep: "EP", compilation: "Sampler" }[x.album_type] || "") : ""].filter(Boolean).join(" · ") || "Album") +
+          '</span></span><span class="go">' + ICON.dots + "</span></button>";
+      });
+      html += "</div>";
+    }
+    if (!tr.length && !al.length) html += '<div class="empty">Keine Titel gefunden</div>';
+  }
+  box.innerHTML = html;
+}
 function openItem(it) {
   const html = '<div class="ihead">' + thumb(imgUrl(it, 240), "lg" + (it.media_type === "artist" ? " round" : "")) +
     '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + "</span></span></div>" +
