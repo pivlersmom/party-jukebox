@@ -358,3 +358,10 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
 #cover .clyr .l.cur span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 #cover .clyr .cmsg{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--dim);font-size:15px;font-weight:600}
 #cover .clyr .cmsg:empty{display:none}
+
+/* Einblender im Cover */
+#cover .chint{position:absolute;left:50%;bottom:14px;z-index:4;transform:translate(-50%,8px);opacity:0;pointer-events:none;max-width:88%;
+  padding:7px 14px;border-radius:999px;background:rgba(8,10,18,.82);border:1px solid rgba(255,255,255,.14);color:#fff;
+  font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 20px rgba(0,0,0,.4);transition:opacity .25s,transform .25s}
+#cover .chint.on{opacity:1;transform:translate(-50%,0)}
+#cover.spin .chint{animation:none}

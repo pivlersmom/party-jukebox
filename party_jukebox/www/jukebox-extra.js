@@ -58,6 +58,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     const m = curMi(); if (!m) { toast("Gerade läuft kein Titel"); return; }
     if (!mi || mi.uri !== m.uri) { mi = m; lib = null; }
     const on = !isFav(); local[m.uri] = on; paint();
+    if (window.pjCoverHint) window.pjCoverHint(on ? "❤️ Favorit" : "Kein Favorit mehr");
     try {
       if (on) { await cmd("music/favorites/add_item", { item: m.uri }); toast("❤️ Zu Favoriten hinzugefügt"); }
       else {
@@ -204,7 +205,21 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     const tr = "translateY(" + Math.round(box.clientHeight * 0.42 - (t.offsetTop + t.offsetHeight / 2)) + "px)";
     if (inner.style.transform !== tr) inner.style.transform = tr;
   }
+  /* kurzer Einblender unten im Cover */
+  const hint = document.createElement("div"); hint.className = "chint"; cv.appendChild(hint);
+  let hintT = null;
+  function say(txt, ms) {
+    hint.textContent = txt; hint.classList.add("on"); clearTimeout(hintT);
+    hintT = setTimeout(() => hint.classList.remove("on"), ms || 1600);
+  }
+  window.pjCoverHint = say;
+  /* die ersten paar Male beim Öffnen zeigen, was das Cover kann */
+  try {
+    const n = +(localStorage.getItem("pj_cover_hint") || 0);
+    if (n < 3) { localStorage.setItem("pj_cover_hint", n + 1); setTimeout(() => say("Antippen: Songtext · Halten: Favorit", 3200), 1800); }
+  } catch (e) {}
   function flip() {
+    say(on ? "🖼️ Cover" : "🎤 Songtext");
     cv.classList.remove("spin"); void cv.offsetWidth; cv.classList.add("spin");
     setTimeout(() => {
       on = !on; cv.classList.toggle("lyr", on);
