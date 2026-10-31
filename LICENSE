@@ -1,0 +1,46 @@
+Party-Jukebox
+Copyright (c) 2026 pivlersmom
+Alle Rechte vorbehalten. / All rights reserved.
+
+DEUTSCH
+
+1. Erlaubt
+   Diese Software (das Home-Assistant-Add-on, die Web-Seiten, die Android- und
+   Tizen-Apps sowie alle weiteren Dateien in diesem Repository) darf kostenlos
+   installiert und für private, nicht-kommerzielle Zwecke genutzt werden.
+
+2. Nicht erlaubt
+   Ohne vorherige schriftliche Zustimmung des Rechteinhabers ist es nicht erlaubt,
+   a) die Software oder Teile davon zu verändern, zu bearbeiten oder abgewandelte
+      Fassungen zu erstellen,
+   b) die Software oder veränderte Fassungen zu veröffentlichen, weiterzugeben
+      oder unter eigenem Namen anzubieten,
+   c) die Software zu verkaufen, zu vermieten oder kommerziell zu nutzen.
+   Das Anlegen einer Kopie (Fork) auf GitHub im Rahmen der GitHub-Nutzungs-
+   bedingungen bleibt davon unberührt; die Einschränkungen oben gelten auch für
+   solche Kopien.
+
+3. Haftungsausschluss
+   Die Software wird ohne jede Gewähr bereitgestellt, so wie sie ist. Die Nutzung
+   erfolgt auf eigene Gefahr. Der Rechteinhaber haftet nicht für Schäden, die aus
+   der Nutzung oder Nichtnutzbarkeit der Software entstehen, soweit gesetzlich
+   zulässig (ausgenommen Vorsatz und grobe Fahrlässigkeit).
+
+4. Fremde Bestandteile
+   party_jukebox/www/qrcode.min.js – QR Code Generator for JavaScript,
+   Copyright (c) 2009 Kazuhiko Arase, MIT-Lizenz
+   (https://opensource.org/licenses/MIT). Für diese Datei gilt ausschließlich
+   die MIT-Lizenz. Gradle-Wrapper-Dateien in android/ stehen unter der
+   Apache-Lizenz 2.0.
+   "Home Assistant", "Music Assistant", "Samsung" und "Tizen" sind Namen bzw.
+   Marken ihrer jeweiligen Inhaber und werden nur beschreibend verwendet.
+   "QR Code" ist eine eingetragene Marke der DENSO WAVE INCORPORATED.
+
+ENGLISH (summary – the German version is authoritative)
+
+You may install and use this software free of charge for private,
+non-commercial purposes. Without prior written permission you may not modify
+it, create derivative works, publish or redistribute it (modified or not), or
+use it commercially. The software is provided "as is", without warranty of any
+kind; use at your own risk. Third-party components keep their own licenses
+(see section 4).

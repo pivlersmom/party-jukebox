@@ -104,6 +104,10 @@ Die Apps gibt es unter [Releases](https://github.com/pivlersmom/party-jukebox/re
 
 ## Lizenz
 
-Privates Projekt, Nutzung auf eigene Gefahr.
+© 2026 pivlersmom – **Alle Rechte vorbehalten.** Installation und private Nutzung sind erlaubt;
+Änderungen, Weitergabe veränderter Fassungen und kommerzielle Nutzung nur mit Zustimmung.
+Nutzung auf eigene Gefahr. Details: [LICENSE](LICENSE).
+
+Verwendet den QR-Code-Generator von Kazuhiko Arase (MIT-Lizenz).
 
 <sub>Screenshots mit Demo-Daten (erfundene Titel und Cover).</sub>
