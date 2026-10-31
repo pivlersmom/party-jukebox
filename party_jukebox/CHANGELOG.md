@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.38
+- TV-Anzeige im Spar-Modus lädt sich alle 90 Minuten beim Songwechsel kurz neu (Smart-TV-Browser geben Speicher sonst nicht frei)
+
 ## 0.1.37
 - TV-Anzeige im Browser eines Smart-TVs (Samsung, LG, Hisense …): Spar-Modus automatisch an – behebt Abstürze nach dem Songwechsel
 - Spar-Modus zusätzlich ohne drehende Platte, ohne Wechsel-Animation und mit kleinerem Cover (512 statt 1024 Pixel)

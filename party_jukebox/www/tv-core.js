@@ -370,6 +370,13 @@ function chk(){
 }
 setTimeout(chk,5000); setInterval(chk,60000);
 
+/* ---------- Sicherheitsnetz für schwache Geräte: im Spar-Modus alle 90 Min. beim Songwechsel neu laden ----------
+   (Smart-TV-Browser geben Speicher schlecht frei → sonst irgendwann „Renderer process has crashed“) */
+(function(){
+  var t0=Date.now();
+  TV.on('track',function(){ if(TV.lite && Date.now()-t0>90*60e3){ setTimeout(function(){ location.reload(); },1500); } });
+})();
+
 /* ---------- Vollbild im Browser des Fernsehers (Samsung/LG/PC) ----------
    Browser erlauben Vollbild nur nach einem Tastendruck: Hinweis zeigen, OK/Enter/Klick schaltet um.
    Nicht in den Apps (Android-TV-App = WebView, Samsung-App = iframe). */
