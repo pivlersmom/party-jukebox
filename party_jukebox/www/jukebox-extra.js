@@ -240,10 +240,10 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
 (function () {
   const meta = document.querySelector("#v-now .meta"); if (!meta) return;
   const row = document.createElement("div"); row.className = "modes";
-  row.innerHTML = '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button>' +
-    '<button class="aq" id="mAq" hidden></button>' +
-    '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button>' +
-    '<button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>';
+  row.innerHTML = '<span class="mside l"><button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button>' +
+    '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button></span>' +
+    '<span class="mmid"><button class="aq" id="mAq" hidden></button></span>' +
+    '<span class="mside r"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button></span>';
   meta.after(row);
   const det = document.createElement("div"); det.className = "aqd"; row.after(det);
   const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto");

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.30
+- Jukebox: Audioqualität steht fest in der Mitte, Übergänge/Autoplay links, AI DJ rechts
+
 ## 0.1.29
 - Jukebox: Cover in Playlists (und überall, wo MA Titel ohne Bild liefert) werden nachgeladen; Playlist ohne eigenes Bild bekommt das erste Titel-Cover
 
