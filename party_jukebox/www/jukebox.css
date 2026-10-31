@@ -436,3 +436,8 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
 .pinrow .fi:not(:placeholder-shown){letter-spacing:4px}
 .pinrow .act{margin-top:0;height:46px;width:auto;padding:0 18px;font-size:14px}
 .rsb2{height:42px;font-size:14px;margin:8px 2px 0;width:calc(100% - 4px)}
+
+/* Kopf: Party-Logo mit Pfeil → Gäste-Seite */
+.gstbtn{flex:none;display:flex;align-items:center;gap:1px;height:38px;text-decoration:none}
+.gstbtn img{width:36px;height:36px;border-radius:10px;display:block;box-shadow:0 0 0 1px var(--line),0 4px 14px rgba(255,46,200,.3)}
+.gstbtn svg{width:18px;height:18px;fill:none;stroke:var(--a2);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}

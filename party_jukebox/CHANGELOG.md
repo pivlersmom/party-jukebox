@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.46
+- Jukebox: Party-Logo mit Pfeil oben rechts führt zur Gäste-Seite
+
 ## 0.1.45
 - Android-Apps 0.1.3 zum Herunterladen (Jukebox-App lässt sich von der Gäste-Seite aus öffnen)
 
