@@ -35,7 +35,7 @@ function noop(){}
   TV.loadSet=function(){
     return fetch('party/tv.json?_='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).then(function(j){
       if(!j) return;
-      var ch=j.lyr_offset!==TV.set.lyr_offset||j.tv_lite!==TV.set.tv_lite;
+      var ch=j.lyr_offset!==TV.set.lyr_offset||j.tv_lite!==TV.set.tv_lite||j.name!==TV.set.name;
       TV.set=j; if(ch){ apply(); TV.emit('set',j); }
     }).catch(function(){});
   };
@@ -45,11 +45,14 @@ function noop(){}
 /* ---------- Party-Titel ---------- */
 var NAME=String(PJ.name||'Party-Jukebox');
 document.title=NAME+' · TV';
-(function(){
+function setName(n){
+  NAME=String(n||'Party-Jukebox'); document.title=NAME+' · TV';
   var b=$('brandName'); if(!b) return;
   b.textContent=NAME;
-  if(NAME.length>10) b.style.fontSize=Math.max(2.2,Math.min(3.6,36/NAME.length))+'vh';
-})();
+  b.style.fontSize=NAME.length>10?Math.max(2.2,Math.min(3.6,36/NAME.length))+'vh':'';
+}
+setName(NAME);
+TV.on('set',function(j){ if(j&&j.name&&j.name!==NAME) setName(j.name); });
 
 /* ---------- Uhr ---------- */
 function clk(){

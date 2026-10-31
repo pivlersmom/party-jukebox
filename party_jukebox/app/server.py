@@ -708,7 +708,7 @@ async def party_guests(request):
 
 async def config_js(request):
     cfg = {
-        "name": OPT.get("party_name") or "Party-Jukebox",
+        "name": party_name(),
         "player": OPT.get("party_player") or "",
         "drinks": drinks(),
         "maToken": bool(OPT.get("ma_token")),
@@ -751,8 +751,12 @@ def _values(cfg):
     return {k: (e.get("value") if isinstance(e, dict) else e) for k, e in v.items()}
 
 
+def party_name():
+    return (setting("party_name", "") or OPT.get("party_name") or "Party-Jukebox").strip()[:40]
+
+
 def tv_settings():
-    return {"lyr_offset": float(setting("lyr_offset", 0.5)), "tv_lite": setting("tv_lite", "auto")}
+    return {"lyr_offset": float(setting("lyr_offset", 0.5)), "tv_lite": setting("tv_lite", "auto"), "name": party_name()}
 
 
 async def party_tv_get(request):
@@ -825,6 +829,18 @@ async def party_settings_post(request):
                 return web.json_response({"ok": False, "error": "Party-Plugin ist nicht installiert"}, status=404)
         except Exception as e:
             return web.json_response({"ok": False, "error": str(e)}, status=502)
+    if isinstance(data.get("party_name"), str):
+        nm = re.sub(r"\s+", " ", data["party_name"]).strip()[:40]
+        SETTINGS["party_name"] = nm
+        save_settings()
+        try:  # Party-Plugin von MA bekommt den gleichen Namen (Gäste-Seite / QR-Text)
+            iid = await party_provider(request.app["session"])
+            if iid and nm:
+                await MAC.cmd(request.app["session"], "config/providers/save",
+                              {"provider_domain": "party", "instance_id": iid, "values": {"party_name": nm}})
+        except Exception as e:
+            log.info("Party-Name im Party-Plugin nicht gesetzt: %s", e)
+        log.info("Party-Name: %s", party_name())
     if data.get("tv_only"):
         return web.json_response({"ok": True, **tv_settings()}, headers={"Cache-Control": "no-store"})
     lim = data.get("limits")

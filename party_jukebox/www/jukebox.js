@@ -633,7 +633,8 @@ function numRow(key, title, val, unit, dis) {
 }
 function renderSettings() {
   const d = setData || {}, L = d.limits;
-  let html = '<div class="shh">Party-Einstellungen</div>';
+  let html = '<div class="shh">Party-Einstellungen</div>' +
+    '<label class="fl">Party-Name <small>(TV, Party-Seite, QR-Code)</small></label><input class="fi" id="pnIn" maxlength="40" placeholder="z. B. Sommerfest" value="' + esc(d.name || "") + '">';
   html += swRow("effects", "Lichteffekte", d.scripts ? "bei Wunsch, Vordrängeln und Nachschub" : "keine Skripte in den Add-on-Optionen eingetragen", !!d.effects);
   html += swRow("skip_votes", "Abstimmung überspringt Songs", "bei Mehrheit 👎 der Gäste", !!d.skip_votes);
   html += '<div class="shh gsh">TV-Anzeige</div>';
@@ -694,6 +695,12 @@ function renderSettings() {
       b.disabled = true; setSave({ room_lock: { id: r.id, on: !r.locked } }).then(() => toast(r.name + (r.locked ? ": Sperre aufgehoben" : ": gesperrt")));
     });
     c.querySelectorAll(".rmed").forEach(b => b.onclick = () => openRoom(setData.rooms[+b.dataset.i]));
+    const pn = c.querySelector("#pnIn");
+    if (pn) {
+      const savePn = () => { const v = pn.value.trim(); if (v && v !== (setData.name || "")) { setData.name = v; setFetch({ party_name: v }).then(j => { setData = j; toast("Party-Name gespeichert"); }).catch(e => toast("Nicht gespeichert: " + e.message)); } };
+      pn.addEventListener("change", savePn);
+      pn.addEventListener("keydown", e => { if (e.key === "Enter") { pn.blur(); } });
+    }
     const ra = c.querySelector("#rmAdd"); if (ra) ra.onclick = () => openRoom(null);
     c.querySelectorAll(".rsb").forEach(b => b.onclick = () => {
       const k = b.dataset.r;

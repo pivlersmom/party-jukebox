@@ -242,9 +242,11 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   const row = document.createElement("div"); row.className = "modes";
   row.innerHTML = '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button>' +
     '<button class="aq" id="mAq" hidden></button>' +
+    '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button>' +
     '<button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>';
   meta.after(row);
-  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj");
+  const det = document.createElement("div"); det.className = "aqd"; row.after(det);
+  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto");
   const qid = () => S.qid || S.pid;
 
   /* Übergänge */
@@ -255,6 +257,18 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     fadeWant = !fadeOn(); fadeHold = Date.now() + 4000; paint();
     try { await cmd("player_queues/crossfade", { queue_id: id, crossfade_enabled: fadeWant }); if (S.q) S.q.crossfade_enabled = fadeWant; toast("Übergänge " + (fadeWant ? "an" : "aus")); }
     catch (e) { fadeHold = 0; toast("Übergänge: " + ((e && e.message) || e)); }
+    paint();
+  };
+
+  /* Autoplay: ist die Warteschlange zu Ende, hängt Music Assistant ähnliche Titel an (eingebaut, kein Plugin) */
+  let autoHold = 0, autoWant = false;
+  const autoOn = () => Date.now() < autoHold ? autoWant : !!(S.q && (S.q.autoplay_enabled || S.q.dont_stop_the_music_enabled));
+  bA.onclick = async () => {
+    const id = qid(); if (!id || !S.ready) { toast("Music Assistant nicht verbunden"); return; }
+    autoWant = !autoOn(); autoHold = Date.now() + 4000; paint();
+    try { await cmd("player_queues/autoplay", { queue_id: id, autoplay_enabled: autoWant }); if (S.q) S.q.autoplay_enabled = autoWant;
+      toast(autoWant ? "Autoplay an – am Ende der Warteschlange kommen ähnliche Titel" : "Autoplay aus"); }
+    catch (e) { autoHold = 0; const m = String((e && e.message) || e); toast(/repeat/i.test(m) ? "Autoplay geht nicht, solange Wiederholen an ist" : "Autoplay: " + m); }
     paint();
   };
 
@@ -308,12 +322,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   function paint() {
     bF.classList.toggle("on", fadeOn());
     bF.hidden = !S.q;
+    bA.classList.toggle("on", autoOn()); bA.hidden = !S.q;
     const a = aq();
     bQ.hidden = !a;
-    if (a) { bQ.textContent = aqOpen ? a.long : a.short; bQ.classList.toggle("ll", a.lossless); bQ.classList.toggle("hr", a.hires); bQ.classList.toggle("open", aqOpen); }
+    if (a) { bQ.textContent = a.short; bQ.classList.toggle("ll", a.lossless); bQ.classList.toggle("hr", a.hires); bQ.classList.toggle("open", aqOpen); }
+    det.textContent = a && aqOpen ? a.long : ""; det.classList.toggle("on", !!(a && aqOpen));
     const id = qid(), dj = id && djStatus[id];
     bD.hidden = !djAvail; bD.classList.toggle("on", !!dj); bD.title = dj ? "AI DJ · " + hostName(dj) : "AI DJ";
-    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden);
+    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden);
   }
   let lastQ = "", n = 0;
   setInterval(() => {

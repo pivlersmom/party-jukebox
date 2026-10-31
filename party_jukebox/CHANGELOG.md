@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.28
+- Jukebox ⚙: Party-Name direkt in der App ändern (TV übernimmt ihn sofort, auch im Party-Plugin von Music Assistant)
+- Autoplay-Knopf (∞, animiert): am Ende der Warteschlange hängt Music Assistant ähnliche Titel an
+
 ## 0.1.27
 - Jukebox-Kopf: nur Logo + Lautsprecher, der Name der Box hat jetzt Platz
 - Unter dem Titel: Übergänge an/aus (animiert), Audioqualität (HQ / Hi-Res / MP3 – antippen zeigt Format und Übertragungsrate), AI-Radio-DJ mit Moderator-Auswahl (animiert, nur wenn das MA-Plugin „AI Radio“ da ist)
