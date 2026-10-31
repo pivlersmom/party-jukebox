@@ -620,6 +620,7 @@ let setData = null;
 async function setFetch(body) {
   const r = await fetch("party/settings", body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
+  if (r.status === 403 && j.host === false || /Gastgeber-PIN/.test(j.error || "")) { location.href = "host.html?next=jukebox.html"; }
   if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
   return j;
 }
@@ -670,6 +671,12 @@ function renderSettings() {
   else html += swRow("plugin", "Party-Plugin", P.enabled ? "Gäste können per QR-Code mitmachen" : "ausgeschaltet – keine Gäste-Anmeldung", P.enabled);
   html += '<a class="row lrow" href="' + esc(maLink) + '" target="_blank" rel="noopener"><span class="rm"><span class="r1">In Music Assistant öffnen</span>' +
     '<span class="r2">alle Plugin-Einstellungen (Party-Name, Player, Farben …)</span></span><span class="lic">↗</span></a>';
+  html += '<div class="shh gsh">Gastgeber-PIN</div>' +
+    '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
+    (d.host_pin ? "Neue PIN (4–8 Ziffern)" : "PIN festlegen (4–8 Ziffern)") + '"><button class="act" id="pinSave">Speichern</button></div>' +
+    '<div class="rshint">' + (d.host_pin ? "🔒 Aktiv: Jukebox und Einstellungen nur nach PIN. Gäste-Seite → Logo lange drücken → PIN. "
+      : "Ohne PIN kann jeder im WLAN die Jukebox öffnen. ") + "Gäste-Seite und TV-Anzeige bleiben frei.</div>" +
+    (d.host_pin ? '<button class="act rsb2" id="pinDel">PIN entfernen</button>' : "");
   html += '<div class="shh gsh">Gäste</div>';
   html += '<a class="row lrow" href="party.html"><span class="rm"><span class="r1">Gäste-Seite öffnen</span>' +
     '<span class="r2">zurück über „‹ Jukebox“ oben</span></span><span class="lic">›</span></a>';
@@ -704,6 +711,22 @@ function renderSettings() {
       pn.addEventListener("keydown", e => { if (e.key === "Enter") { pn.blur(); } });
     }
     const ra = c.querySelector("#rmAdd"); if (ra) ra.onclick = () => openRoom(null);
+    const pinIn = c.querySelector("#pinIn"), pinSave = c.querySelector("#pinSave"), pinDel = c.querySelector("#pinDel");
+    const pinPost = (pin) => fetch("party/host/pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) })
+      .then(r => r.json().then(j => { if (!r.ok || !j.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }));
+    if (pinSave) pinSave.onclick = () => {
+      const v = pinIn.value.trim();
+      if (!/^\d{4,8}$/.test(v)) { toast("PIN: 4 bis 8 Ziffern"); pinIn.focus(); return; }
+      pinSave.disabled = true;
+      pinPost(v).then(() => { setData.host_pin = true; toast("🔒 Gastgeber-PIN gespeichert – andere Geräte sind abgemeldet"); renderSettings(); })
+        .catch(e => toast("Nicht gespeichert: " + e.message)).finally(() => { pinSave.disabled = false; });
+    };
+    if (pinIn) pinIn.addEventListener("keydown", e => { if (e.key === "Enter") pinSave.click(); });
+    if (pinDel) pinDel.onclick = () => {
+      if (pinDel.dataset.ok !== "1") { pinDel.dataset.ok = "1"; pinDel.textContent = "Wirklich entfernen?"; pinDel.classList.add("danger");
+        setTimeout(() => { if (pinDel.isConnected) { pinDel.dataset.ok = ""; pinDel.textContent = "PIN entfernen"; pinDel.classList.remove("danger"); } }, 3000); return; }
+      pinPost("").then(() => { setData.host_pin = false; toast("Gastgeber-PIN entfernt"); renderSettings(); }).catch(e => toast("Fehler: " + e.message));
+    };
     c.querySelectorAll(".rsb").forEach(b => b.onclick = () => {
       const k = b.dataset.r;
       if (b.dataset.ok !== "1") { b.dataset.ok = "1"; const t0 = b.textContent; b.textContent = "Wirklich löschen?"; b.classList.add("danger");

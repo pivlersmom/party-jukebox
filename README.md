@@ -98,7 +98,7 @@ Die Apps gibt es unter [Releases](https://github.com/pivlersmom/party-jukebox/re
 
 ## Sicherheit
 
-- Die Seiten sind **ohne Anmeldung im Heimnetz** erreichbar (Port 8099). Wer im WLAN ist, kann die Jukebox bedienen.
+- Die Seiten sind im Heimnetz erreichbar (Port 8099). **Gastgeber-PIN** (Jukebox → ⚙ → Gastgeber-PIN): Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur nach PIN, das Gerät bleibt angemeldet. Gäste-Seite und TV-Anzeige bleiben frei. Auf der Gäste-Seite führt **Logo lange drücken** zur PIN-Abfrage. Ohne PIN kann jeder im WLAN die Jukebox öffnen.
 - Der Browser bekommt **keinen Zugriff auf Home Assistant**. Gäste können nichts im Haus steuern – HA nutzt nur das Add-on selbst (Skripte, Benachrichtigungen, Bewegungsmelder der eingetragenen Räume).
 - Gäste in einem getrennten Gäste-WLAN erreichen die Seiten nicht. Port 8099 **nicht** ins Internet freigeben.
 

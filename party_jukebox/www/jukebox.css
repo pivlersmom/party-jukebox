@@ -430,3 +430,9 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
 .mbtn.radio.on .w2{animation:rdW 1.8s ease-in-out .3s infinite}
 .mbtn.radio.arm{color:#ffb35c;border-color:#ffb35c}
 @keyframes rdW{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* Gastgeber-PIN */
+.pinrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0 2px}
+.pinrow .fi:not(:placeholder-shown){letter-spacing:4px}
+.pinrow .act{margin-top:0;height:46px;width:auto;padding:0 18px;font-size:14px}
+.rsb2{height:42px;font-size:14px;margin:8px 2px 0;width:calc(100% - 4px)}

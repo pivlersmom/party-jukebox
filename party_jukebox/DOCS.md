@@ -53,7 +53,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 - **Songtext** – im Reiter „Läuft“ das Cover kurz antippen.
 
 ## 5. Sicherheit
-- Die Seiten sind ohne Anmeldung im Heimnetz erreichbar. Wer im WLAN ist, kann auch die Jukebox öffnen.
+- **Gastgeber-PIN** in der Jukebox unter ⚙ → Gastgeber-PIN festlegen: Danach sind Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur nach PIN erreichbar (jedes Gerät einmal, bleibt angemeldet). Gäste-Seite und TV-Anzeige bleiben frei. Auf der Gäste-Seite: Logo lange drücken → PIN → Jukebox. Ohne PIN kann jeder im WLAN die Jukebox öffnen.
 - Auf Home Assistant selbst haben die Seiten **keinen Zugriff** – niemand kann über das Add-on Lichter, Schlösser o. Ä. steuern.
 - Port 8099 **nicht** im Router ins Internet freigeben.
 

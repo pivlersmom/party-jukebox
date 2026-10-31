@@ -186,8 +186,19 @@ body.srch #resCard .h{display:none}
 <div class="toast" id="toast"></div>
 <!-- Einstellungen aus dem Add-on (window.PJ), danach die Seiten-Skripte (Server liefert .js mit no-cache) -->
 <script src="config.js"></script>
-<script>/* Gastgeber (hat auf diesem Gerät schon die Jukebox geöffnet): Knopf zurück zur Jukebox */
-try{ if(localStorage.getItem('pj_host')==='1') document.getElementById('hostBtn').classList.remove('hide'); }catch(e){}</script>
+<script>/* Gastgeber: Knopf „‹ Jukebox“ nur für angemeldete Geräte (mit PIN) bzw. Geräte, die die Jukebox schon geöffnet haben (ohne PIN).
+   Logo lange drücken → Gastgeber-Anmeldung (PIN) → Jukebox. */
+(function(){
+  var hb=document.getElementById('hostBtn'), flag=false;
+  try{ flag=localStorage.getItem('pj_host')==='1'; }catch(e){}
+  fetch('party/host?_='+Date.now(),{cache:'no-store'}).then(function(r){ return r.json(); })
+    .then(function(j){ if(j.pin?j.host:flag) hb.classList.remove('hide'); }).catch(function(){});
+  var lg=document.querySelector('header .lg'), t=null;
+  function down(){ t=setTimeout(function(){ t=null; try{ navigator.vibrate&&navigator.vibrate(30); }catch(e){} location.href='host.html?next=jukebox.html'; },900); }
+  function up(){ if(t){ clearTimeout(t); t=null; } }
+  if(lg){ lg.addEventListener('pointerdown',down); ['pointerup','pointerleave','pointercancel'].forEach(function(ev){ lg.addEventListener(ev,up); });
+    lg.addEventListener('contextmenu',function(e){ e.preventDefault(); }); lg.style.webkitTouchCallout='none'; lg.style.userSelect='none'; }
+})();</script>
 <script>
 /* Titel aus den Add-on-Optionen */
 (function(){ var n=(window.PJ&&window.PJ.name)||'Party-Jukebox'; document.title=n; document.getElementById('pTitle').textContent=n.toUpperCase(); })();

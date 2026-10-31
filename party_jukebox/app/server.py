@@ -11,7 +11,10 @@ Home Assistant und Music Assistant, damit im Browser keine Tokens nötig sind:
   /config.js              -> Einstellungen für die Seiten
 """
 import asyncio
+import hashlib
+import hmac
 import json
+import secrets
 from urllib.parse import parse_qs, urlparse
 import logging
 import os
@@ -82,6 +85,101 @@ def save_settings():
         SETTINGS_FILE.write_text(json.dumps(SETTINGS))
     except Exception as e:
         log.warning("Einstellungen nicht gespeichert: %s", e)
+
+
+# ---------------------------------------------------------------- Gastgeber-PIN
+# Ist eine PIN gesetzt, sind Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur für
+# angemeldete Geräte (Cookie) erlaubt. Gäste-Seite und TV-Anzeige bleiben frei.
+HOST_COOKIE = "pj_host"
+HOST_FAILS = {}  # IP -> [Anzahl, Sperre bis]
+
+
+def _pin_hash(pin, salt):
+    return hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), 120000).hex()
+
+
+def host_pin_set():
+    hp = SETTINGS.get("host_pin")
+    return isinstance(hp, dict) and bool(hp.get("hash"))
+
+
+def is_host(request):
+    if not host_pin_set():
+        return True
+    tok = request.cookies.get(HOST_COOKIE) or ""
+    return bool(tok) and any(hmac.compare_digest(tok, t) for t in SETTINGS.get("host_tokens") or [])
+
+
+def _host_cookie(resp, tok):
+    resp.set_cookie(HOST_COOKIE, tok, max_age=2 * 365 * 86400, httponly=True, samesite="Lax", path="/")
+
+
+def _new_host_token():
+    tok = secrets.token_urlsafe(24)
+    SETTINGS["host_tokens"] = ((SETTINGS.get("host_tokens") or []) + [tok])[-30:]
+    return tok
+
+
+async def host_get(request):
+    return web.json_response({"pin": host_pin_set(), "host": is_host(request)}, headers={"Cache-Control": "no-store"})
+
+
+async def host_login(request):
+    ip = request.remote or "?"
+    n, until = HOST_FAILS.get(ip, [0, 0])
+    if until > time.time():
+        return web.json_response({"ok": False, "error": f"Zu viele Versuche – in {int(until - time.time()) + 1} s nochmal"}, status=429)
+    try:
+        pin = str((await request.json()).get("pin") or "").strip()
+    except Exception:
+        pin = ""
+    if not host_pin_set():
+        return web.json_response({"ok": True, "pin": False})
+    hp = SETTINGS["host_pin"]
+    if not pin or not hmac.compare_digest(_pin_hash(pin, hp["salt"]), hp["hash"]):
+        n += 1
+        HOST_FAILS[ip] = [n, time.time() + (60 if n >= 5 else 0)]
+        log.info("Gastgeber-PIN falsch (%s, %d. Versuch)", ip, n)
+        return web.json_response({"ok": False, "error": "Falsche PIN"}, status=403)
+    HOST_FAILS.pop(ip, None)
+    tok = _new_host_token()
+    save_settings()
+    resp = web.json_response({"ok": True})
+    _host_cookie(resp, tok)
+    log.info("Gastgeber angemeldet (%s)", ip)
+    return resp
+
+
+async def host_pin_post(request):
+    if not is_host(request):
+        return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig"}, status=403)
+    try:
+        pin = str((await request.json()).get("pin") or "").strip()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    if not pin:
+        SETTINGS.pop("host_pin", None)
+        SETTINGS.pop("host_tokens", None)
+        save_settings()
+        log.info("Gastgeber-PIN entfernt")
+        return web.json_response({"ok": True, "pin": False})
+    if not re.fullmatch(r"\d{4,8}", pin):
+        return web.json_response({"ok": False, "error": "PIN: 4 bis 8 Ziffern"}, status=400)
+    salt = secrets.token_hex(16)
+    SETTINGS["host_pin"] = {"salt": salt, "hash": _pin_hash(pin, salt)}
+    SETTINGS["host_tokens"] = []  # alle anderen Geräte abmelden
+    tok = _new_host_token()
+    save_settings()
+    resp = web.json_response({"ok": True, "pin": True})
+    _host_cookie(resp, tok)
+    log.info("Gastgeber-PIN gesetzt")
+    return resp
+
+
+# Ohne Gastgeber-Anmeldung erlaubte MA-Befehle mit Token "addon" (TV-Anzeige: nur lesen)
+GUEST_MA_CMDS = {"auth", "players/all", "players/get", "player_queues/all", "player_queues/get", "player_queues/get_active_queue",
+                 "player_queues/items", "metadata/get_track_lyrics", "music/item_by_uri", "party/url", "party/config",
+                 "providers/icon", "subscribe_events", "info"}
 
 
 def drinks():
@@ -524,6 +622,8 @@ async def rooms_info(session):
 
 async def party_ha_entities(request):
     """Auswahl-Listen für die Raum-Einstellungen: Bewegungsmelder und Schalter (nur Namen, keine Steuerung)."""
+    if not is_host(request):
+        return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig"}, status=403)
     if not SUP_TOKEN:
         return web.json_response({"sensors": [], "switches": []})
     try:
@@ -768,7 +868,10 @@ async def party_settings_get(request):
            **tv_settings(),
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
-           "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN)}
+           "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN),
+           "host_pin": host_pin_set()}
+    if not is_host(request):
+        return web.json_response({**out, "host": False}, status=403, headers={"Cache-Control": "no-store"})
     try:
         out["rooms"] = await rooms_info(request.app["session"])
     except Exception as e:
@@ -790,6 +893,10 @@ async def party_settings_post(request):
         data = await request.json()
     except Exception:
         return web.json_response({"ok": False}, status=400)
+    if not is_host(request):
+        # Ohne Gastgeber-Anmeldung darf nur die TV-Anzeige den Songtext-Versatz melden
+        if set(data) - {"lyr_offset", "tv_only"}:
+            return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig"}, status=403)
     for k in ("effects", "skip_votes"):
         if isinstance(data.get(k), bool):
             SETTINGS[k] = data[k]
@@ -892,15 +999,30 @@ async def ma_websocket(request):
     session = request.app["session"]
     token = OPT.get("ma_token") or ""
 
+    host = is_host(request)
+    st = {"addon": False}
+
     def fix_auth(s):
         if '"auth"' in s and '"addon"' in s:
             try:
                 d = json.loads(s)
                 if d.get("command") == "auth" and (d.get("args") or {}).get("token") == "addon":
                     d["args"]["token"] = token
+                    st["addon"] = True
                     return json.dumps(d)
             except Exception:
                 pass
+        if st["addon"] and not host:
+            # Ohne Gastgeber-PIN: mit dem Add-on-Token nur lesen (TV-Anzeige)
+            try:
+                d = json.loads(s)
+                c = d.get("command")
+            except Exception:
+                return None
+            if c not in GUEST_MA_CMDS:
+                asyncio.ensure_future(client.send_str(json.dumps({"message_id": d.get("message_id"), "error_code": 403,
+                                                                  "details": "Gastgeber-PIN nötig"})))
+                return None
         return s
 
     try:
@@ -932,6 +1054,8 @@ async def ma_http(request):
 async def no_cache_html(request, handler):
     if request.path == "/":
         raise web.HTTPFound("/start.html")
+    if request.path in ("/jukebox.html", "/jukebox") and not is_host(request):
+        raise web.HTTPFound("/host.html?next=jukebox.html")
     resp = await handler(request)
     p = request.path
     if p.endswith((".html", ".js", ".css", ".json")) or p == "/":
@@ -984,6 +1108,9 @@ def make_app():
     app.router.add_get("/party/tv.json", party_tv_get)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
+    app.router.add_get("/party/host", host_get)
+    app.router.add_post("/party/host/login", host_login)
+    app.router.add_post("/party/host/pin", host_pin_post)
     app.router.add_get("/ma/ws", ma_websocket)
     app.router.add_get("/ma/{path:.*}", ma_http)
     app.router.add_static("/", WWW, show_index=False)

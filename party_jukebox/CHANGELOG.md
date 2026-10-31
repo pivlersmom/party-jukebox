@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.41
+- Gastgeber-PIN (Jukebox → ⚙): Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur nach PIN; Gerät bleibt angemeldet, nach 5 Fehlversuchen 1 Minute Sperre
+- Gäste-Seite: Logo lange drücken → PIN-Abfrage → Jukebox; Knopf „‹ Jukebox“ nur auf angemeldeten Geräten
+- TV-Anzeige und Gäste-Seite brauchen keine PIN (TV mit dem Add-on-Token nur noch lesend, wenn eine PIN gesetzt ist)
+
 ## 0.1.40
 - Jukebox-Einstellungen → Gäste: „Gäste-Seite öffnen“
 - Gäste-Seite: Knopf „‹ Jukebox“ oben – nur auf Geräten, auf denen die Jukebox schon geöffnet wurde (Gastgeber), Gäste sehen ihn nicht
