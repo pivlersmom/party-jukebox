@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.8
+- Lichteffekt-Skripte und Nachschub-Benachrichtigung funktionieren (Supervisor-Token wurde unter s6 nicht gefunden)
+- Protokoll zeigt, ob Home Assistant erreichbar ist und welche Skripte ausgeführt wurden
+
 ## 0.1.7
 - Jukebox: Lautstärke-Regler mit Punkt im Farbverlauf, Fortschrittsbalken des Titels ohne Punkt
 
