@@ -61,9 +61,11 @@ TV.note=function(t){
 TV.img=function(im,size){
   if(!im) return '';
   if(typeof im==='string') return im;
+  var sz=[80,160,256,512,1024].filter(function(x){return x>=(size||256);})[0]||1024;
+  if(im.proxy_id) return 'ma/imageproxy/'+encodeURIComponent(im.proxy_id)+'?size='+sz;
   if(!im.path) return '';
   if(/^https?:\/\//i.test(im.path) && im.remotely_accessible!==false) return im.path;
-  return 'ma/imageproxy?size='+(size||256)+'&provider='+encodeURIComponent(im.provider||'')+'&path='+encodeURIComponent(im.path);
+  return 'ma/imageproxy?size='+sz+'&provider='+encodeURIComponent(im.provider||'')+'&path='+encodeURIComponent(im.path);
 };
 function pickImg(it){
   var mi=it.media_item||{};
