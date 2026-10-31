@@ -28,7 +28,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 OPTIONS_FILE = Path("/data/options.json")
 STATE_FILE = Path("/data/party.json")
 WWW = Path(__file__).parent / "www"
-SUP_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+def _sup_token():
+    """Supervisor-Token: Umgebung, sonst s6-Container-Umgebung (CMD läuft unter s6 ohne with-contenv)."""
+    t = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN") or ""
+    if not t:
+        for f in ("/run/s6/container_environment/SUPERVISOR_TOKEN", "/var/run/s6/container_environment/SUPERVISOR_TOKEN"):
+            try:
+                t = Path(f).read_text().strip()
+                if t:
+                    break
+            except Exception:
+                pass
+    return t
+
+
+SUP_TOKEN = _sup_token()
 HA_HTTP = "http://supervisor/core/api"
 PORT = 8099
 
@@ -211,12 +225,15 @@ PARTY = Party()
 # ---------------------------------------------------------------- Home Assistant
 async def ha_call(session, domain, service, data):
     if not SUP_TOKEN:
+        log.warning("Kein Supervisor-Token – %s.%s nicht möglich", domain, service)
         return
     try:
         async with session.post(f"{HA_HTTP}/services/{domain}/{service}", json=data,
                                 headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=15) as r:
             if r.status >= 400:
                 log.warning("HA %s.%s -> %s %s", domain, service, r.status, await r.text())
+            else:
+                log.info("HA %s.%s ausgeführt", domain, service)
     except Exception as e:
         log.warning("HA %s.%s fehlgeschlagen: %s", domain, service, e)
 
@@ -497,6 +514,7 @@ async def on_startup(app):
     app["session"] = aiohttp.ClientSession()
     MAC.base = await discover_ma(app["session"])
     log.info("Music Assistant: %s (Token %s)", MAC.base, "gesetzt" if OPT.get("ma_token") else "FEHLT")
+    log.info("Home Assistant: %s", "verbunden (Skripte/Benachrichtigungen möglich)" if SUP_TOKEN else "KEIN Supervisor-Token")
     if OPT.get("ma_token") and OPT.get("party_player"):
         pid = await resolve_player(app["session"])
         if pid:
