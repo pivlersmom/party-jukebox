@@ -527,9 +527,40 @@ function openPlayers() {
     return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic">' + ICON.speaker +
       '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span><span class="chk">' + ICON.check + "</span></button>";
   }).join("");
-  openSheet("players", html, c => c.querySelectorAll(".prow").forEach(b => {
-    b.onclick = () => { const id = b.dataset.id; closeSheet(); selectPlayer(id); toast("Lautsprecher: " + pname(S.players[id])); };
-  }));
+  /* Gruppieren: weitere Lautsprecher mit dem gewählten mitspielen lassen */
+  const lead = S.players[S.pid];
+  if (S.ready && lead) {
+    const can = Array.isArray(lead.can_group_with) ? lead.can_group_with : null;
+    const mem = lead.group_members || [];
+    const cand = Object.values(S.players).filter(p => p.player_id !== S.pid && p.available !== false && p.enabled !== false &&
+      !p.hide_in_ui && !HIDE_TYPES.includes(p.type) && p.type !== "group" &&
+      (p.synced_to === S.pid || mem.includes(p.player_id) || !can || can.includes(p.player_id)))
+      .sort((a, b) => pname(a).localeCompare(pname(b), "de"));
+    if (cand.length) {
+      html += '<div class="shh gsh">Mitspielen mit ' + esc(pname(lead)) + "</div>";
+      html += cand.map(p => {
+        const on = p.synced_to === S.pid || mem.includes(p.player_id);
+        const busy = !on && p.synced_to ? "spielt mit " + pname(S.players[p.synced_to]) : (on ? "spielt mit" : "");
+        return '<button class="row grow' + (on ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic">' + ICON.speaker +
+          '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(busy) + '</span></span><span class="gsw"><i></i></span></button>';
+      }).join("");
+    }
+  }
+  openSheet("players", html, c => {
+    c.querySelectorAll(".prow").forEach(b => {
+      b.onclick = () => { const id = b.dataset.id; closeSheet(); selectPlayer(id); toast("Lautsprecher: " + pname(S.players[id])); };
+    });
+    c.querySelectorAll(".grow").forEach(b => {
+      b.onclick = () => {
+        const id = b.dataset.id, on = b.classList.contains("on"), lid = S.pid;
+        b.classList.toggle("on", !on); b.disabled = true;
+        const p = on ? cmd("players/cmd/ungroup", { player_id: id }) : cmd("players/cmd/group", { player_id: id, target_player: lid });
+        p.then(() => toast(pname(S.players[id]) + (on ? " spielt nicht mehr mit" : " spielt jetzt mit")),
+               e => { b.classList.toggle("on", on); toast("Music Assistant: " + errText(e)); })
+         .finally(() => { b.disabled = false; later(() => { if (sheetKind === "players") openPlayers(); }, 1200, "pl"); });
+      };
+    });
+  });
 }
 $("#plBtn").onclick = openPlayers;
 
