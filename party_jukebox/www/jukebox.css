@@ -19,7 +19,7 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-l
 /* Cover-Schimmer im Hintergrund */
 #glow{position:fixed;left:-25%;right:-25%;top:-20%;height:70%;background:center/cover no-repeat;
   filter:blur(70px) saturate(1.4);opacity:.32;pointer-events:none;z-index:0}
-header,main,nav,#mini,#banner{position:relative;z-index:1}
+header,main,nav,#mini,#banner,#guests{position:relative;z-index:1}
 
 /* Kopf */
 header{display:flex;align-items:center;gap:12px;padding:calc(10px + var(--st)) 16px 8px}
@@ -286,3 +286,13 @@ button.vg.open .vgc{transform:rotate(180deg)}
 .grip.off{opacity:.25;cursor:default}
 body.dragq{user-select:none;-webkit-user-select:none}
 body.dragq .grip{cursor:grabbing}
+
+/* Teilnehmer-Laufband */
+#guests{display:flex;align-items:center;gap:8px;margin:0 16px 6px;height:30px;padding:0 10px;border-radius:999px;background:rgba(0,240,224,.08);border:1px solid rgba(0,240,224,.25);overflow:hidden}
+#guests[hidden]{display:none}
+#guests .gc{display:flex;align-items:center;gap:5px;flex:none;color:var(--a2);font-weight:800;font-size:12px;white-space:nowrap}
+#guests .gc svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#guests .vw{flex:1;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+#guests .rn{display:inline-flex;gap:10px;white-space:nowrap;padding-left:100%;animation:gmq var(--d,12s) linear infinite;font-size:13px;font-weight:700}
+#guests .rn i{font-style:normal;color:var(--dim)}
+@keyframes gmq{to{transform:translateX(-100%)}}
