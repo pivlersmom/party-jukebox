@@ -266,6 +266,11 @@ body.haslyr .it2{font-size:1.9vh}
 #dedOv .v,#boOv .v{font-size:3.4vh;font-weight:700;color:var(--tx2)}
 #dedOv .v b{color:var(--tx)}
 #dedOv .s,#boOv .s{margin-top:3vh;font-size:2.4vh;font-weight:600;color:var(--cyan)}
+#dedOv .s{display:flex;align-items:center;justify-content:center;gap:1.6vh;text-align:left}
+#dedOv .s .dart{width:9vh;height:9vh;border-radius:1.4vh;object-fit:cover;flex:none;box-shadow:0 1vh 3vh rgba(0,0,0,.5),0 0 0 2px rgba(255,255,255,.12)}
+#dedOv .s .dart.ph{display:grid;place-items:center;background:var(--s3);font-size:4vh}
+#dedOv .s .dtx{display:flex;flex-direction:column;min-width:0;font-size:2.8vh;font-weight:800;color:var(--tx)}
+#dedOv .s .dtx small{font-size:2.2vh;font-weight:600;color:var(--cyan);margin-top:.4vh}
 #dedOv .cf{position:absolute;left:50%;top:50%;width:1.2vh;height:2vh;border-radius:2px;animation:dcf 1.8s ease-out forwards}
 @keyframes dcf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(var(--r))}}
 #boOv{background:rgba(30,6,6,.55)}

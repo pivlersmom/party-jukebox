@@ -87,7 +87,9 @@ function dedicate(x){
     var c=TV.cur||{};
     $('dedF').innerHTML=gradHtml('Für '+x.d);
     $('dedV').innerHTML='von <b>'+esc(x.n)+'</b>';
-    $('dedS').textContent='🎵 '+(c.title||'')+(c.artist?' – '+c.artist:'');
+    var im=$('art-img'), src=im&&im.style.display!=='none'?im.getAttribute('src'):'';
+    $('dedS').innerHTML=(src?'<img class="dart" alt="" src="'+esc(src)+'">':'<span class="dart ph">🎵</span>')+
+      '<span class="dtx">'+esc(c.title||'')+(c.artist?'<small>'+esc(c.artist)+'</small>':'')+'</span>';
     $('dedOv').classList.add('on');
     var bx=$('dedBx'), N=TV.lite?20:40;
     for(var i=0;i<N;i++){

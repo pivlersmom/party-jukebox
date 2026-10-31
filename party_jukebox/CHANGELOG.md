@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.26
+- TV-Widmung: Cover des Songs statt Notensymbol, darunter Titel und Interpret
+
 ## 0.1.25
 - Jukebox ⚙ → Party zurücksetzen: Getränke-Ranking bzw. Wünsche/Vordrängler leeren (mit Rückfrage)
 - Getränke-Ranking verschwindet jetzt automatisch vom TV, wenn 12 Stunden nichts bestellt wurde (vorher erst bei der nächsten Bestellung)
