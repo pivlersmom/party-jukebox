@@ -73,7 +73,7 @@ Zahnrad oben rechts:
 | `ma_token` | Token aus Music Assistant (Pflicht) |
 | `party_name` | Titel auf TV und Party-Seite |
 | `party_player` | MA-Player für die Party (leer = der gerade spielende) |
-| `notify_service` | z. B. `notify.mobile_app_mein_handy` – Nachschub-Bestellungen aufs Handy/die Uhr (leer = aus) |
+| `notify_service` | z. B. `notify.mobile_app_mein_iphone` – Nachschub-Bestellungen aufs Handy/die Uhr, Android und iPhone; mehrere mit Komma trennen (leer = aus) |
 | `script_wish` / `script_boost` / `script_drink` | Optionale HA-Skripte, z. B. Lichteffekte – fertige Vorlagen im Ordner [`lichteffekte`](lichteffekte/) |
 | `skip_votes` | Song überspringen, wenn die Mehrheit der Gäste 👎 stimmt |
 | `drinks` | Getränkeliste, je Zeile `Name|Emoji|Satz` (z. B. `Bier|🍺|ein Bier`) |

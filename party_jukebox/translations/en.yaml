@@ -13,7 +13,7 @@ configuration:
     description: Music Assistant player (name or ID) for TV and jukebox. Empty = the player currently playing.
   notify_service:
     name: Drink order notification
-    description: e.g. notify.mobile_app_my_phone – you get a message when a guest orders a drink. Empty = off.
+    description: e.g. notify.mobile_app_my_iphone – you get a message when a guest orders a drink (Android, iPhone, watch). Separate several with commas. Empty = off.
   script_wish:
     name: Script on song wish
     description: Optional HA script (e.g. a light effect) that runs when a guest wishes a song.

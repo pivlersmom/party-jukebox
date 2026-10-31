@@ -13,7 +13,7 @@ configuration:
     description: Music-Assistant-Player (Name oder ID) für TV und Jukebox. Leer = der gerade spielende Player.
   notify_service:
     name: Benachrichtigung für Nachschub
-    description: z. B. notify.mobile_app_mein_handy – bestellt ein Gast ein Getränk, kommt eine Nachricht. Leer = aus.
+    description: z. B. notify.mobile_app_mein_iphone – bestellt ein Gast ein Getränk, kommt eine Nachricht (Android, iPhone, Uhr). Mehrere mit Komma trennen. Leer = aus.
   script_wish:
     name: Skript bei Wunsch
     description: Optionales HA-Skript (z. B. script.lichteffekt_wunsch), das bei einem neuen Songwunsch läuft.

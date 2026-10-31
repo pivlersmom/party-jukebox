@@ -272,14 +272,19 @@ async def run_script(session, entity):
 
 
 async def notify_drink(session, x):
-    svc = (OPT.get("notify_service") or "").strip()
-    if not svc.startswith("notify."):
-        return
-    await ha_call(session, "notify", svc.split(".", 1)[1], {
-        "title": f"{x.get('e', '🍺')} Nachschub",
-        "message": f"{x.get('n')} möchte {x.get('p')}",
-        "data": {"tag": f"party_nachschub_{x.get('g')}", "channel": "Party", "color": "#ffb020"},
-    })
+    """Nachschub-Meldung an einen oder mehrere notify-Dienste (durch Komma getrennt), Android und iPhone."""
+    for svc in [v.strip() for v in (OPT.get("notify_service") or "").split(",")]:
+        if not svc.startswith("notify."):
+            continue
+        await ha_call(session, "notify", svc.split(".", 1)[1], {
+            "title": f"{x.get('e', '🍺')} Nachschub",
+            "message": f"{x.get('n')} möchte {x.get('p')}",
+            "data": {
+                "tag": f"party_nachschub_{x.get('g')}",          # Android + iPhone: ersetzt die vorige Meldung desselben Gastes
+                "channel": "Party", "color": "#ffb020",          # nur Android
+                "push": {"sound": "default", "interruption-level": "time-sensitive"},  # nur iPhone/Apple Watch
+            },
+        })
 
 
 # ---------------------------------------------------------------- Räume: Auto-Beitritt per Bewegungsmelder
