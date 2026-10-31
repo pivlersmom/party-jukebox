@@ -475,8 +475,17 @@ def _values(cfg):
     return {k: (e.get("value") if isinstance(e, dict) else e) for k, e in v.items()}
 
 
+def tv_settings():
+    return {"lyr_offset": float(setting("lyr_offset", 0.5)), "tv_lite": setting("tv_lite", "auto")}
+
+
+async def party_tv_get(request):
+    return web.json_response(tv_settings(), headers={"Cache-Control": "no-store"})
+
+
 async def party_settings_get(request):
     out = {"effects": bool(setting("effects", True)),
+           **tv_settings(),
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
            "limits": None}
@@ -498,7 +507,13 @@ async def party_settings_post(request):
     for k in ("effects", "skip_votes"):
         if isinstance(data.get(k), bool):
             SETTINGS[k] = data[k]
+    if isinstance(data.get("lyr_offset"), (int, float)) and not isinstance(data.get("lyr_offset"), bool):
+        SETTINGS["lyr_offset"] = round(max(-8.0, min(8.0, float(data["lyr_offset"]))), 1)
+    if data.get("tv_lite") in ("auto", "on", "off"):
+        SETTINGS["tv_lite"] = data["tv_lite"]
     save_settings()
+    if data.get("tv_only"):
+        return web.json_response({"ok": True, **tv_settings()}, headers={"Cache-Control": "no-store"})
     lim = data.get("limits")
     if isinstance(lim, dict):
         vals = {}
@@ -635,6 +650,7 @@ def make_app():
     app.router.add_get("/party/guests.json", party_guests)
     app.router.add_get("/party/join.json", party_join)
     app.router.add_get("/party/settings", party_settings_get)
+    app.router.add_get("/party/tv.json", party_tv_get)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/ma/ws", ma_websocket)
     app.router.add_get("/ma/{path:.*}", ma_http)

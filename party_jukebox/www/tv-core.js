@@ -2,7 +2,7 @@
    - Music Assistant über den Add-on-Proxy (ma/ws). Anmeldung mit Token "addon" – den echten Token setzt der Server ein.
    - Player: PJ.player (MA-Player-ID oder Name); leer/nicht gefunden → der Player, der gerade spielt.
    - aktueller Song (Cover, Titel, Fortschritt), Warteschlange + zuletzt gespielt (player_queues/items).
-   - Uhr, Party-Titel (PJ.name), Lite-Modus (Raspberry Pi automatisch, nicht Android-TV, ?lite=1 / ?lite=0 wird gemerkt).
+   - Uhr, Party-Titel (PJ.name), Lite-Modus (Jukebox-Einstellung; Automatisch = nur Raspberry Pi; ?lite=1 / ?lite=0).
    - ohne MA-Token: Hinweis "Music Assistant im Add-on einrichten".
    - lädt die Seite neu, sobald die TV-Dateien geändert wurden (Add-on-Update).
    Andere Module hängen sich ein: TV.on('ma'|'track'|'qstate'|'queue'|'frame'|'wishes', fn). */
@@ -22,13 +22,24 @@ TV.cssUrl=function(u){ return u?'url("'+String(u).replace(/["\\\n\r]/g,function(
 TV.NOTE='<svg class="ic" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 function noop(){}
 
-/* ---------- Lite-Modus ---------- */
+/* ---------- Lite-Modus + TV-Einstellungen aus der Jukebox ---------- */
 (function(){
-  var ua=navigator.userAgent+' '+(navigator.platform||''), arm=/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua), q=null, on=arm;
-  try{ q=new URLSearchParams(location.search).get('lite'); }catch(e){}
-  try{ if(q==='1'||q==='0') localStorage.setItem('tv_lite',q); var s=localStorage.getItem('tv_lite'); on=s!=null?s==='1':arm; }catch(e){ on=q==='1'||(q!=='0'&&arm); }
-  TV.lite=on;
-  if(on) document.documentElement.classList.add('lite');
+  var ua=navigator.userAgent+' '+(navigator.platform||''), auto=/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua), q=null;
+  try{ q=new URLSearchParams(location.search).get('lite'); localStorage.removeItem('tv_lite'); }catch(e){}
+  TV.set={lyr_offset:0.5,tv_lite:'auto'};
+  function apply(){
+    var m=TV.set.tv_lite, on=q==='1'?true:q==='0'?false:m==='on'?true:m==='off'?false:auto;
+    TV.lite=on; document.documentElement.classList.toggle('lite',on);
+  }
+  apply();
+  TV.loadSet=function(){
+    return fetch('party/tv.json?_='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).then(function(j){
+      if(!j) return;
+      var ch=j.lyr_offset!==TV.set.lyr_offset||j.tv_lite!==TV.set.tv_lite;
+      TV.set=j; if(ch){ apply(); TV.emit('set',j); }
+    }).catch(function(){});
+  };
+  TV.loadSet(); setInterval(TV.loadSet,10000);
 })();
 
 /* ---------- Party-Titel ---------- */

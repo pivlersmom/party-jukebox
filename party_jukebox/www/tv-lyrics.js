@@ -2,18 +2,19 @@
    Quellen der Reihe nach: Music Assistant (LRC/Text am Titel) → lrclib.net (zeitgenau; ohne Mix-Zusatz; Suche)
    → normaler Text gleichmäßig über die Songlänge verteilt.
    Anzeige mehrzeilig, aktuelle Zeile hervorgehoben, weiches Mitscrollen. Ohne Text bleibt die Karte aus.
-   Versatz: unsichtbaren Streifen unten antippen → −/+ in 0,2-s-Schritten (im Browser gemerkt, ?lookahead=… geht auch). */
+   Versatz: unsichtbaren Streifen unten antippen → −/+ in 0,2-s-Schritten (wird im Add-on gespeichert, auch in der Jukebox unter ⚙ einstellbar; ?lookahead=… geht auch). */
 (function(){
 'use strict';
 var TV=window.TV; if(!TV) return;
 var $=TV.$, card=$('lyrCard'), box=$('lyrBox'), inner=$('lyrIn');
 var lines=null, gen=0, act=-2, cache={}, cacheN=0;
 
-var look=0.5;
-try{
-  var qp=new URLSearchParams(location.search).get('lookahead'), st=localStorage.getItem('tv_lyr_offset');
-  look=parseFloat(qp!=null?qp:(st!=null?st:'0.5')); if(isNaN(look)) look=0.5;
-}catch(e){}
+var look=0.5, qp=null;
+try{ qp=new URLSearchParams(location.search).get('lookahead'); localStorage.removeItem('tv_lyr_offset'); }catch(e){}
+function fromSet(){
+  var v=parseFloat(qp!=null?qp:(TV.set&&TV.set.lyr_offset)); if(!isNaN(v)){ look=v; act=-2; }
+}
+fromSet(); TV.on('set',fromSet);
 
 /* ---------- Anzeige ---------- */
 function setOn(on){ card.classList.toggle('on',!!on); document.body.classList.toggle('haslyr',!!on); }
@@ -158,8 +159,11 @@ function render(){ $('lyr-val').textContent=(look>0?'+':'')+look.toFixed(1)+'s';
 function showBar(){ bar.classList.add('on'); render(); clearTimeout(hideT); hideT=setTimeout(function(){ bar.classList.remove('on'); },6000); }
 function step(d){
   look=Math.max(-8,Math.min(8,Math.round((look+d)*10)/10));
-  try{ localStorage.setItem('tv_lyr_offset',String(look)); }catch(e){}
   act=-2; showBar();
+  if(TV.set) TV.set.lyr_offset=look;
+  clearTimeout(step.t); step.t=setTimeout(function(){
+    fetch('party/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lyr_offset:look,tv_only:true})}).catch(function(){});
+  },800);
 }
 var hit=$('lyr-hit');
 hit.addEventListener('click',showBar);

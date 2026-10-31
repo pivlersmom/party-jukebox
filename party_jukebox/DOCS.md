@@ -50,6 +50,8 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 | TV zeigt keinen QR-Code bzw. Gäste kommen nicht rein | Party-Plugin in Music Assistant aktivieren |
 | Handy öffnet den QR-Code nicht | TV-Seite über die IP-Adresse statt `homeassistant.local` öffnen |
 | Falscher Lautsprecher | **Party-Player** in der Konfiguration setzen bzw. in der Jukebox oben rechts wechseln |
+| Songtext läuft zu früh/zu spät | Jukebox ⚙ → **Songtext-Versatz** anpassen (+ = Text früher) |
+| TV ruckelt | Jukebox ⚙ → Darstellung **Spar-Modus** |
 | Song wird trotz 👎 nicht übersprungen | Option **Abstimmung überspringt Songs** prüfen; nötig ist die Mehrheit der Gäste (mindestens 2) |
 
 Logs: Reiter **Protokoll** des Add-ons.

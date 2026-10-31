@@ -634,6 +634,14 @@ function renderSettings() {
   let html = '<div class="shh">Party-Einstellungen</div>';
   html += swRow("effects", "Lichteffekte", d.scripts ? "bei Wunsch, Vordrängeln und Nachschub" : "keine Skripte in den Add-on-Optionen eingetragen", !!d.effects);
   html += swRow("skip_votes", "Abstimmung überspringt Songs", "bei Mehrheit 👎 der Gäste", !!d.skip_votes);
+  html += '<div class="shh gsh">TV-Anzeige</div>';
+  const off = typeof d.lyr_offset === "number" ? d.lyr_offset : 0.5;
+  html += '<div class="nrow" data-k="lyr_offset"><span class="r1">Songtext-Versatz<small>+ = Text früher, − = später</small></span><span class="stp">' +
+    '<button data-d="-0.1" aria-label="später">−</button><b>' + (off > 0 ? "+" : "") + off.toFixed(1) + '</b><button data-d="0.1" aria-label="früher">+</button></span><span class="un">Sek.</span></div>';
+  const lm = d.tv_lite || "auto";
+  html += '<div class="segrow"><span class="r1">Darstellung</span><span class="seg">' +
+    [["auto", "Automatisch"], ["off", "Volle Optik"], ["on", "Spar-Modus"]].map(([v, t]) => '<button data-v="' + v + '"' + (lm === v ? ' class="on"' : "") + ">" + t + "</button>").join("") +
+    '</span><span class="r2">Spar-Modus: ohne unscharfes Cover und Animationen – für langsame Geräte (Automatisch = nur Raspberry Pi)</span></div>';
   html += '<div class="shh gsh">Gäste</div>';
   if (!L) html += '<div class="empty">Party-Plugin in Music Assistant nicht gefunden</div>';
   else {
@@ -652,8 +660,18 @@ function renderSettings() {
       b.classList.toggle("on", on);
       if (k === "effects" || k === "skip_votes") setSave({ [k]: on }); else setSave({ limits: { [k]: on } });
     });
+    c.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+      c.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
+      setData.tv_lite = b.dataset.v; setSave({ tv_lite: b.dataset.v });
+    });
     c.querySelectorAll(".nrow:not(.dis) .stp button").forEach(b => b.onclick = () => {
       const row = b.closest(".nrow"), k = row.dataset.k, el = row.querySelector("b");
+      if (k === "lyr_offset") {
+        const v = Math.max(-8, Math.min(8, Math.round(((typeof setData.lyr_offset === "number" ? setData.lyr_offset : 0.5) + (+b.dataset.d)) * 10) / 10));
+        setData.lyr_offset = v; el.textContent = (v > 0 ? "+" : "") + v.toFixed(1);
+        later(() => setSave({ lyr_offset: v }), 700, "setlyr");
+        return;
+      }
       const v = Math.max(k.endsWith("minutes") ? 1 : 0, Math.min(999, (parseInt(el.textContent, 10) || 0) + (+b.dataset.d)));
       el.textContent = v;
       setData.limits[k] = v;
