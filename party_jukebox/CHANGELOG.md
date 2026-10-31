@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.45
+- Android-Apps 0.1.3 zum Herunterladen (Jukebox-App lässt sich von der Gäste-Seite aus öffnen)
+
 ## 0.1.44
 - Gäste-Seite im Android-Browser: Jukebox-Logo öffnet die Jukebox-App (ab App 0.1.3), ohne App die Web-Jukebox
 
