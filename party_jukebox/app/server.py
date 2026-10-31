@@ -58,6 +58,31 @@ def load_options():
 
 OPT = load_options()
 
+# Einstellungen, die in der Jukebox geändert werden (überschreiben die Add-on-Optionen)
+SETTINGS_FILE = STATE_FILE.with_name("settings.json")
+
+
+def load_settings():
+    try:
+        d = json.loads(SETTINGS_FILE.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+SETTINGS = load_settings()
+
+
+def setting(key, default):
+    return SETTINGS[key] if key in SETTINGS else default
+
+
+def save_settings():
+    try:
+        SETTINGS_FILE.write_text(json.dumps(SETTINGS))
+    except Exception as e:
+        log.warning("Einstellungen nicht gespeichert: %s", e)
+
 
 def drinks():
     out = []
@@ -239,6 +264,8 @@ async def ha_call(session, domain, service, data):
 
 
 async def run_script(session, entity):
+    if not setting("effects", True):
+        return
     entity = (entity or "").strip()
     if entity.startswith("script."):
         await ha_call(session, "script", "turn_on", {"entity_id": entity})
@@ -346,7 +373,7 @@ async def party_ev(request):
         x = PARTY.bi[-1]
         asyncio.create_task(run_script(session, OPT.get("script_drink")))
         asyncio.create_task(notify_drink(session, x))
-    elif typ == "vote" and OPT.get("skip_votes", True):
+    elif typ == "vote" and setting("skip_votes", OPT.get("skip_votes", True)):
         down, up, need = len(PARTY.down), len(PARTY.up), PARTY.need()
         if down >= need and down > up and PARTY.vq and _last_skip["u"] != PARTY.vu:
             _last_skip.update(u=PARTY.vu, t=now())
@@ -423,6 +450,75 @@ async def config_js(request):
     }
     body = "window.PJ=" + json.dumps(cfg, ensure_ascii=False) + ";"
     return web.Response(text=body, content_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
+# ---------------------------------------------------------------- Einstellungen (Jukebox)
+LIMIT_KEYS = {  # Gast-Limits im Party-Plugin von Music Assistant
+    "enable_rate_limiting": bool, "enable_add_queue": bool, "add_queue_limit": int, "add_queue_refill_minutes": int,
+    "enable_boost": bool, "boost_limit": int, "boost_refill_minutes": int,
+    "enable_skip_song": bool, "skip_song_limit": int, "skip_song_refill_minutes": int,
+}
+
+
+async def party_provider(session):
+    lst = await MAC.cmd(session, "config/providers", {"provider_domain": "party"}) or []
+    for p in lst:
+        if (p.get("domain") or p.get("provider_domain")) == "party" or str(p.get("instance_id", "")).startswith("party"):
+            return p.get("instance_id")
+    return None
+
+
+def _values(cfg):
+    v = (cfg or {}).get("values") or {}
+    if isinstance(v, list):
+        return {e.get("key"): e.get("value") for e in v if isinstance(e, dict)}
+    return {k: (e.get("value") if isinstance(e, dict) else e) for k, e in v.items()}
+
+
+async def party_settings_get(request):
+    out = {"effects": bool(setting("effects", True)),
+           "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
+           "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
+           "limits": None}
+    try:
+        iid = await party_provider(request.app["session"])
+        if iid:
+            vals = _values(await MAC.cmd(request.app["session"], "config/providers/get", {"instance_id": iid}))
+            out["limits"] = {k: vals.get(k) for k in LIMIT_KEYS if k in vals}
+    except Exception as e:
+        log.info("Party-Plugin-Einstellungen nicht lesbar: %s", e)
+    return web.json_response(out, headers={"Cache-Control": "no-store"})
+
+
+async def party_settings_post(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    for k in ("effects", "skip_votes"):
+        if isinstance(data.get(k), bool):
+            SETTINGS[k] = data[k]
+    save_settings()
+    lim = data.get("limits")
+    if isinstance(lim, dict):
+        vals = {}
+        for k, t in LIMIT_KEYS.items():
+            if k in lim:
+                try:
+                    vals[k] = bool(lim[k]) if t is bool else max(0, min(999, int(lim[k])))
+                except Exception:
+                    pass
+        if vals:
+            try:
+                iid = await party_provider(request.app["session"])
+                if not iid:
+                    return web.json_response({"ok": False, "error": "Party-Plugin in Music Assistant nicht gefunden"}, status=404)
+                await MAC.cmd(request.app["session"], "config/providers/save",
+                              {"provider_domain": "party", "instance_id": iid, "values": vals})
+                log.info("Gast-Limits gespeichert: %s", vals)
+            except Exception as e:
+                return web.json_response({"ok": False, "error": str(e)}, status=502)
+    return await party_settings_get(request)
 
 
 # ---------------------------------------------------------------- Proxys
@@ -536,6 +632,8 @@ def make_app():
     app.router.add_get("/party/wishes.json", party_wishes)
     app.router.add_get("/party/guests.json", party_guests)
     app.router.add_get("/party/join.json", party_join)
+    app.router.add_get("/party/settings", party_settings_get)
+    app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/ma/ws", ma_websocket)
     app.router.add_get("/ma/{path:.*}", ma_http)
     app.router.add_static("/", WWW, show_index=False)

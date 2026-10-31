@@ -29,6 +29,7 @@ let toastT = null;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2600); }
 
 const ICON = {
+  gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   note: '<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
   speaker: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="3"/><circle cx="12" cy="14.5" r="3.5"/><circle cx="12" cy="7" r="1"/></svg>',
   chev: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
@@ -366,7 +367,12 @@ function renderVol() {
   if (!p) { box.classList.add("off"); setText($("#vVal"), "–"); setText($("#vGrp"), ""); volSl.set(0); return; }
   const g = groupInfo(p);
   const v = g.isGroup ? (p.group_volume != null ? p.group_volume : p.volume_level) : p.volume_level;
-  setText($("#vGrp"), v == null ? "Lautstärke nicht regelbar" : (g.isGroup ? "Gruppe · " + g.n + " Lautsprecher " + (S.memOpen ? "▴" : "▾") : ""));
+  const vg = $("#vGrp");
+  if (v == null) setText(vg, "Lautstärke nicht regelbar");
+  else if (g.isGroup) { const t = "Gruppe · " + g.n + " Lautsprecher"; if (vg.dataset.t !== t) { vg.dataset.t = t; vg.innerHTML = "<span>" + esc(t) + '</span><span class="vgc">' + ICON.chev + "</span>"; } }
+  else setText(vg, "");
+  if (v == null || !g.isGroup) vg.dataset.t = "";
+  vg.classList.toggle("open", !!S.memOpen);
   $("#vGrp").classList.toggle("tap", g.isGroup && v != null);
   renderMembers(p, g);
   box.classList.toggle("off", v == null);
@@ -605,6 +611,64 @@ function openPlayers() {
   });
 }
 $("#plBtn").onclick = openPlayers;
+
+/* ---------- Party-Einstellungen (Lichteffekte, Abstimmung, Gast-Limits) ---------- */
+let setData = null;
+async function setFetch(body) {
+  const r = await fetch("party/settings", body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+function swRow(key, title, sub, on, dis) {
+  return '<button class="row srow' + (on ? " on" : "") + '" data-k="' + key + '"' + (dis ? " disabled" : "") + '><span class="rm"><span class="r1">' + esc(title) +
+    '</span><span class="r2">' + esc(sub) + '</span></span><span class="gsw"><i></i></span></button>';
+}
+function numRow(key, title, val, unit, dis) {
+  return '<div class="nrow' + (dis ? " dis" : "") + '" data-k="' + key + '"><span class="r1">' + esc(title) + '</span><span class="stp">' +
+    '<button data-d="-1" aria-label="weniger">−</button><b>' + (val == null ? "–" : val) + '</b><button data-d="1" aria-label="mehr">+</button></span><span class="un">' + esc(unit) + "</span></div>";
+}
+function renderSettings() {
+  const d = setData || {}, L = d.limits;
+  let html = '<div class="shh">Party-Einstellungen</div>';
+  html += swRow("effects", "Lichteffekte", d.scripts ? "bei Wunsch, Vordrängeln und Nachschub" : "keine Skripte in den Add-on-Optionen eingetragen", !!d.effects);
+  html += swRow("skip_votes", "Abstimmung überspringt Songs", "bei Mehrheit 👎 der Gäste", !!d.skip_votes);
+  html += '<div class="shh gsh">Gäste</div>';
+  if (!L) html += '<div class="empty">Party-Plugin in Music Assistant nicht gefunden</div>';
+  else {
+    const lim = L.enable_rate_limiting !== false;
+    html += swRow("enable_rate_limiting", "Begrenzen", lim ? "jeder Gast hat ein Kontingent" : "unbegrenzt wünschen und vordrängeln", lim);
+    html += swRow("enable_add_queue", "Songs wünschen", "Gäste dürfen Songs in die Warteschlange einfügen", L.enable_add_queue !== false);
+    html += numRow("add_queue_limit", "Wünsche pro Gast", L.add_queue_limit, "Songs", !lim || L.enable_add_queue === false);
+    html += numRow("add_queue_refill_minutes", "+1 Wunsch alle", L.add_queue_refill_minutes, "Min.", !lim || L.enable_add_queue === false);
+    html += swRow("enable_boost", "Vordrängeln", "Song springt an den Anfang der Warteschlange", L.enable_boost !== false);
+    html += numRow("boost_limit", "Vordrängeln pro Gast", L.boost_limit, "mal", !lim || L.enable_boost === false);
+    html += numRow("boost_refill_minutes", "+1 Vordrängeln alle", L.boost_refill_minutes, "Min.", !lim || L.enable_boost === false);
+  }
+  openSheet("settings", html, c => {
+    c.querySelectorAll(".srow").forEach(b => b.onclick = () => {
+      const k = b.dataset.k, on = !b.classList.contains("on");
+      b.classList.toggle("on", on);
+      if (k === "effects" || k === "skip_votes") setSave({ [k]: on }); else setSave({ limits: { [k]: on } });
+    });
+    c.querySelectorAll(".nrow:not(.dis) .stp button").forEach(b => b.onclick = () => {
+      const row = b.closest(".nrow"), k = row.dataset.k, el = row.querySelector("b");
+      const v = Math.max(k.endsWith("minutes") ? 1 : 0, Math.min(999, (parseInt(el.textContent, 10) || 0) + (+b.dataset.d)));
+      el.textContent = v;
+      setData.limits[k] = v;
+      later(() => setSave({ limits: { [k]: v } }), 700, "set" + k);
+    });
+  });
+}
+async function setSave(body) {
+  try { setData = await setFetch(body); toast("Gespeichert"); }
+  catch (e) { toast("Nicht gespeichert: " + e.message); try { setData = await setFetch(); } catch (x) {} }
+  if (sheetKind === "settings") renderSettings();
+}
+$("#setBtn").onclick = async () => {
+  try { setData = await setFetch(); } catch (e) { setData = null; toast("Einstellungen nicht erreichbar"); return; }
+  renderSettings();
+};
 
 /* ---------- Suche ---------- */
 const TYPES = { all: ["track", "artist", "album", "playlist"], track: ["track"], artist: ["artist"], album: ["album"], playlist: ["playlist"] };

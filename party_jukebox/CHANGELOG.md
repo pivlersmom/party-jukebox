@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.9
+- Jukebox: Zahnrad oben rechts → Party-Einstellungen: Lichteffekte an/aus, Abstimmung an/aus, Gast-Limits (Wünsche und Vordrängeln pro Gast, Nachfüllzeit) – die Limits werden direkt im Party-Plugin von Music Assistant gespeichert
+- Jukebox: Einzelregler der Gruppe gehen nach oben auf, größerer Pfeil
+
 ## 0.1.8
 - Lichteffekt-Skripte und Nachschub-Benachrichtigung funktionieren (Supervisor-Token wurde unter s6 nicht gefunden)
 - Protokoll zeigt, ob Home Assistant erreichbar ist und welche Skripte ausgeführt wurden

@@ -27,6 +27,8 @@ header{display:flex;align-items:center;gap:12px;padding:calc(10px + var(--st)) 1
 .brand .logo{width:28px;height:28px;border-radius:8px;background:var(--grad);flex:none}
 .brand .logo svg{width:17px;height:17px;stroke:#fff}
 #appName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.setbtn{flex:none;width:38px;height:38px;border-radius:50%;background:rgba(28,33,51,.85);border:1px solid var(--line);display:grid;place-items:center}
+.setbtn svg{width:19px;height:19px;color:var(--dim)}
 .plbtn{margin-left:auto;display:flex;align-items:center;gap:6px;max-width:62%;min-width:0;height:38px;padding:0 10px 0 12px;
   border-radius:999px;background:rgba(28,33,51,.85);border:1px solid var(--line);font-size:14px;font-weight:600}
 .plbtn #plName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -230,7 +232,10 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;width:28px;hei
 button.vg{display:block;width:100%;background:none;border:0;padding:4px 0 2px;font-family:inherit;cursor:default}
 button.vg.tap{cursor:pointer}
 button.vg.tap:hover{color:var(--tx)}
-.vmem{margin-top:6px;padding-top:8px;border-top:1px solid var(--line);display:grid;gap:4px}
+/* Einzelregler gehen nach oben auf (über dem Lautstärke-Feld) */
+.vol{position:relative}
+.vmem{position:absolute;left:0;right:0;bottom:calc(100% + 8px);z-index:6;display:grid;gap:4px;padding:10px 10px 8px;
+  border-radius:18px;background:#151926;border:1px solid var(--line);box-shadow:0 -8px 30px rgba(0,0,0,.55)}
 .vmem[hidden]{display:none}
 .vm{display:grid;grid-template-columns:minmax(70px,30%) 1fr 30px;align-items:center;gap:10px;padding:0 4px}
 .vmn{font-size:13px;font-weight:600;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -240,3 +245,20 @@ button.vg.tap:hover{color:var(--tx)}
 #seek .knob{display:none}
 #seek .tr{transition:height .12s,margin-top .12s}
 #seek.drag .tr{height:10px;margin-top:-5px}
+
+/* Party-Einstellungen */
+.srow .rm{flex:1}
+.srow.on .gsw{background:var(--grad)}
+.srow.on .gsw i{transform:translateX(18px)}
+.nrow{display:grid;grid-template-columns:1fr auto 44px;align-items:center;gap:10px;padding:8px 6px}
+.nrow .r1{font-size:14px;font-weight:600}
+.nrow .un{font-size:12px;color:var(--dim)}
+.nrow.dis{opacity:.4}
+.stp{display:flex;align-items:center;gap:8px}
+.stp button{width:32px;height:32px;border-radius:10px;background:var(--card2);font-size:18px;font-weight:700;color:var(--tx)}
+.stp b{min-width:28px;text-align:center;font-size:15px}
+
+button.vg{display:flex;align-items:center;justify-content:center;gap:6px}
+.vgc{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--card2);transition:transform .2s}
+.vgc svg{width:20px;height:20px;color:var(--tx);transform:rotate(180deg)}
+button.vg.open .vgc{transform:rotate(180deg)}
