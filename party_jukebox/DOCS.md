@@ -15,6 +15,7 @@
    - **Party-Player** – der Lautsprecher bzw. die Gruppe für die Party (Name wie in Music Assistant). Leer = der gerade spielende.
    - **Benachrichtigung für Nachschub** – z. B. `notify.mobile_app_mein_handy`, dann kommt jede Getränkebestellung aufs Handy oder die Uhr.
    - **Skripte** – eigene HA-Skripte für Lichteffekte bei Wunsch, Vordrängeln oder Nachschub.
+     Fertige Vorlagen (nur noch Lampen eintragen): Ordner `lichteffekte` im GitHub-Repo – https://github.com/pivlersmom/party-jukebox/tree/main/lichteffekte
    - **Getränke** – eigene Getränkeliste (`Name|Emoji|Satz`).
 3. Speichern, Add-on **starten**, **Web-UI öffnen**.
 
