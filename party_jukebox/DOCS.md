@@ -5,6 +5,8 @@
 2. In Music Assistant unter **Einstellungen → Plugins** das Plugin **Party** hinzufügen und aktivieren.
    Darüber melden sich die Gäste an (QR-Code mit Join-Code).
 3. Unter **Einstellungen → Profil** einen **Token** erstellen und kopieren.
+4. Optional für Songtexte auf dem TV: unter **Einstellungen → Anbieter** die Metadaten-Anbieter **LRCLIB** und/oder **Genius Lyrics** hinzufügen.
+   Ohne sie sucht die TV-Anzeige selbst bei lrclib.net (der Fernseher braucht dafür Internet).
 
 ## 2. Add-on einrichten
 1. Reiter **Konfiguration**: Token bei **Music-Assistant-Token** einfügen.
