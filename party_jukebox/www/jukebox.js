@@ -49,6 +49,7 @@ const ICON = {
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   nextup: '<svg viewBox="0 0 24 24"><path d="M4 6h10M4 11h10M4 16h6"/><path d="M18 8v11M15 16l3 3 3-3"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   back: '<svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg>',
   dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
@@ -645,6 +646,19 @@ function renderSettings() {
     '</span><span class="r2">Spar-Modus: ohne unscharfes Cover und Animationen – für langsame Geräte (Automatisch = nur Raspberry Pi)</span></div>';
   const P = d.plugin, maBase = d.ma_web || (location.protocol + "//" + location.hostname + ":8095");
   const maLink = maBase + "/#/settings/" + (P && P.installed ? "editprovider/" + encodeURIComponent(P.instance_id) : "providers");
+  html += '<div class="shh gsh">Räume · Auto-Beitritt</div>';
+  if (!d.rooms_ok) html += '<div class="empty sm">Nur mit Home Assistant (Add-on) möglich</div>';
+  else {
+    (d.rooms || []).forEach((r, i) => {
+      const pl = S.players[r.player], sub = r.locked ? "🔒 gesperrt" + (r.left_min != null ? " · noch " + (r.left_min >= 60 ? Math.floor(r.left_min / 60) + " h " + String(r.left_min % 60).padStart(2, "0") + " min" : r.left_min + " min") : "")
+        : (r.motion ? "Bewegung · " : "") + (pl ? pname(pl) : "Lautsprecher fehlt") + (r.enabled === false ? " · aus" : "");
+      html += '<div class="rmrow' + (r.locked ? " lk" : "") + '" data-i="' + i + '"><button class="rmed" data-i="' + i + '"><span class="r1">' + esc(r.name) +
+        '</span><span class="r2">' + esc(sub) + '</span></button><button class="rmlk' + (r.locked ? " on" : "") + '" data-i="' + i + '" aria-label="Sperren">' + ICON.lock +
+        "</button></div>";
+    });
+    html += '<button class="row addrow" id="rmAdd"><span class="lic">' + ICON.plus + '</span><span class="rm"><span class="r1">Raum hinzufügen</span>' +
+      '<span class="r2">Bewegung im Raum → Box spielt die laufende Musik mit</span></span></button>';
+  }
   html += '<div class="shh gsh">Party-Plugin (Music Assistant)</div>';
   if (!P) html += '<div class="empty">Music Assistant nicht erreichbar</div>';
   else if (!P.installed) html += '<div class="prow"><span class="rm"><span class="r1">Nicht installiert</span><span class="r2">Nötig für QR-Code, Gäste-Anmeldung und Limits</span></span>' +
@@ -672,6 +686,12 @@ function renderSettings() {
       else if (k === "plugin") { b.disabled = true; setSave({ plugin: on ? "on" : "off" }); }
       else setSave({ limits: { [k]: on } });
     });
+    c.querySelectorAll(".rmlk").forEach(b => b.onclick = () => {
+      const r = setData.rooms[+b.dataset.i]; if (!r) return;
+      b.disabled = true; setSave({ room_lock: { id: r.id, on: !r.locked } }).then(() => toast(r.name + (r.locked ? ": Sperre aufgehoben" : ": gesperrt")));
+    });
+    c.querySelectorAll(".rmed").forEach(b => b.onclick = () => openRoom(setData.rooms[+b.dataset.i]));
+    const ra = c.querySelector("#rmAdd"); if (ra) ra.onclick = () => openRoom(null);
     const inst = c.querySelector("#plInst");
     if (inst) inst.onclick = () => { inst.disabled = true; inst.textContent = "Installiere …"; setSave({ plugin: "install" }); };
     c.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
@@ -691,6 +711,54 @@ function renderSettings() {
       setData.limits[k] = v;
       later(() => setSave({ limits: { [k]: v } }), 700, "set" + k);
     });
+  });
+}
+/* Raum bearbeiten */
+let haEnt = null;
+async function openRoom(r) {
+  const isNew = !r;
+  r = Object.assign({ id: "r" + Date.now(), name: "", player: "", sensor: "", lock_entity: "", cond: "", leave_min: 5, lock_min: 60, enabled: true }, r || {});
+  if (!haEnt) { try { haEnt = await (await fetch("party/ha/entities", { cache: "no-store" })).json(); } catch (e) { haEnt = { sensors: [], switches: [] }; } }
+  const opt = (list, cur, none) => (none ? '<option value="">' + esc(none) + "</option>" : "") +
+    list.map(x => '<option value="' + esc(x.id) + '"' + (x.id === cur ? " selected" : "") + ">" + esc(x.name) + "</option>").join("") +
+    (cur && !list.some(x => x.id === cur) ? '<option value="' + esc(cur) + '" selected>' + esc(cur) + "</option>" : "");
+  const players = playerList().map(p => ({ id: p.player_id, name: pname(p) }));
+  const html = '<div class="shh">' + (isNew ? "Raum hinzufügen" : "Raum bearbeiten") + "</div>" +
+    '<label class="fl">Name</label><input class="fi" id="rName" maxlength="40" placeholder="z. B. Küche" value="' + esc(r.name) + '">' +
+    '<label class="fl">Lautsprecher</label><select class="fi" id="rPl">' + opt(players, r.player, "– wählen –") + "</select>" +
+    '<label class="fl">Bewegungsmelder</label><select class="fi" id="rSe">' + opt(haEnt.sensors || [], r.sensor, (haEnt.sensors || []).length ? "– wählen –" : "keine gefunden") + "</select>" +
+    numRow("leave_min", "Trennen nach … ohne Bewegung", r.leave_min, "Min.") +
+    numRow("lock_min", "Sperre dauert", r.lock_min, "Min.", !!r.lock_entity) +
+    '<label class="fl">Sperr-Schalter in Home Assistant <small>(optional, z. B. für Alexa)</small></label><select class="fi" id="rLk">' + opt(haEnt.switches || [], r.lock_entity, "– keiner (Sperre im Add-on) –") + "</select>" +
+    '<label class="fl">Nur wenn <small>(optional, z. B. sensor.ladestation=charging)</small></label><input class="fi" id="rCo" placeholder="entity=zustand" value="' + esc(r.cond) + '">' +
+    swRow("enabled", "Auto-Beitritt aktiv", "aus = Raum bleibt gespeichert, macht aber nichts", r.enabled !== false) +
+    '<button class="act pri" id="rSave">Speichern</button>' + (isNew ? "" : '<button class="act danger" id="rDel">Raum löschen</button>') +
+    '<button class="act ghost" id="rBack">Zurück</button>';
+  openSheet("room", html, c => {
+    c.querySelectorAll(".nrow .stp button").forEach(b => b.onclick = () => {
+      const row = b.closest(".nrow"); if (row.classList.contains("dis")) return;
+      const k = row.dataset.k, el = row.querySelector("b");
+      const step = k === "lock_min" ? 15 : 1, min = k === "lock_min" ? 15 : 0;
+      el.textContent = Math.max(min, Math.min(k === "lock_min" ? 1440 : 240, (parseInt(el.textContent, 10) || 0) + (+b.dataset.d) * step));
+    });
+    c.querySelector('.srow[data-k="enabled"]').onclick = e => e.currentTarget.classList.toggle("on");
+    c.querySelector("#rLk").onchange = e => c.querySelector('.nrow[data-k="lock_min"]').classList.toggle("dis", !!e.target.value);
+    c.querySelector("#rBack").onclick = () => renderSettings();
+    const list = () => (setData.rooms || []).map(x => ({ id: x.id, name: x.name, player: x.player, sensor: x.sensor, lock_entity: x.lock_entity, cond: x.cond,
+      leave_min: x.leave_min, lock_min: x.lock_min, enabled: x.enabled }));
+    c.querySelector("#rSave").onclick = () => {
+      const nr = { id: r.id, name: c.querySelector("#rName").value.trim() || "Raum", player: c.querySelector("#rPl").value, sensor: c.querySelector("#rSe").value,
+        lock_entity: c.querySelector("#rLk").value, cond: c.querySelector("#rCo").value.trim(),
+        leave_min: parseInt(c.querySelector('.nrow[data-k="leave_min"] b').textContent, 10) || 0,
+        lock_min: parseInt(c.querySelector('.nrow[data-k="lock_min"] b').textContent, 10) || 60,
+        enabled: c.querySelector('.srow[data-k="enabled"]').classList.contains("on") };
+      if (!nr.player || !nr.sensor) { toast("Lautsprecher und Bewegungsmelder wählen"); return; }
+      const l = list(), i = l.findIndex(x => x.id === nr.id);
+      if (i >= 0) l[i] = nr; else l.push(nr);
+      sheetKind = "settings"; setSave({ rooms: l });
+    };
+    const del = c.querySelector("#rDel");
+    if (del) del.onclick = () => { sheetKind = "settings"; setSave({ rooms: list().filter(x => x.id !== r.id) }); };
   });
 }
 async function setSave(body) {

@@ -323,3 +323,20 @@ body.dragq .grip{cursor:grabbing}
 #cover.fav{box-shadow:0 22px 50px rgba(0,0,0,.55),0 0 26px rgba(224,64,251,.35),0 0 34px rgba(41,182,246,.25)}
 #cover.pop{animation:favPop .6s ease}
 @keyframes favPop{40%{transform:scale(1.04)}}
+
+/* Räume / Auto-Beitritt */
+.empty.sm{padding:10px 12px;font-size:13px}
+.rmrow{display:flex;align-items:center;gap:10px;padding:4px 0}
+.rmed{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:7px 6px;border-radius:12px}
+.rmed:active{background:var(--card2)}
+.rmed .r1,.rmed .r2{max-width:100%}
+.rmrow.lk .r2{color:var(--a1)}
+.rmlk{flex:none;width:44px;height:44px;border-radius:12px;background:var(--card2);display:grid;place-items:center;color:var(--dim);transition:background .2s,color .2s}
+.rmlk svg{width:20px;height:20px}
+.rmlk.on{background:rgba(224,64,251,.18);color:var(--a1);box-shadow:inset 0 0 0 1px rgba(224,64,251,.5)}
+.addrow .lic svg{width:18px;height:18px}
+.fl{display:block;font-size:12px;font-weight:700;color:var(--dim);margin:12px 6px 6px}
+.fl small{font-weight:500}
+.fi{width:100%;height:46px;border-radius:12px;background:var(--card2);border:1px solid var(--line);color:var(--tx);padding:0 12px;font:inherit;font-size:15px;-webkit-appearance:none;appearance:none}
+select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);background-position:calc(100% - 18px) 20px,calc(100% - 13px) 20px;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+.act.danger{color:#ff6b81}

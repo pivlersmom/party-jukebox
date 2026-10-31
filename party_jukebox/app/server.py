@@ -282,6 +282,251 @@ async def notify_drink(session, x):
     })
 
 
+# ---------------------------------------------------------------- Räume: Auto-Beitritt per Bewegungsmelder
+NON_MUSIC = ("tv", "hdmi", "line_in", "linein", "line-in", "optical", "spdif", "aux", "toslink")
+ROOM_RT = {}  # Laufzeit je Raum: last, on_since, off_since, joined, left, lock_set
+
+
+def rooms():
+    return [r for r in (SETTINGS.get("rooms") or []) if isinstance(r, dict) and r.get("id")]
+
+
+def clean_room(r):
+    try:
+        return {
+            "id": str(r.get("id") or "r%d" % int(time.time() * 1000))[:40],
+            "name": str(r.get("name") or "Raum")[:40],
+            "player": str(r.get("player") or "")[:120],
+            "sensor": str(r.get("sensor") or "")[:120],
+            "lock_entity": str(r.get("lock_entity") or "")[:120],
+            "cond": str(r.get("cond") or "")[:160],
+            "leave_min": max(0, min(240, int(r.get("leave_min", 5)))),
+            "lock_min": max(5, min(1440, int(r.get("lock_min", 60)))),
+            "enabled": r.get("enabled", True) is not False,
+        }
+    except Exception:
+        return None
+
+
+async def ha_states(session, ids):
+    out = {}
+    if not SUP_TOKEN:
+        return out
+
+    async def one(eid):
+        try:
+            async with session.get(f"{HA_HTTP}/states/{eid}", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=8) as r:
+                if r.status == 200:
+                    out[eid] = await r.json()
+        except Exception:
+            pass
+    await asyncio.gather(*[one(e) for e in set(ids) if e])
+    return out
+
+
+def cond_ok(cond, st):
+    """'sensor.x=wert' bzw. 'sensor.x!=wert' – leer = immer erfüllt."""
+    c = (cond or "").strip()
+    if not c:
+        return True
+    neg = "!=" in c
+    ent, _, val = c.partition("!=" if neg else "=")
+    cur = (st.get(ent.strip()) or {}).get("state")
+    if cur is None:
+        return False
+    hit = str(cur).lower() in [v.strip().lower() for v in val.split(",")]
+    return not hit if neg else hit
+
+
+def room_locked(r, st):
+    if r.get("lock_entity"):
+        return (st.get(r["lock_entity"]) or {}).get("state") == "on"
+    return (SETTINGS.get("room_locks") or {}).get(r["id"], 0) > time.time()
+
+
+def lock_left(r, st):
+    if r.get("lock_entity"):
+        a = (st.get(r["lock_entity"]) or {})
+        if a.get("state") != "on":
+            return None
+        tm = "timer." + r["lock_entity"].split(".", 1)[1]
+        t = st.get(tm) or {}
+        fa = (t.get("attributes") or {}).get("finishes_at")
+        if fa:
+            try:
+                from datetime import datetime
+                return max(0, int((datetime.fromisoformat(fa).timestamp() - time.time()) / 60 + 0.5))
+            except Exception:
+                return None
+        return None
+    u = (SETTINGS.get("room_locks") or {}).get(r["id"], 0)
+    return max(0, int((u - time.time()) / 60 + 0.5)) if u > time.time() else None
+
+
+def is_music(p):
+    src = str(p.get("active_source") or "")
+    return not src or src == p.get("player_id") or not any(x in src.lower() for x in NON_MUSIC)
+
+
+def pstate(p):
+    return (p or {}).get("playback_state") or (p or {}).get("state") or "idle"
+
+
+async def pick_leader(session, players, room_pid):
+    want = await resolve_player(session)
+    cand = [p for p in players if p.get("player_id") != room_pid and not p.get("synced_to")
+            and p.get("available", True) and pstate(p) == "playing" and is_music(p)]
+    for p in cand:
+        if want and p.get("player_id") == want:
+            return p
+    cand.sort(key=lambda p: -len(p.get("group_members") or []))
+    return cand[0] if cand else None
+
+
+async def room_join(session, r):
+    players = await MAC.cmd(session, "players/all") or []
+    by = {p.get("player_id"): p for p in players}
+    me = by.get(r["player"])
+    if not me or me.get("available") is False:
+        return
+    if me.get("synced_to"):
+        return  # schon in einer Gruppe
+    if pstate(me) in ("playing", "paused") and is_music(me) and len(me.get("group_members") or []) <= 1:
+        return  # im Raum läuft eigene Musik
+    lead = await pick_leader(session, players, r["player"])
+    if not lead:
+        return
+    await MAC.cmd(session, "players/cmd/group", {"player_id": r["player"], "target_player": lead["player_id"]})
+    ROOM_RT.setdefault(r["id"], {})["joined"] = time.time()
+    log.info("Auto-Beitritt: %s → %s", r["name"], lead.get("display_name") or lead.get("name") or lead["player_id"])
+
+
+async def room_leave(session, r, why):
+    players = await MAC.cmd(session, "players/all") or []
+    by = {p.get("player_id"): p for p in players}
+    me = by.get(r["player"])
+    if not me or not me.get("synced_to"):
+        return
+    lead = by.get(me["synced_to"]) or {}
+    if lead and not is_music(lead):
+        return  # z. B. TV-Ton an der Soundbar – nicht anfassen
+    await MAC.cmd(session, "players/cmd/ungroup", {"player_id": r["player"]})
+    log.info("Auto-Beitritt: %s verlässt die Gruppe (%s)", r["name"], why)
+
+
+async def set_room_lock(session, r, on):
+    rt = ROOM_RT.setdefault(r["id"], {})
+    rt["lock_set"] = time.time()
+    if r.get("lock_entity"):
+        dom = r["lock_entity"].split(".", 1)[0]
+        await ha_call(session, dom if dom in ("switch", "input_boolean") else "homeassistant",
+                      "turn_on" if on else "turn_off", {"entity_id": r["lock_entity"]})
+    else:
+        locks = SETTINGS.setdefault("room_locks", {})
+        locks[r["id"]] = time.time() + r["lock_min"] * 60 if on else 0
+        save_settings()
+    if on:
+        try:
+            await room_leave(session, r, "gesperrt")
+        except Exception as e:
+            log.info("Raum %s trennen: %s", r["name"], e)
+
+
+async def rooms_loop(app):
+    session = app["session"]
+    n = 0
+    while True:
+        await asyncio.sleep(2)
+        rs = [r for r in rooms() if r.get("enabled") and r.get("player") and r.get("sensor")]
+        if not rs or not SUP_TOKEN or not OPT.get("ma_token"):
+            continue
+        n += 1
+        ids = []
+        for r in rs:
+            ids += [r["sensor"], r.get("lock_entity"), (r.get("cond") or "").split("!=")[0].split("=")[0].strip()]
+        try:
+            st = await ha_states(session, ids)
+        except Exception:
+            continue
+        now = time.time()
+        for r in rs:
+            rt = ROOM_RT.setdefault(r["id"], {})
+            s_on = (st.get(r["sensor"]) or {}).get("state") == "on"
+            if s_on != rt.get("last"):
+                rt["last"] = s_on
+                if s_on:
+                    rt["on_since"], rt["handled"] = now, False
+                else:
+                    rt["off_since"], rt["left"] = now, False
+            lk = room_locked(r, st)
+            lk_edge = lk and rt.get("locked_last") is False
+            rt["locked_last"] = lk
+            try:
+                if lk_edge and r.get("lock_entity"):  # Sperre kam von außen (z. B. Alexa, Taster) → Box trennen
+                    rt["lock_set"] = now
+                    await room_leave(session, r, "gesperrt")
+                if s_on and not rt.get("handled") and now - rt.get("on_since", now) >= 2:
+                    rt["handled"] = True
+                    if not lk and cond_ok(r.get("cond"), st):
+                        await room_join(session, r)
+                if not s_on and r["leave_min"] > 0 and not rt.get("left") and rt.get("off_since") \
+                        and now - rt["off_since"] >= r["leave_min"] * 60:
+                    rt["left"] = True
+                    await room_leave(session, r, "keine Bewegung")
+                # von Hand dazugeholt, obwohl gesperrt → Sperre aufheben (nur eigene Sperre)
+                if not r.get("lock_entity") and n % 5 == 0 and lk and now - rt.get("lock_set", 0) > 20:
+                    by = {p.get("player_id"): p for p in (await MAC.cmd(session, "players/all") or [])}
+                    if (by.get(r["player"]) or {}).get("synced_to") and now - rt.get("joined", 0) > 20:
+                        SETTINGS.setdefault("room_locks", {})[r["id"]] = 0
+                        save_settings()
+                        log.info("Raum %s von Hand verbunden – Sperre aufgehoben", r["name"])
+            except Exception as e:
+                log.info("Auto-Beitritt %s: %s", r["name"], e)
+
+
+async def rooms_info(session):
+    rs = rooms()
+    ids = []
+    for r in rs:
+        ids += [r.get("sensor"), r.get("lock_entity")]
+        if r.get("lock_entity"):
+            ids.append("timer." + r["lock_entity"].split(".", 1)[1])
+    st = await ha_states(session, ids) if rs else {}
+    out = []
+    for r in rs:
+        x = dict(r)
+        x["locked"] = room_locked(r, st)
+        x["left_min"] = lock_left(r, st)
+        x["motion"] = (st.get(r.get("sensor")) or {}).get("state") == "on"
+        out.append(x)
+    return out
+
+
+async def party_ha_entities(request):
+    """Auswahl-Listen für die Raum-Einstellungen: Bewegungsmelder und Schalter (nur Namen, keine Steuerung)."""
+    if not SUP_TOKEN:
+        return web.json_response({"sensors": [], "switches": []})
+    try:
+        async with request.app["session"].get(f"{HA_HTTP}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=15) as r:
+            allst = await r.json()
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=502)
+    sens, sw = [], []
+    for e in allst:
+        eid = e.get("entity_id", "")
+        a = e.get("attributes") or {}
+        nm = a.get("friendly_name") or eid
+        if eid.startswith("binary_sensor."):
+            dc = a.get("device_class") or ""
+            if dc in ("motion", "occupancy", "presence"):
+                sens.append({"id": eid, "name": nm, "dc": dc})
+        elif eid.startswith(("switch.", "input_boolean.")):
+            sw.append({"id": eid, "name": nm})
+    sens.sort(key=lambda x: x["name"].lower())
+    sw.sort(key=lambda x: x["name"].lower())
+    return web.json_response({"sensors": sens, "switches": sw}, headers={"Cache-Control": "no-store"})
+
+
 # ---------------------------------------------------------------- Music Assistant
 async def discover_ma(session):
     """MA-Adresse: Option, sonst MA-Add-on über den Supervisor finden, sonst Host:8095."""
@@ -499,7 +744,11 @@ async def party_settings_get(request):
            **tv_settings(),
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
-           "limits": None, "plugin": None, "ma_web": ma_web()}
+           "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN)}
+    try:
+        out["rooms"] = await rooms_info(request.app["session"])
+    except Exception as e:
+        log.info("Räume nicht lesbar: %s", e)
     try:
         pc = await party_provider_conf(request.app["session"])
         iid = pc.get("instance_id") if pc else None
@@ -524,7 +773,16 @@ async def party_settings_post(request):
         SETTINGS["lyr_offset"] = round(max(-8.0, min(8.0, float(data["lyr_offset"]))), 1)
     if data.get("tv_lite") in ("auto", "on", "off"):
         SETTINGS["tv_lite"] = data["tv_lite"]
+    if isinstance(data.get("rooms"), list):
+        SETTINGS["rooms"] = [c for c in (clean_room(r) for r in data["rooms"][:20] if isinstance(r, dict)) if c]
+        log.info("Räume gespeichert: %s", ", ".join(r["name"] for r in SETTINGS["rooms"]) or "keine")
     save_settings()
+    rl = data.get("room_lock")
+    if isinstance(rl, dict):
+        r = next((x for x in rooms() if x["id"] == rl.get("id")), None)
+        if r:
+            await set_room_lock(request.app["session"], r, bool(rl.get("on")))
+            await asyncio.sleep(0.8)
     pl = data.get("plugin")
     if pl in ("install", "on", "off"):
         try:
@@ -664,10 +922,12 @@ async def on_startup(app):
         if pid:
             log.info("Party-Player: %s → %s", OPT.get("party_player"), pid)
     app["tick"] = asyncio.create_task(tick(app))
+    app["rooms"] = asyncio.create_task(rooms_loop(app))
 
 
 async def on_cleanup(app):
     app["tick"].cancel()
+    app["rooms"].cancel()
     await app["session"].close()
 
 
@@ -682,6 +942,7 @@ def make_app():
     app.router.add_get("/party/join.json", party_join)
     app.router.add_get("/party/settings", party_settings_get)
     app.router.add_get("/party/tv.json", party_tv_get)
+    app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/ma/ws", ma_websocket)
     app.router.add_get("/ma/{path:.*}", ma_http)
