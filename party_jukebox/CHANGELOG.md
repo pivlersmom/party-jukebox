@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.11
+- Startseite: TV-App und Jukebox-App (APK, Version 0.1.1) direkt vom Add-on herunterladen
+
 ## 0.1.10
 - Jukebox-Warteschlange: Titel am Griff ≡ an jede Stelle ziehen (statt nur Pfeil nach oben); bereits von MA vorgeladene Titel bleiben fest
 

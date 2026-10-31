@@ -592,6 +592,8 @@ async def no_cache_html(request, handler):
     p = request.path
     if p.endswith((".html", ".js", ".css", ".json")) or p == "/":
         resp.headers["Cache-Control"] = "no-cache"
+    if p.endswith(".apk"):
+        resp.headers["Content-Type"] = "application/vnd.android.package-archive"
     return resp
 
 
