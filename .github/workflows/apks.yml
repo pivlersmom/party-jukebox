@@ -1,6 +1,6 @@
 name: Android-Apps
 # Baut die TV-App (android/tv-kiosk) und die Jukebox-App (android/jukebox).
-# Ergebnis: Actions → Lauf → Artifacts. Bei einem Tag v* zusätzlich GitHub-Release mit beiden APKs.
+# Ergebnis: Actions → Lauf → Artifacts. Neue Version in android/gradle.properties (pjVersionName) → automatisch GitHub-Release mit beiden APKs.
 #
 # Secrets (Settings → Secrets and variables → Actions), damit alle Builds gleich signiert sind
 # und sich Updates ohne Deinstallieren einspielen lassen:
@@ -124,11 +124,28 @@ jobs:
           path: android/dist/PartyJukebox-Jukebox-${{ steps.ver.outputs.version }}.apk
           if-no-files-found: error
 
+      # Release auch ohne Tag-Push: Gibt es zur Version in android/gradle.properties noch kein Release,
+      # legt der Lauf auf main eines an (Tag v<Version> wird dabei erzeugt).
+      - name: Release nötig?
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "make=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$V gibt es schon"; echo "make=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Neues Release v$V"; echo "make=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: GitHub-Release anlegen
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.rel.outputs.make == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: Party-Jukebox ${{ github.ref_name }}
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Party-Jukebox v${{ steps.ver.outputs.version }}
           files: |
             android/dist/PartyJukebox-TV-${{ steps.ver.outputs.version }}.apk
             android/dist/PartyJukebox-Jukebox-${{ steps.ver.outputs.version }}.apk
