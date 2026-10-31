@@ -1,0 +1,56 @@
+# Party - Lichteffekt bei neuem Wunsch
+# Einfügen: Einstellungen → Automationen & Szenen → Skripte → Skript erstellen → ⋮ → „In YAML bearbeiten“
+# → diesen Inhalt einfügen → Lampen eintragen → Speichern.
+alias: Party - Lichteffekt bei neuem Wunsch
+description: >-
+  Lampen, die gerade an sind, blinken 2× pink/violett/türkis (wie die Leuchtröhren einer Wurlitzer) und gehen danach in ihren vorherigen Zustand zurück.
+icon: mdi:party-popper
+mode: single
+variables:
+  # >>> HIER DEINE LAMPEN EINTRAGEN (Entity-IDs in der Liste, beliebig viele) <<<
+  # Nur Lampen, die gerade an sind (und nicht im Hue-Sync-Streaming), blinken mit.
+  lampen: >-
+    {{ ['light.LAMPE_1', 'light.LAMPE_2', 'light.LAMPE_3']
+       | select('is_state', 'on') | reject('is_state_attr', 'mode', 'streaming') | list }}
+sequence:
+  - condition: template
+    value_template: "{{ lampen | count > 0 }}"
+  - action: scene.create
+    data:
+      scene_id: party_licht_vorher
+      snapshot_entities: "{{ lampen }}"
+  - repeat:
+      count: 2
+      sequence:
+        - action: light.turn_on
+          target:
+            entity_id: "{{ lampen }}"
+          data:
+            rgb_color: [255, 46, 200]
+            brightness: 255
+            transition: 0.2
+        - delay:
+            milliseconds: 450
+        - action: light.turn_on
+          target:
+            entity_id: "{{ lampen }}"
+          data:
+            rgb_color: [139, 92, 255]
+            brightness: 255
+            transition: 0.2
+        - delay:
+            milliseconds: 450
+        - action: light.turn_on
+          target:
+            entity_id: "{{ lampen }}"
+          data:
+            rgb_color: [0, 240, 224]
+            brightness: 255
+            transition: 0.2
+        - delay:
+            milliseconds: 450
+  - action: scene.turn_on
+    target:
+      entity_id: scene.party_licht_vorher
+    data:
+      transition: 1

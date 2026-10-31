@@ -34,7 +34,7 @@ Home-Assistant-Add-on für Partys mit **Music Assistant**:
 | `party_name` | Titel auf TV und Party-Seite |
 | `party_player` | MA-Player für die Party (leer = der gerade spielende) |
 | `notify_service` | z. B. `notify.mobile_app_mein_handy` – Nachschub-Bestellungen aufs Handy/die Uhr (leer = aus) |
-| `script_wish` / `script_boost` / `script_drink` | Optionale HA-Skripte, z. B. für Lichteffekte bei Wunsch, Vordrängeln, Nachschub |
+| `script_wish` / `script_boost` / `script_drink` | Optionale HA-Skripte, z. B. für Lichteffekte bei Wunsch, Vordrängeln, Nachschub – fertige Vorlagen im Ordner [`lichteffekte`](lichteffekte/) |
 | `skip_votes` | Song überspringen, wenn die Mehrheit der Gäste 👎 stimmt |
 | `drinks` | Getränkeliste, je Zeile `Name|Emoji|Satz` (z. B. `Bier|🍺|ein Bier`) |
 
