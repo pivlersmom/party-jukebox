@@ -120,7 +120,7 @@ def now():
 
 # ---------------------------------------------------------------- Party-Zustand
 class Party:
-    """Port von vanpis_party.jinja / vanpis_party_events.jinja + den Party-Automationen."""
+    """Party-Zustand: Gäste, Wünsche, Vordrängler, Abstimmung, Getränke."""
 
     def __init__(self):
         self.guests = {}   # gid -> {n, t}
@@ -452,14 +452,16 @@ async def rooms_loop(app):
         for r in rs:
             rt = ROOM_RT.setdefault(r["id"], {})
             s_on = (st.get(r["sensor"]) or {}).get("state") == "on"
-            if s_on != rt.get("last"):
+            if rt.get("last") is None:  # erster Blick nach dem Start: nur merken, nichts auslösen
+                rt["last"], rt["handled"], rt["left"] = s_on, True, True
+            elif s_on != rt.get("last"):
                 rt["last"] = s_on
                 if s_on:
                     rt["on_since"], rt["handled"] = now, False
                 else:
                     rt["off_since"], rt["left"] = now, False
             lk = room_locked(r, st)
-            lk_edge = lk and rt.get("locked_last") is False
+            lk_edge = lk and rt.get("locked_last") is False  # None beim Start → kein Auslösen
             rt["locked_last"] = lk
             try:
                 if lk_edge and r.get("lock_entity"):  # Sperre kam von außen (z. B. Alexa, Taster) → Box trennen
