@@ -365,3 +365,8 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
   font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 20px rgba(0,0,0,.4);transition:opacity .25s,transform .25s}
 #cover .chint.on{opacity:1;transform:translate(-50%,0)}
 #cover.spin .chint{animation:none}
+
+/* Party zurücksetzen */
+.rsrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 2px}
+.rsrow .act{margin-top:0;height:46px;font-size:14px}
+.rshint{font-size:11px;color:var(--dim);margin:6px 6px 2px}

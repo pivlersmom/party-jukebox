@@ -231,7 +231,20 @@ class Party:
     def need(self):
         return max(2, -(-len(self.guests) // 2))
 
+    def drinks_stale(self):
+        """Letzte Bestellung länger als 12 h her → Ranking gilt als neue Party (leer)."""
+        newest = max([x.get("t", 0) for x in self.bi] + [0])
+        return bool(self.bi) and now() - newest > 43200
+
+    def reset(self, what):
+        if what == "drinks":
+            self.bi, self.bc = [], {}
+        elif what == "wishes":
+            self.w, self.bo, self.vu, self.vq, self.up, self.down = [], [], "", "", [], []
+
     def wishes_json(self):
+        if self.drinks_stale():
+            self.reset("drinks")
         bc = sorted(self.bc.values(), key=lambda x: x.get("c", 0), reverse=True)
         return {
             "w": self.w[-30:], "bo": self.bo[-15:], "bi": self.bi[-10:],
@@ -784,6 +797,10 @@ async def party_settings_post(request):
         SETTINGS["rooms"] = [c for c in (clean_room(r) for r in data["rooms"][:20] if isinstance(r, dict)) if c]
         log.info("Räume gespeichert: %s", ", ".join(r["name"] for r in SETTINGS["rooms"]) or "keine")
     save_settings()
+    if data.get("reset") in ("drinks", "wishes"):
+        PARTY.reset(data["reset"])
+        PARTY.save()
+        log.info("Zurückgesetzt: %s", "Getränke-Ranking" if data["reset"] == "drinks" else "Wünsche und Vordrängler")
     rl = data.get("room_lock")
     if isinstance(rl, dict):
         r = next((x for x in rooms() if x["id"] == rl.get("id")), None)

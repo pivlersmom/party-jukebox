@@ -646,6 +646,9 @@ function renderSettings() {
     '</span><span class="r2">Spar-Modus: ohne unscharfes Cover und Animationen – für langsame Geräte (Automatisch = nur Raspberry Pi)</span></div>';
   const P = d.plugin, maBase = d.ma_web || (location.protocol + "//" + location.hostname + ":8095");
   const maLink = maBase + "/#/settings/" + (P && P.installed ? "editprovider/" + encodeURIComponent(P.instance_id) : "providers");
+  html += '<div class="shh gsh">Party zurücksetzen</div>' +
+    '<div class="rsrow"><button class="act rsb" data-r="drinks">🍺 Getränke-Ranking</button><button class="act rsb" data-r="wishes">🎵 Wünsche</button></div>' +
+    '<div class="rshint">Das Getränke-Ranking leert sich sonst von selbst, wenn 12 Stunden nichts bestellt wurde.</div>';
   html += '<div class="shh gsh">Räume · Auto-Beitritt</div>';
   if (!d.rooms_ok) html += '<div class="empty sm">Nur mit Home Assistant (Add-on) möglich</div>';
   else {
@@ -692,6 +695,12 @@ function renderSettings() {
     });
     c.querySelectorAll(".rmed").forEach(b => b.onclick = () => openRoom(setData.rooms[+b.dataset.i]));
     const ra = c.querySelector("#rmAdd"); if (ra) ra.onclick = () => openRoom(null);
+    c.querySelectorAll(".rsb").forEach(b => b.onclick = () => {
+      const k = b.dataset.r;
+      if (b.dataset.ok !== "1") { b.dataset.ok = "1"; const t0 = b.textContent; b.textContent = "Wirklich löschen?"; b.classList.add("danger");
+        setTimeout(() => { if (b.isConnected) { b.dataset.ok = ""; b.textContent = t0; b.classList.remove("danger"); } }, 3000); return; }
+      setSave({ reset: k }).then(() => toast(k === "drinks" ? "Getränke-Ranking zurückgesetzt" : "Wünsche zurückgesetzt"));
+    });
     const inst = c.querySelector("#plInst");
     if (inst) inst.onclick = () => { inst.disabled = true; inst.textContent = "Installiere …"; setSave({ plugin: "install" }); };
     c.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
