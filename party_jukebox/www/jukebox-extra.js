@@ -232,6 +232,98 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   window.addEventListener("resize", () => { act = -2; });
 })();
 
+
+/* ---------- Zeile unter dem Titel: Übergänge · Audioqualität · AI DJ ----------
+   Übergänge = Crossfade der Warteschlange (an: Kreise laufen ineinander).
+   Qualität = Format des laufenden Titels (HQ / Hi-Res / MP3 …), antippen = Details mit Übertragungsrate.
+   AI DJ = Moderator vom Music-Assistant-Plugin „AI Radio“ (nur sichtbar, wenn das Plugin da ist). */
+(function () {
+  const meta = document.querySelector("#v-now .meta"); if (!meta) return;
+  const row = document.createElement("div"); row.className = "modes";
+  row.innerHTML = '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button>' +
+    '<button class="aq" id="mAq" hidden></button>' +
+    '<button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>';
+  meta.after(row);
+  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj");
+  const qid = () => S.qid || S.pid;
+
+  /* Übergänge */
+  let fadeHold = 0, fadeWant = false;
+  const fadeOn = () => Date.now() < fadeHold ? fadeWant : !!(S.q && S.q.crossfade_enabled);
+  bF.onclick = async () => {
+    const id = qid(); if (!id || !S.ready) { toast("Music Assistant nicht verbunden"); return; }
+    fadeWant = !fadeOn(); fadeHold = Date.now() + 4000; paint();
+    try { await cmd("player_queues/crossfade", { queue_id: id, crossfade_enabled: fadeWant }); if (S.q) S.q.crossfade_enabled = fadeWant; toast("Übergänge " + (fadeWant ? "an" : "aus")); }
+    catch (e) { fadeHold = 0; toast("Übergänge: " + ((e && e.message) || e)); }
+    paint();
+  };
+
+  /* Audioqualität */
+  function aq() {
+    const ci = S.q && S.q.current_item, sd = ci && ci.streamdetails, af = sd && sd.audio_format;
+    if (!af || !af.content_type) return null;
+    const ct = String(af.content_type).toLowerCase(), lossless = /flac|wav|alac|aif|pcm/.test(ct);
+    const sr = +af.sample_rate || 0, bd = +af.bit_depth || 0, ch = +af.channels || 2;
+    const hires = lossless && (bd > 16 || sr > 48000);
+    let br = +af.bit_rate || 0;
+    if (!br && lossless && sr && bd) br = Math.round(sr * bd * ch / 1000);
+    const name = ct.replace(/^pcm_.*/, "PCM").toUpperCase();
+    return { short: hires ? "Hi-Res" : lossless ? "HQ" : name, lossless, hires,
+      long: [name + (sr ? " " + (bd && lossless ? bd + "/" : "") + (sr / 1000).toString().replace(".", ",") + (bd && lossless ? "" : " kHz") : ""),
+        br ? br + " kbit/s" : ""].filter(Boolean).join(" · ") };
+  }
+  let aqOpen = false, aqT = null;
+  bQ.onclick = () => { aqOpen = !aqOpen; clearTimeout(aqT); if (aqOpen) aqT = setTimeout(() => { aqOpen = false; paint(); }, 6000); paint(); };
+
+  /* AI DJ */
+  let djAvail = false, djStatus = {}, hosts = [["minimal_dj", "Minimal DJ"], ["morning_show", "Morning show"], ["music_nerd", "Music nerd"], ["party_host", "Party host"]];
+  const hostName = id => { const h = hosts.find(x => x[0] === id); return h ? h[1] : id; };
+  async function djLoad() {
+    if (!S.ready) return;
+    try { djStatus = (await cmd("ai_radio/queue_dj/status")) || {}; djAvail = true; }
+    catch (e) { djAvail = false; }
+    paint();
+  }
+  async function djHosts() {
+    try { const r = await cmd("ai_radio/hosts/list"); const l = (Array.isArray(r) ? r : Object.values(r || {})).map(h => [h.id || h.host_id, h.name || h.id]).filter(h => h[0]); if (l.length) hosts = l; } catch (e) {}
+  }
+  bD.onclick = async () => {
+    const id = qid(); if (!id) { toast("Erst einen Lautsprecher wählen"); return; }
+    await Promise.all([djHosts(), djLoad()]);
+    const cur = djStatus[id] || null;
+    const html = '<div class="shh">AI Radio DJ</div><div class="rshint" style="margin:0 6px 8px">Moderator zwischen den Titeln wählen.</div>' +
+      hosts.map(([h, n]) => '<button class="act djh' + (h === cur ? " sel" : "") + '" data-h="' + esc(h) + '">' + esc(n) + (h === cur ? " ✓" : "") + "</button>").join("") +
+      '<button class="act djh' + (!cur ? " sel" : "") + '" data-h="">Aus' + (!cur ? " ✓" : "") + '</button><button class="act ghost" data-x="1">Abbrechen</button>';
+    JB.openSheet("dj", html, c => c.querySelectorAll(".act").forEach(b => b.onclick = async () => {
+      JB.closeSheet(); if (b.dataset.x) return;
+      const h = b.dataset.h || null;
+      if (h) djStatus[id] = h; else delete djStatus[id];
+      paint();
+      try { djStatus = (await cmd("ai_radio/queue_dj/set", { queue_id: id, host_id: h })) || djStatus; toast(h ? "AI DJ: " + hostName(h) : "AI DJ aus"); }
+      catch (e) { toast("AI DJ: " + ((e && e.message) || e)); djLoad(); }
+      paint();
+    }));
+  };
+
+  function paint() {
+    bF.classList.toggle("on", fadeOn());
+    bF.hidden = !S.q;
+    const a = aq();
+    bQ.hidden = !a;
+    if (a) { bQ.textContent = aqOpen ? a.long : a.short; bQ.classList.toggle("ll", a.lossless); bQ.classList.toggle("hr", a.hires); bQ.classList.toggle("open", aqOpen); }
+    const id = qid(), dj = id && djStatus[id];
+    bD.hidden = !djAvail; bD.classList.toggle("on", !!dj); bD.title = dj ? "AI DJ · " + hostName(dj) : "AI DJ";
+    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden);
+  }
+  let lastQ = "", n = 0;
+  setInterval(() => {
+    const id = qid();
+    if (id !== lastQ && S.ready) { lastQ = id; djLoad(); }
+    if (++n % 30 === 0 && !document.hidden) djLoad();
+    paint();
+  }, 1000);
+})();
+
 /* ---------- Android-Medien-Anbindung ---------- */
 const A = window.AndroidMediaSession;
 if (!A) return;

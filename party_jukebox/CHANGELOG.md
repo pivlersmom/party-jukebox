@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.27
+- Jukebox-Kopf: nur Logo + Lautsprecher, der Name der Box hat jetzt Platz
+- Unter dem Titel: Übergänge an/aus (animiert), Audioqualität (HQ / Hi-Res / MP3 – antippen zeigt Format und Übertragungsrate), AI-Radio-DJ mit Moderator-Auswahl (animiert, nur wenn das MA-Plugin „AI Radio“ da ist)
+
 ## 0.1.26
 - TV-Widmung: Cover des Songs statt Notensymbol, darunter Titel und Interpret
 

@@ -1100,7 +1100,7 @@ function setConn(c, wait) {
 
 /* ---------- Start ---------- */
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
-window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast };
+window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet };
 renderAll();
 connect();
 })();
