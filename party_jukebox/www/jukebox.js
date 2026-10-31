@@ -923,6 +923,41 @@ function renderNav() {
     if (!tr.length && !al.length) html += '<div class="empty">Keine Titel gefunden</div>';
   }
   box.innerHTML = html;
+  fillArt(n);
+}
+/* Playlist-Titel kommen von MA oft ohne Cover → einzeln nachschlagen (music/item_by_uri), gemerkt pro URI */
+const artCache = {};
+async function fillArt(n) {
+  const box = $("#sRes"), seq = S.navSeq, todo = [];
+  box.querySelectorAll(".row[data-i]").forEach(row => {
+    const it = S.sItems[+row.dataset.i];
+    if (!it || it.media_type !== "track" || imgUrl(it, 120) || row.querySelector(".tno")) return;
+    todo.push([row, it]);
+  });
+  const head = box.querySelector(".bhead .th");
+  let headDone = !!(head && head.querySelector("img"));
+  const put = (row, it, url) => {
+    const th = row.querySelector(".th"); if (!th || !url) return;
+    if (!th.querySelector("img")) th.insertAdjacentHTML("beforeend", '<img loading="lazy" alt="" src="' + esc(url) + '">');
+    if (!headDone && head) { head.insertAdjacentHTML("beforeend", '<img alt="" src="' + esc(url.replace(/size=\d+/, "size=256")) + '">'); headDone = true; }
+  };
+  // Kopf ohne Bild: erstes Titel-Cover nehmen, das schon da ist
+  if (!headDone) { const r = box.querySelector(".row[data-i] .th img"); if (r && head) { head.insertAdjacentHTML("beforeend", '<img alt="" src="' + esc(r.getAttribute("src").replace(/size=\d+/, "size=256")) + '">'); headDone = true; } }
+  let i = 0;
+  const worker = async () => {
+    while (i < todo.length) {
+      if (seq !== S.navSeq || S.nav[S.nav.length - 1] !== n) return;
+      const [row, it] = todo[i++];
+      let url = artCache[it.uri];
+      if (url === undefined) {
+        try { const full = await cmd("music/item_by_uri", { uri: it.uri }, 15000); url = imgUrl(full, 120) || ""; if (full && url) it.image = pickImg(full) || pickImg(full.album); }
+        catch (e) { url = ""; }
+        artCache[it.uri] = url;
+      }
+      if (row.isConnected) put(row, it, url);
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
 }
 function openItem(it) {
   const html = '<div class="ihead">' + thumb(imgUrl(it, 240), "lg" + (it.media_type === "artist" ? " round" : "")) +

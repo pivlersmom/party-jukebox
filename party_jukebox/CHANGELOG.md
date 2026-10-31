@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.29
+- Jukebox: Cover in Playlists (und überall, wo MA Titel ohne Bild liefert) werden nachgeladen; Playlist ohne eigenes Bild bekommt das erste Titel-Cover
+
 ## 0.1.28
 - Jukebox ⚙: Party-Name direkt in der App ändern (TV übernimmt ihn sofort, auch im Party-Plugin von Music Assistant)
 - Autoplay-Knopf (∞, animiert): am Ende der Warteschlange hängt Music Assistant ähnliche Titel an
