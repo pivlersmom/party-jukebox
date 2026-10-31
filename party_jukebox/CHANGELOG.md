@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.36
+- Startseite: TV-App und Jukebox-App in Version 0.1.2 zum Herunterladen
+
 ## 0.1.35
 - TV-Anzeige: deutlich weniger Grafikspeicher beim Songwechsel (unscharfes Cover-Hintergrundbild wird klein vorberechnet statt per Weichzeichner über den ganzen Bildschirm) – behebt Abstürze auf schwachen TV-Boxen
 - Spar-Modus schaltet sich auf Geräten mit ≤ 1 GB Arbeitsspeicher automatisch ein
