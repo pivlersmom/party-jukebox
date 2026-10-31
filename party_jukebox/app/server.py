@@ -241,8 +241,14 @@ async def notify_drink(session, x):
 # ---------------------------------------------------------------- Music Assistant
 async def discover_ma(session):
     """MA-Adresse: Option, sonst MA-Add-on über den Supervisor finden, sonst Host:8095."""
-    if OPT.get("ma_url"):
-        return OPT["ma_url"].rstrip("/")
+    u = (OPT.get("ma_url") or "").strip().rstrip("/")
+    if u:
+        # Nachsichtig: "192.168.1.10" → "http://192.168.1.10:8095"
+        if "://" not in u:
+            u = "http://" + u
+        if not re.search(r":\d+$", u.split("://", 1)[1]):
+            u += ":8095"
+        return u
     if SUP_TOKEN:
         try:
             async with session.get("http://supervisor/addons", headers={"Authorization": f"Bearer {SUP_TOKEN}"},
@@ -324,10 +330,26 @@ async def party_ev(request):
     return web.json_response({"ok": typ is not None, "type": typ})
 
 
+async def resolve_player(session):
+    """Option party_player (ID oder Anzeigename) → MA-Player-ID; None, wenn leer oder nicht gefunden."""
+    want = (OPT.get("party_player") or "").strip()
+    if not want:
+        return None
+    try:
+        for p in await MAC.cmd(session, "players/all") or []:
+            if want in (p.get("player_id"), p.get("display_name"), p.get("name")) or \
+                    want.lower() == str(p.get("display_name") or p.get("name") or "").lower():
+                return p.get("player_id")
+        log.warning("Party-Player '%s' nicht in Music Assistant gefunden – nehme den Player der Abstimmung", want)
+    except Exception as e:
+        log.info("Player-Liste nicht abrufbar: %s", e)
+    return None
+
+
 async def skip(session, queue_id, uri):
     """Überspringt nur, wenn in der Queue wirklich noch der abgestimmte Song läuft (Gäste geben die Queue-ID vor)."""
     try:
-        qid = OPT.get("party_player") or queue_id
+        qid = await resolve_player(session) or queue_id
         q = await MAC.cmd(session, "player_queues/get", {"queue_id": qid}) or {}
         cur = ((q.get("current_item") or {}).get("media_item") or {}).get("uri") or ""
         if not cur or cur != uri:
@@ -463,6 +485,10 @@ async def on_startup(app):
     app["session"] = aiohttp.ClientSession()
     MAC.base = await discover_ma(app["session"])
     log.info("Music Assistant: %s (Token %s)", MAC.base, "gesetzt" if OPT.get("ma_token") else "FEHLT")
+    if OPT.get("ma_token") and OPT.get("party_player"):
+        pid = await resolve_player(app["session"])
+        if pid:
+            log.info("Party-Player: %s → %s", OPT.get("party_player"), pid)
     app["tick"] = asyncio.create_task(tick(app))
 
 
