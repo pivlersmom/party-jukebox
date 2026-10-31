@@ -2,7 +2,7 @@
    - Music Assistant über den Add-on-Proxy (ma/ws). Anmeldung mit Token "addon" – den echten Token setzt der Server ein.
    - Player: PJ.player (MA-Player-ID oder Name); leer/nicht gefunden → der Player, der gerade spielt.
    - aktueller Song (Cover, Titel, Fortschritt), Warteschlange + zuletzt gespielt (player_queues/items).
-   - Uhr, Party-Titel (PJ.name), Lite-Modus (ARM/Pi automatisch, ?lite=1 / ?lite=0 wird gemerkt).
+   - Uhr, Party-Titel (PJ.name), Lite-Modus (Raspberry Pi automatisch, nicht Android-TV, ?lite=1 / ?lite=0 wird gemerkt).
    - ohne MA-Token: Hinweis "Music Assistant im Add-on einrichten".
    - lädt die Seite neu, sobald die TV-Dateien geändert wurden (Add-on-Update).
    Andere Module hängen sich ein: TV.on('ma'|'track'|'qstate'|'queue'|'frame'|'wishes', fn). */
@@ -24,7 +24,7 @@ function noop(){}
 
 /* ---------- Lite-Modus ---------- */
 (function(){
-  var arm=/aarch64|armv\d|arm64|\barm\b/i.test(navigator.userAgent+' '+(navigator.platform||'')), q=null, on=arm;
+  var ua=navigator.userAgent+' '+(navigator.platform||''), arm=/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua), q=null, on=arm;
   try{ q=new URLSearchParams(location.search).get('lite'); }catch(e){}
   try{ if(q==='1'||q==='0') localStorage.setItem('tv_lite',q); var s=localStorage.getItem('tv_lite'); on=s!=null?s==='1':arm; }catch(e){ on=q==='1'||(q!=='0'&&arm); }
   TV.lite=on;

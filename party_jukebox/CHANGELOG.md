@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.12
+- TV-Anzeige auf Android-TV-Boxen wieder in voller Optik (unscharfes Cover im Hintergrund, Animationen) – der Spar-Modus gilt automatisch nur noch für den Raspberry Pi
+
 ## 0.1.11
 - Startseite: TV-App und Jukebox-App (APK, Version 0.1.1) direkt vom Add-on herunterladen
 
