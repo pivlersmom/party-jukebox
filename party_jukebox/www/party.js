@@ -137,7 +137,9 @@ setInterval(function(){ if(ready) renderQuota(); },1000);
 function img(it){
   if(!it) return '';
   var mi=it.media_item||it, im=it.image||mi.image||(mi.metadata&&mi.metadata.images&&mi.metadata.images[0])||(mi.album&&(mi.album.image||(mi.album.metadata&&mi.album.metadata.images&&mi.album.metadata.images[0])))||null;
-  if(!im) return ''; var p=typeof im==='string'?im:im.path; if(!p) return '';
+  if(!im) return '';
+  if(typeof im!=='string'&&im.proxy_id) return MA_HTTP+'/imageproxy/'+encodeURIComponent(im.proxy_id)+'?size=256';
+  var p=typeof im==='string'?im:im.path; if(!p) return '';
   if(/^https:/.test(p)) return p;
   return MA_HTTP+'/imageproxy?size=256&path='+encodeURIComponent(p)+'&provider='+encodeURIComponent(im.provider||'');
 }

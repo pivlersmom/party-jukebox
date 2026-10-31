@@ -64,8 +64,11 @@ function pickImg(x) {
   if (imgs && imgs.length) return imgs.find(i => i.type === "thumb") || imgs[0];
   return null;
 }
+/* MA-Imageproxy akzeptiert nur diese Größen */
+const imgSize = n => [80, 160, 256, 512, 1024].find(x => x >= n) || 1024;
 function imgUrl(item, size) {
   if (!item) return "";
+  size = imgSize(size);
   const mi = item.media_item;
   const im = pickImg(item) || pickImg(mi) || pickImg(item.album) || pickImg(mi && mi.album);
   if (!im) return "";

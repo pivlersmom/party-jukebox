@@ -459,7 +459,12 @@ async def ma_websocket(request):
 async def ma_http(request):
     path = request.match_info["path"]
     session = request.app["session"]
-    async with session.get(f"{MAC.base}/{path}", params=request.query, timeout=30) as r:
+    params = dict(request.query)
+    if path.startswith("imageproxy") and params.get("size", "0").isdigit() and params.get("size") != "0":
+        # MA akzeptiert nur 0/80/160/256/512/1024
+        n = int(params["size"])
+        params["size"] = str(next((x for x in (80, 160, 256, 512, 1024) if x >= n), 1024))
+    async with session.get(f"{MAC.base}/{path}", params=params, timeout=30) as r:
         raw = await r.read()
         return web.Response(body=raw, status=r.status, content_type=(r.content_type or "application/octet-stream"),
                             headers={"Cache-Control": "public, max-age=86400"})
