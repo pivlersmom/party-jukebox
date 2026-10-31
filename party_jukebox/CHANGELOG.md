@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.7
+- Jukebox: Lautstärke-Regler mit Punkt im Farbverlauf, Fortschrittsbalken des Titels ohne Punkt
+
 ## 0.1.6
 - Jukebox: „Gruppe · N Lautsprecher“ antippen klappt einzelne Regler für jede Box der Gruppe auf
 
