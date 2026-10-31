@@ -38,12 +38,24 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 - Dort können sie Songs wünschen (mit Widmung), sich vordrängeln, über den laufenden Song abstimmen und Nachschub bestellen.
 - Die Gäste müssen im **gleichen WLAN** sein wie Home Assistant.
 
-## 4. Sicherheit
+## 4. Jukebox-Einstellungen (⚙ oben rechts)
+- **Lichteffekte, Abstimmung, Gast-Limits** – gelten sofort.
+- **TV-Anzeige** – Songtext-Versatz (+ = Text früher) und Darstellung (Spar-Modus für langsame TV-Boxen).
+- **Räume · Auto-Beitritt** – je Raum Lautsprecher und Bewegungsmelder wählen:
+  - Bewegung im Raum → die Box spielt die gerade laufende Musik mit.
+  - Keine Bewegung für die eingestellte Zeit → die Box verlässt die Gruppe wieder (0 = nie).
+  - Schloss-Knopf sperrt den Raum für die eingestellte Zeit. Optional ein eigener HA-Schalter als Sperre (z. B. damit Alexa sperren kann).
+  - „Nur wenn“ (optional): zusätzliche Bedingung, z. B. `sensor.ladestation=charging`.
+  - Läuft an der Soundbar gerade TV-Ton, wird nichts verbunden oder getrennt.
+- **Party-Plugin** – in Music Assistant installieren, ein-/ausschalten, Link zu allen Plugin-Einstellungen.
+- **Favoriten** – im Reiter „Läuft“ das Cover lange drücken.
+
+## 5. Sicherheit
 - Die Seiten sind ohne Anmeldung im Heimnetz erreichbar. Wer im WLAN ist, kann auch die Jukebox öffnen.
 - Auf Home Assistant selbst haben die Seiten **keinen Zugriff** – niemand kann über das Add-on Lichter, Schlösser o. Ä. steuern.
 - Port 8099 **nicht** im Router ins Internet freigeben.
 
-## 5. Probleme
+## 6. Probleme
 | Problem | Lösung |
 |---|---|
 | „Music Assistant ist noch nicht eingerichtet“ | Token in der Konfiguration eintragen, Add-on neu starten |

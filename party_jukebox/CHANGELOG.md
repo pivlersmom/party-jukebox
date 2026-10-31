@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.20
+- Anleitung: Abschnitt zu den Jukebox-Einstellungen (Räume, TV, Favoriten)
+
 ## 0.1.19
 - Auto-Beitritt: nach einem Neustart des Add-ons wird erst beim nächsten Wechsel des Bewegungsmelders reagiert
 
