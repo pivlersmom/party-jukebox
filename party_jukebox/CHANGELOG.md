@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.31
+- Autoplay-Knopf: ∞ bleibt als Zeichen erkennbar, wenn an pulsiert er leicht
+
 ## 0.1.30
 - Jukebox: Audioqualität steht fest in der Mitte, Übergänge/Autoplay links, AI DJ rechts
 

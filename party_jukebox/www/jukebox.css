@@ -407,8 +407,9 @@ select.fi{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%)
 
 .mbtn.auto svg{position:absolute;top:50%;left:50%;width:26px;height:13px;margin:-6.5px 0 0 -13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
 .mbtn.auto.on{color:#7fe3c4;background:rgba(127,227,196,.1);border-color:rgba(127,227,196,.4)}
-.mbtn.auto.on svg path{stroke-dasharray:14 6;animation:apFlow 1.6s linear infinite}
-@keyframes apFlow{to{stroke-dashoffset:-40}}
+.mbtn.auto.on svg{animation:apPulse 2.4s ease-in-out infinite}
+.mbtn.auto.on::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at 50% 50%,rgba(127,227,196,.3),transparent 60%);animation:djG 2.4s ease-in-out infinite}
+@keyframes apPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
 
 .aqd{height:0;overflow:hidden;opacity:0;font-size:12px;font-weight:700;color:var(--dim);text-align:center;transition:height .2s,opacity .2s}
 .aqd.on{height:18px;opacity:1;margin-top:2px}
