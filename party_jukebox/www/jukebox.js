@@ -691,6 +691,9 @@ function renderSettings() {
     html += numRow("boost_limit", "Vordrängeln pro Gast", L.boost_limit, "mal", !lim || L.enable_boost === false);
     html += numRow("boost_refill_minutes", "+1 Vordrängeln alle", L.boost_refill_minutes, "Min.", !lim || L.enable_boost === false);
   }
+  html += '<div class="shh gsh">Projekt</div>' +
+    '<a class="row lrow" href="https://paypal.me/stephanstiefermann" target="_blank" rel="noopener"><span class="rm"><span class="r1">☕ Projekt unterstützen</span>' +
+    '<span class="r2">freiwillig per PayPal – danke!</span></span><span class="lic">↗</span></a>';
   openSheet("settings", html, c => {
     c.querySelectorAll(".srow").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");

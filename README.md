@@ -102,6 +102,14 @@ Die Apps gibt es unter [Releases](https://github.com/pivlersmom/party-jukebox/re
 - Der Browser bekommt **keinen Zugriff auf Home Assistant**. Gäste können nichts im Haus steuern – HA nutzt nur das Add-on selbst (Skripte, Benachrichtigungen, Bewegungsmelder der eingetragenen Räume).
 - Gäste in einem getrennten Gäste-WLAN erreichen die Seiten nicht. Port 8099 **nicht** ins Internet freigeben.
 
+## Unterstützen
+
+Gefällt dir die Party-Jukebox? Über eine freiwillige Unterstützung freue ich mich:
+
+[![Unterstützen mit PayPal](https://img.shields.io/badge/☕_Unterstützen-PayPal-00457C?logo=paypal&logoColor=white)](https://paypal.me/stephanstiefermann)
+
+<sub>Freiwillig und ohne Gegenleistung – die Party-Jukebox bleibt kostenlos.</sub>
+
 ## Lizenz
 
 © 2026 pivlersmom – **Alle Rechte vorbehalten.** Installation und private Nutzung sind erlaubt;

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.48
+- Jukebox-Einstellungen: „Projekt unterstützen“ (PayPal)
+
 ## 0.1.47
 - Jukebox-Kopf: Lautsprecher-Auswahl wieder mittig (⚙ links neben dem Logo)
 
