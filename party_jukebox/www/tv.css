@@ -320,3 +320,8 @@ html.lite .qr-frame{box-shadow:0 0 0 4px var(--pink)!important}
 html.lite .mode.on .ic{animation:none!important}
 html.lite #dedOv,html.lite #boOv,html.lite #biOv{background:rgba(5,7,12,.88)!important}
 html.lite *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+
+/* Vollbild-Hinweis (nur im Browser) */
+#fsHint{position:fixed;right:2.4vw;bottom:2vh;z-index:70;padding:1vh 1.6vw;border-radius:999px;background:rgba(18,23,37,.94);border:1px solid rgba(0,240,224,.5);
+  color:var(--cyan);font-size:2vh;font-weight:800;opacity:0;transform:translateY(1vh);transition:opacity .4s,transform .4s;pointer-events:none}
+#fsHint.on{opacity:1;transform:none}

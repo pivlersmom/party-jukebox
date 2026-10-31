@@ -26,7 +26,8 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 ### Fernseher (TV-Anzeige)
 - **Android-TV-Box / Fire TV:** die **TV-App** aus den Releases auf GitHub installieren, beim ersten Start die Adresse
   `http://<IP>:8099` eingeben, *Testen*, *Speichern*.
-- **Ohne App:** im Browser des Fernsehers `http://<IP>:8099/tv.html` öffnen.
+- **Samsung (Tizen):** eigene App im GitHub-Repo, Ordner `tizen-tv` (Installation über den Entwicklermodus, Anleitung dort).
+- **Ohne App (LG, Samsung, PC …):** im Browser des Fernsehers `http://<IP>:8099/tv.html` öffnen und **OK / Enter** drücken → Vollbild.
 - Tipp: die **IP-Adresse** verwenden, nicht `homeassistant.local` – sonst können manche Handys den QR-Code nicht öffnen.
 
 ### Jukebox (für dich)

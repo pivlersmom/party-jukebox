@@ -340,4 +340,25 @@ function chk(){
   });
 }
 setTimeout(chk,5000); setInterval(chk,60000);
+
+/* ---------- Vollbild im Browser des Fernsehers (Samsung/LG/PC) ----------
+   Browser erlauben Vollbild nur nach einem Tastendruck: Hinweis zeigen, OK/Enter/Klick schaltet um.
+   Nicht in den Apps (Android-TV-App = WebView, Samsung-App = iframe). */
+(function(){
+  var ua=navigator.userAgent||'';
+  if(window.top!==window || /; wv\)|PartyJukebox/i.test(ua)) return;
+  var d=document, el=d.documentElement;
+  var req=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+  if(!req) return;
+  var isFs=function(){ return !!(d.fullscreenElement||d.webkitFullscreenElement); };
+  var hint=d.createElement('div'); hint.id='fsHint'; hint.textContent='OK / Enter drücken = Vollbild';
+  d.body.appendChild(hint);
+  var hide=null;
+  function show(){ if(isFs()) return; hint.classList.add('on'); clearTimeout(hide); hide=setTimeout(function(){ hint.classList.remove('on'); },10000); }
+  function go(){ if(isFs()) return; try{ var r=req.call(el); if(r&&r.catch) r.catch(function(){}); }catch(e){} hint.classList.remove('on'); }
+  d.addEventListener('keydown',function(e){ var k=e.key||'', c=e.keyCode; if(k==='Enter'||c===13||k==='f'||k==='F'){ go(); } });
+  d.addEventListener('click',go);
+  ['fullscreenchange','webkitfullscreenchange'].forEach(function(n){ d.addEventListener(n,function(){ if(!isFs()) show(); }); });
+  setTimeout(show,2500);
+})();
 })();

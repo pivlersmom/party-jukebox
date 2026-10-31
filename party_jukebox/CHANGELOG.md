@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.34
+- TV-Anzeige im Browser (Samsung, LG, PC): Hinweis „OK / Enter = Vollbild“, ein Tastendruck oder Klick schaltet auf Vollbild
+- Neu im Repo: Samsung-App (Tizen) im Ordner `tizen-tv` mit Anleitung
+
 ## 0.1.33
 - Song-Radio-Knopf (links): 2× tippen = ab dem laufenden Titel endlos ähnliche Musik (ersetzt die kommenden Titel), animiert solange aktiv
 

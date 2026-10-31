@@ -88,6 +88,12 @@ Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter �
 | **Party-Seite** | QR-Code vom TV scannen | QR-Code vom TV scannen | – |
 | **TV-Anzeige** | – | – | Android-TV-Box / Fire TV mit TV-APK, oder Browser auf `…:8099/tv.html` |
 
+**Fernseher im Detail**
+- **Android TV / Google TV / Fire TV** (auch Sony, Philips, TCL …): TV-App (APK) installieren – startet automatisch, bleibt an.
+- **Samsung (Tizen):** eigene App im Ordner [`tizen-tv`](tizen-tv/) – Installation über den Entwicklermodus, Anleitung dort. Oder einfach den Browser.
+- **LG (webOS) und alle anderen:** im Browser des Fernsehers `http://<IP>:8099/tv.html` öffnen, **OK / Enter = Vollbild**.
+- Günstige Alternative für jeden Fernseher: ein Streaming-Stick (Fire TV / Google TV) am HDMI-Anschluss mit der TV-App.
+
 Die Apps gibt es unter [Releases](https://github.com/pivlersmom/party-jukebox/releases) und direkt auf der Startseite des Add-ons.
 
 ## Sicherheit

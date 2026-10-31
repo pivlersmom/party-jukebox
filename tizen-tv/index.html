@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920,height=1080">
+<title>Party-Jukebox TV</title>
+<script src="$WEBAPIS/webapis/webapis.js"></script>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070c;color:#eef2fa;font-family:"SamsungOne",system-ui,sans-serif}
+  #tv{position:fixed;inset:0;width:100%;height:100%;border:0;display:none;background:#05070c}
+  #setup{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    background:radial-gradient(60vmax 60vmax at 0 0,rgba(255,46,200,.16),transparent 60%),radial-gradient(60vmax 60vmax at 100% 100%,rgba(0,240,224,.12),transparent 60%),#05070c}
+  .card{width:1100px;padding:56px 64px;border-radius:32px;background:rgba(18,23,37,.92);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  h1{margin:0 0 8px;font-size:52px;background:linear-gradient(120deg,#ff2ec8,#8b5cff 55%,#00f0e0);-webkit-background-clip:text;background-clip:text;color:transparent}
+  p{margin:0 0 28px;font-size:26px;color:#9aa6bf;line-height:1.4}
+  label{display:block;font-size:24px;font-weight:700;color:#9aa6bf;margin-bottom:12px}
+  input{width:100%;box-sizing:border-box;height:84px;border-radius:18px;border:3px solid #2a3449;background:#121725;color:#fff;font-size:36px;padding:0 24px}
+  .row{display:flex;gap:20px;margin-top:28px}
+  button{flex:1;height:84px;border-radius:18px;border:3px solid transparent;background:#232c41;color:#fff;font-size:32px;font-weight:800}
+  button.pri{background:linear-gradient(120deg,#ff2ec8,#8b5cff 55%,#00f0e0)}
+  input:focus,button:focus{outline:none;border-color:#00f0e0;box-shadow:0 0 0 6px rgba(0,240,224,.25)}
+  #msg{min-height:40px;margin-top:22px;font-size:28px;font-weight:700}
+  #msg.ok{color:#5ef0a0} #msg.err{color:#ff6b81}
+  .hint{margin-top:26px;font-size:22px;color:#64708a}
+  #off{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;font-size:40px;font-weight:800;color:#9aa6bf;background:#05070c}
+  #off small{font-size:26px;font-weight:600;color:#64708a}
+</style>
+</head>
+<body>
+<iframe id="tv" allow="autoplay; fullscreen"></iframe>
+<div id="off"><div>Keine Verbindung zur Party-Jukebox</div><small>Neuer Versuch alle 10 Sekunden … · Einstellungen: Zurück lange drücken</small></div>
+<div id="setup"><div class="card">
+  <h1>Party-Jukebox TV</h1>
+  <p>Adresse des Party-Jukebox-Add-ons eingeben – am besten die IP-Adresse von Home Assistant, z. B. <b>192.168.178.20</b>. Ohne <b>http://</b> und Port wird beides ergänzt.</p>
+  <label for="addr">Adresse</label>
+  <input id="addr" type="text" autocomplete="off" spellcheck="false" placeholder="http://192.168.x.x:8099">
+  <div class="row"><button id="test">Testen</button><button id="save" class="pri">Speichern &amp; starten</button></div>
+  <div id="msg"></div>
+  <div class="hint">Später wieder hierher: Zurück-Taste lange drücken (oder 3× schnell Zurück).</div>
+</div></div>
+<script src="app.js"></script>
+</body>
+</html>
