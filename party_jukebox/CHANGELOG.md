@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.37
+- TV-Anzeige im Browser eines Smart-TVs (Samsung, LG, Hisense …): Spar-Modus automatisch an – behebt Abstürze nach dem Songwechsel
+- Spar-Modus zusätzlich ohne drehende Platte, ohne Wechsel-Animation und mit kleinerem Cover (512 statt 1024 Pixel)
+
 ## 0.1.36
 - Startseite: TV-App und Jukebox-App in Version 0.1.2 zum Herunterladen
 

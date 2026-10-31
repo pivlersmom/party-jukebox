@@ -52,7 +52,8 @@ function noop(){}
 /* ---------- Lite-Modus + TV-Einstellungen aus der Jukebox ---------- */
 (function(){
   var ua=navigator.userAgent+' '+(navigator.platform||''), mem=+navigator.deviceMemory||0,
-      auto=(/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua)) || (mem>0&&mem<=1), q=null;  /* Pi oder Gerät mit ≤1 GB RAM */
+      tvBrowser=/Tizen|SMART-?TV|SmartTV|Web0S|webOS|NetCast|HbbTV|VIDAA|Hisense|Viera|Philips.*TV|BRAVIA/i.test(ua),
+      auto=(/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua)) || (mem>0&&mem<=1) || tvBrowser, q=null;  /* Pi, ≤1 GB RAM oder Browser eines Smart-TVs (Samsung/LG …) */
   try{ q=new URLSearchParams(location.search).get('lite'); localStorage.removeItem('tv_lite'); }catch(e){}
   TV.set={lyr_offset:0.5,tv_lite:'auto'};
   function apply(){
@@ -269,7 +270,7 @@ function applyQueue(q,full){
   if(!full && TV.q && TV.q.queue_id===q.queue_id) q=Object.assign({},TV.q,q);   /* Teil-Updates */
   TV.q=q; TV.qid=q.queue_id;
   TV.playing=q.state==='playing';
-  var ci=q.current_item||null, cur=TV.conv(ci,600);
+  var ci=q.current_item||null, cur=TV.conv(ci,TV.lite?400:600);  /* Spar-Modus: 512er statt 1024er Cover */
   var key=ci?(ci.queue_item_id||'')+'|'+(cur.uri||cur.title):'';
   var el=null;
   if(q.corrected_elapsed_time!=null) el=+q.corrected_elapsed_time;
