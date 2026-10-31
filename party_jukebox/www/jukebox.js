@@ -671,6 +671,8 @@ function renderSettings() {
   html += '<a class="row lrow" href="' + esc(maLink) + '" target="_blank" rel="noopener"><span class="rm"><span class="r1">In Music Assistant öffnen</span>' +
     '<span class="r2">alle Plugin-Einstellungen (Party-Name, Player, Farben …)</span></span><span class="lic">↗</span></a>';
   html += '<div class="shh gsh">Gäste</div>';
+  html += '<a class="row lrow" href="party.html"><span class="rm"><span class="r1">Gäste-Seite öffnen</span>' +
+    '<span class="r2">zurück über „‹ Jukebox“ oben</span></span><span class="lic">›</span></a>';
   if (!L) html += '<div class="empty">' + (P && !P.installed ? "Erst das Party-Plugin installieren" : "Party-Plugin in Music Assistant nicht gefunden") + '</div>';
   else {
     const lim = L.enable_rate_limiting !== false;
@@ -1144,5 +1146,6 @@ function setConn(c, wait) {
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
 window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet };
 renderAll();
+try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();
 })();

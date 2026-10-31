@@ -37,6 +37,9 @@ header .t b{display:block;font-size:20px;font-weight:800;letter-spacing:3px;back
 header .t span{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
 .dot{width:10px;height:10px;border-radius:50%;background:#ffb020;margin-left:auto;flex:none}
 .dot.ok{background:#38e08a}
+.hostb{margin-left:auto;flex:none;display:flex;align-items:center;gap:4px;height:36px;padding:0 12px 0 8px;border-radius:999px;background:var(--s2);border:1px solid var(--line);color:var(--tx);font-weight:700;font-size:14px;text-decoration:none}
+.hostb .ic{width:18px;height:18px;color:var(--cyan)}
+.hostb:not(.hide)+.dot{margin-left:12px}
 
 .card{background:rgba(18,23,37,.78);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:14px;margin-bottom:14px}
 .h{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tx3);display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -138,6 +141,7 @@ body.srch #resCard .h{display:none}
       <g fill="url(#g1)" transform="translate(0 -8)"><rect x="-57" y="-36" width="18" height="62" rx="9"/><rect x="-31" y="-22" width="18" height="82" rx="9"/><rect x="-9" y="-8" width="18" height="88" rx="9"/><rect x="13" y="-22" width="18" height="82" rx="9"/><rect x="39" y="-36" width="18" height="62" rx="9"/></g>
     </svg>
     <div class="t"><b id="pTitle">PARTY-JUKEBOX</b><span id="pName">Wünscht euch euren Song</span></div>
+    <a class="hostb hide" id="hostBtn" href="jukebox.html" aria-label="Zur Jukebox"><svg class="ic" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Jukebox</a>
     <div class="dot" id="dot"></div>
   </header>
 
@@ -182,6 +186,8 @@ body.srch #resCard .h{display:none}
 <div class="toast" id="toast"></div>
 <!-- Einstellungen aus dem Add-on (window.PJ), danach die Seiten-Skripte (Server liefert .js mit no-cache) -->
 <script src="config.js"></script>
+<script>/* Gastgeber (hat auf diesem Gerät schon die Jukebox geöffnet): Knopf zurück zur Jukebox */
+try{ if(localStorage.getItem('pj_host')==='1') document.getElementById('hostBtn').classList.remove('hide'); }catch(e){}</script>
 <script>
 /* Titel aus den Add-on-Optionen */
 (function(){ var n=(window.PJ&&window.PJ.name)||'Party-Jukebox'; document.title=n; document.getElementById('pTitle').textContent=n.toUpperCase(); })();

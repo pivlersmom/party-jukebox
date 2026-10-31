@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.40
+- Jukebox-Einstellungen → Gäste: „Gäste-Seite öffnen“
+- Gäste-Seite: Knopf „‹ Jukebox“ oben – nur auf Geräten, auf denen die Jukebox schon geöffnet wurde (Gastgeber), Gäste sehen ihn nicht
+
 ## 0.1.39
 - Gäste-Seite: Antippen des Suchfelds öffnet die Suche als Vollbild-Popup – Treffer direkt unter dem Feld, kein Scrollen mehr; „Fertig“ oder Zurück schließt
 - Gäste-Seite lässt sich aus dem Browser als App installieren (eigenes Icon, Manifest, iPhone-Homescreen-Icon)
