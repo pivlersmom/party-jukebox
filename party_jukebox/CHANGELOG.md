@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.10
+- Jukebox-Warteschlange: Titel am Griff ≡ an jede Stelle ziehen (statt nur Pfeil nach oben); bereits von MA vorgeladene Titel bleiben fest
+
 ## 0.1.9
 - Jukebox: Zahnrad oben rechts → Party-Einstellungen: Lichteffekte an/aus, Abstimmung an/aus, Gast-Limits (Wünsche und Vordrängeln pro Gast, Nachfüllzeit) – die Limits werden direkt im Party-Plugin von Music Assistant gespeichert
 - Jukebox: Einzelregler der Gruppe gehen nach oben auf, größerer Pfeil

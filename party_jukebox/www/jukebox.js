@@ -45,6 +45,7 @@ const ICON = {
   list: '<svg viewBox="0 0 24 24"><path d="M4 6h12M4 12h12M4 18h8"/><path d="M16 15.5v5l4.5-2.5z"/></svg>',
   disc: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  grip: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   nextup: '<svg viewBox="0 0 24 24"><path d="M4 6h10M4 11h10M4 16h6"/><path d="M18 8v11M15 16l3 3 3-3"/></svg>',
@@ -780,6 +781,7 @@ function canMoveUp(i) {
   return ci + i > buf;
 }
 function renderItems() {
+  if (drag) return;   // während des Ziehens nicht neu zeichnen
   const box = $("#qList"), n = nowInfo(), q = S.q;
   const left = q && typeof q.items === "number" ? Math.max(0, q.items - ((q.current_index == null ? -1 : q.current_index) + 1)) : S.items.length;
   setText($("#qCount"), left ? left + " Titel danach" : "");
@@ -796,8 +798,8 @@ function renderItems() {
     const m = it.media_item || {};
     return '<div class="qi" data-i="' + i + '"><button class="row" data-a="play">' + thumb(imgUrl(it, 120)) +
       '<span class="rm"><span class="r1">' + esc(m.name || it.name) + '</span><span class="r2">' + esc(artistsOf(m)) + "</span></span></button>" +
-      '<button class="ib" data-a="up" aria-label="Nach oben"' + (canMoveUp(i) ? "" : " disabled") + ">" + ICON.up + "</button>" +
-      '<button class="ib" data-a="del" aria-label="Entfernen">' + ICON.x + "</button></div>";
+      '<button class="ib" data-a="del" aria-label="Entfernen">' + ICON.x + "</button>" +
+      '<span class="ib grip' + (i >= minDragIdx() ? "" : " off") + '" aria-label="Ziehen zum Verschieben">' + ICON.grip + "</span></div>";
   }).join("");
   box.innerHTML = html;
 }
@@ -815,6 +817,64 @@ $("#qList").onclick = async e => {
     moveUp(i);
   }
 };
+/* ---------- Ziehen zum Verschieben (Griff ≡) ---------- */
+/* Titel, die MA schon in den Puffer geladen hat, lassen sich nicht mehr verschieben */
+function minDragIdx() {
+  const q = S.q; if (!q) return 0;
+  const ci = q.current_index == null ? -1 : q.current_index;
+  const buf = q.index_in_buffer == null ? ci : q.index_in_buffer;
+  return Math.max(0, buf - ci);
+}
+var drag = null;   // var: wird schon vor dieser Zeile von renderItems gelesen
+$("#qList").addEventListener("pointerdown", e => {
+  const g = e.target.closest(".grip"); if (!g || g.classList.contains("off")) return;
+  const row = g.closest(".qi"), list = $("#qList"); if (!row) return;
+  e.preventDefault();
+  const rows = [...list.querySelectorAll(".qi")];
+  const from = +row.dataset.i, h = row.getBoundingClientRect().height;
+  drag = { row, rows, from, to: from, y0: e.clientY, h, view: list.closest(".view"), sy0: 0, id: e.pointerId, min: minDragIdx() };
+  drag.sy0 = drag.view ? drag.view.scrollTop : 0;
+  try { g.setPointerCapture(e.pointerId); } catch (x) {}
+  row.classList.add("dragging"); document.body.classList.add("dragq");
+});
+function dragMove(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const v = drag.view;
+  if (v) {  // am Rand automatisch scrollen
+    const r = v.getBoundingClientRect();
+    if (e.clientY < r.top + 70) v.scrollTop -= 12; else if (e.clientY > r.bottom - 90) v.scrollTop += 12;
+  }
+  const dy = e.clientY - drag.y0 + (v ? v.scrollTop - drag.sy0 : 0);
+  drag.row.style.transform = "translateY(" + dy + "px)";
+  const n = drag.rows.length;
+  const to = Math.max(drag.min, Math.min(n - 1, drag.from + Math.round(dy / drag.h)));
+  if (to !== drag.to) {
+    drag.to = to;
+    drag.rows.forEach((r, k) => {
+      if (r === drag.row) return;
+      let sh = 0;
+      if (to > drag.from && k > drag.from && k <= to) sh = -drag.h;
+      else if (to < drag.from && k < drag.from && k >= to) sh = drag.h;
+      r.style.transform = sh ? "translateY(" + sh + "px)" : "";
+    });
+  }
+}
+async function dragEnd(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag; drag = null;
+  document.body.classList.remove("dragq");
+  d.rows.forEach(r => { r.style.transform = ""; r.classList.remove("dragging"); });
+  const shift = d.to - d.from; if (!shift) { renderItems(); return; }
+  const it = S.items[d.from]; if (!it) return;
+  S.items.splice(d.from, 1); S.items.splice(d.to, 0, it); renderItems();   // sofort zeigen
+  const ok = await qc("move_item", { queue_item_id: it.queue_item_id, pos_shift: shift });
+  await loadItems();
+  if (ok && S.items.findIndex(x => x.queue_item_id === it.queue_item_id) === d.from) toast("Verschieben nicht möglich (Titel schon geladen)");
+}
+document.addEventListener("pointermove", dragMove);
+document.addEventListener("pointerup", dragEnd);
+document.addEventListener("pointercancel", dragEnd);
+
 async function moveUp(i) {
   const it = S.items[i]; if (!it || !canMoveUp(i)) return;
   const id = it.queue_item_id;
