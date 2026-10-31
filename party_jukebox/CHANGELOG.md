@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.42
+- Gäste-Seite: Knopf zur Jukebox jetzt nur als Jukebox-Logo
+
 ## 0.1.41
 - Gastgeber-PIN (Jukebox → ⚙): Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur nach PIN; Gerät bleibt angemeldet, nach 5 Fehlversuchen 1 Minute Sperre
 - Gäste-Seite: Logo lange drücken → PIN-Abfrage → Jukebox; Knopf „‹ Jukebox“ nur auf angemeldeten Geräten

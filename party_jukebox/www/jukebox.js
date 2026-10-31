@@ -679,7 +679,7 @@ function renderSettings() {
     (d.host_pin ? '<button class="act rsb2" id="pinDel">PIN entfernen</button>' : "");
   html += '<div class="shh gsh">Gäste</div>';
   html += '<a class="row lrow" href="party.html"><span class="rm"><span class="r1">Gäste-Seite öffnen</span>' +
-    '<span class="r2">zurück über „‹ Jukebox“ oben</span></span><span class="lic">›</span></a>';
+    '<span class="r2">zurück über das Jukebox-Logo oben rechts</span></span><span class="lic">›</span></a>';
   if (!L) html += '<div class="empty">' + (P && !P.installed ? "Erst das Party-Plugin installieren" : "Party-Plugin in Music Assistant nicht gefunden") + '</div>';
   else {
     const lim = L.enable_rate_limiting !== false;
