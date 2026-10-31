@@ -366,10 +366,52 @@ function renderVol() {
   if (!p) { box.classList.add("off"); setText($("#vVal"), "–"); setText($("#vGrp"), ""); volSl.set(0); return; }
   const g = groupInfo(p);
   const v = g.isGroup ? (p.group_volume != null ? p.group_volume : p.volume_level) : p.volume_level;
-  setText($("#vGrp"), v == null ? "Lautstärke nicht regelbar" : (g.isGroup ? "Gruppe · " + g.n + " Lautsprecher" : ""));
+  setText($("#vGrp"), v == null ? "Lautstärke nicht regelbar" : (g.isGroup ? "Gruppe · " + g.n + " Lautsprecher " + (S.memOpen ? "▴" : "▾") : ""));
+  $("#vGrp").classList.toggle("tap", g.isGroup && v != null);
+  renderMembers(p, g);
   box.classList.toggle("off", v == null);
   if (v == null) { setText($("#vVal"), "–"); return; }
   if (!volSl.active && Date.now() > S.vHold) { volSl.set(v / 100); setText($("#vVal"), Math.round(v)); }
+}
+/* Gruppe aufklappen: jede Box einzeln regeln */
+const memSl = {}, memPend = {}, memHold = {};
+let memKey = "";
+$("#vGrp").onclick = () => {
+  const p = S.players[S.pid]; if (!p || !groupInfo(p).isGroup) return;
+  S.memOpen = !S.memOpen; memKey = ""; renderVol();
+};
+function memSend(id) {
+  const v = memPend[id]; if (v == null) return; memPend[id] = null;
+  cmd("players/cmd/volume_set", { player_id: id, volume_level: Math.round(v) }).catch(e => toast("Music Assistant: " + errText(e)));
+}
+function renderMembers(p, g) {
+  const box = $("#vMem");
+  const ids = g.isGroup ? [p.player_id].concat((p.group_members || []).filter(x => x !== p.player_id)) : [];
+  const open = S.memOpen && ids.length > 1;
+  box.hidden = !open; $("#vGrp").setAttribute("aria-expanded", open ? "true" : "false");
+  if (!open) { memKey = ""; return; }
+  const key = ids.join("|");
+  if (key !== memKey) {
+    memKey = key;
+    box.innerHTML = ids.map(id => '<div class="vm" data-id="' + esc(id) + '"><span class="vmn">' + esc(pname(S.players[id]) || id) +
+      '</span><div class="sl vms"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div><b class="vmv">–</b></div>').join("");
+    box.querySelectorAll(".vm").forEach(row => {
+      const id = row.dataset.id, val = row.querySelector(".vmv");
+      memSl[id] = slider(row.querySelector(".sl"), {
+        input: f => { setText(val, Math.round(f * 100)); memPend[id] = f * 100; memHold[id] = Date.now() + 2500;
+          later(() => memSend(id), 200, "mv" + id); },
+        commit: f => { memPend[id] = f * 100; memHold[id] = Date.now() + 2500; memSend(id); },
+        cancel: () => { memHold[id] = Date.now() + 2500; }
+      });
+    });
+  }
+  box.querySelectorAll(".vm").forEach(row => {
+    const id = row.dataset.id, m = S.players[id], sl = memSl[id];
+    const v = m ? m.volume_level : null;
+    row.querySelector(".sl").classList.toggle("off", v == null);
+    if (v == null) { setText(row.querySelector(".vmv"), "–"); return; }
+    if (sl && !sl.active && Date.now() > (memHold[id] || 0)) { sl.set(v / 100); setText(row.querySelector(".vmv"), Math.round(v)); }
+  });
 }
 function renderBadge() {
   const q = S.q, b = $("#qBadge");

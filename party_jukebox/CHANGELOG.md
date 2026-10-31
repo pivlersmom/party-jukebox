@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.6
+- Jukebox: „Gruppe · N Lautsprecher“ antippen klappt einzelne Regler für jede Box der Gruppe auf
+
 ## 0.1.5
 - Jukebox: Lautsprecher gruppieren – im Lautsprecher-Menü unter „Mitspielen mit …“ weitere Boxen zu- oder abschalten
 
