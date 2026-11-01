@@ -681,6 +681,15 @@ function renderSettings() {
       '<button class="row srow pfr' + ((sel ? sel.includes(u.user_id) : profDefault(u)) ? " on" : "") + '" data-u="' + esc(u.user_id) + '"><span class="rm"><span class="r1">' +
       esc(profName(u)) + '</span><span class="r2">' + esc(u.username + " · " + (u.role || "")) + '</span></span><span class="gsw"><i></i></span></button>').join("");
   }
+  const AMS = window.AndroidMediaSession;
+  if (AMS && typeof AMS.phonePlayerState === "function") {  // nur in der Android-App mit Handy-Player
+    let ps = {}; try { ps = JSON.parse(AMS.phonePlayerState()); } catch (e) {}
+    html += '<div class="shh gsh">Handy als Lautsprecher</div>' +
+      '<button class="row srow php' + (ps.on ? " on" : "") + '"><span class="rm"><span class="r1">Dieses Handy als Player</span><span class="r2">' +
+      (ps.on ? (ps.pid ? "aktiv – in Android Auto unter Lautsprecher" : "startet … (einmal einrichten, falls nötig)") : "für Musik im Auto (Android Auto)") +
+      '</span></span><span class="gsw"><i></i></span></button>' +
+      '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
+  }
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
     (d.host_pin ? "Neue PIN (4–8 Ziffern)" : "PIN festlegen (4–8 Ziffern)") + '"><button class="act" id="pinSave">Speichern</button></div>' +
@@ -711,7 +720,12 @@ function renderSettings() {
       PJ.profiles = ids; S.users = S.allUsers.filter(u => ids.includes(u.user_id));
       setSave({ profiles: ids });
     });
-    c.querySelectorAll(".srow:not(.pfr)").forEach(b => b.onclick = () => {
+    const php = c.querySelector(".srow.php");
+    if (php) php.onclick = () => { const on = !php.classList.contains("on"); php.classList.toggle("on", on);
+      try { window.AndroidMediaSession.setPhonePlayer(on); } catch (e) {} toast(on ? "Handy-Player startet" : "Handy-Player aus"); };
+    const phs = c.querySelector("#phpSetup");
+    if (phs) phs.onclick = () => { try { window.AndroidMediaSession.openPhonePlayerSetup(); } catch (e) {} };
+    c.querySelectorAll(".srow:not(.pfr):not(.php)").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
       if (k === "effects" || k === "skip_votes") setSave({ [k]: on });

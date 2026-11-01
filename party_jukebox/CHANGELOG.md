@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.52
+- Einstellungen: „Handy als Lautsprecher“ (nur in Android-Apps mit dieser Funktion sichtbar)
+
 ## 0.1.51
 - Jukebox auch über Home Assistant erreichbar (Seitenleiste „Jukebox“, unterwegs über Nabu Casa) – dort ohne Gastgeber-PIN, Home Assistant hat schon angemeldet
 - Schnittstelle für Android-Auto-Apps (gewählter Lautsprecher und Profil)
