@@ -69,3 +69,9 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 | Song wird trotz 👎 nicht übersprungen | Option **Abstimmung überspringt Songs** prüfen; nötig ist die Mehrheit der Gäste (mindestens 2) |
 
 Logs: Reiter **Protokoll** des Add-ons.
+
+## Mehrere Musik-Konten (Profile)
+
+Hat Music Assistant mehrere Benutzer (Einstellungen → Benutzerverwaltung), zeigt die Jukebox unter **Suche** oben „Musik von …“.
+Jedes Gerät merkt sich sein Profil. Suche, Playlists, Lieblingssongs und Abspielen laufen dann nur über die Musikquellen,
+die in Music Assistant für diesen Benutzer freigegeben sind – z. B. ein zweites Spotify-Konto als eigene Musikquelle.

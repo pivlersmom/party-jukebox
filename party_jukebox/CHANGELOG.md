@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.49
+- Jukebox → Suche: Profile aus den Music-Assistant-Benutzern („Musik von …“), pro Gerät gemerkt
+- Ohne Suchbegriff: Playlists und Lieblingssongs des Profils; Suche und Abspielen nur über die für den Benutzer freigegebenen Musikquellen (z. B. eigenes Spotify-Konto)
+
 ## 0.1.48
 - Jukebox-Einstellungen: „Projekt unterstützen“ (PayPal)
 

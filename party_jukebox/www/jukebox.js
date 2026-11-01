@@ -166,6 +166,7 @@ async function onReady() {
   await loadPlayers();
   pickPlayer();
   await loadQueue();
+  loadProfiles();
 }
 async function loadPlayers() {
   try {
@@ -540,7 +541,10 @@ function showTab(t) {
     document.querySelector('#nav [data-t="' + x + '"]').classList.toggle("on", x === t);
   });
   if (t === "queue") { renderItems(); if (!S.itemsOk) loadItems(); }
-  if (t === "search" && !$("#q").value) setTimeout(() => $("#q").focus(), 60);
+  if (t === "search" && !$("#q").value) {
+    if (!S.sRes && !(S.nav && S.nav.length)) renderHome();
+    if (S.users.length < 2) setTimeout(() => $("#q").focus(), 60);  // mit Profilen: erst „Meine Musik“ zeigen
+  }
   if (t === "now") tick();
 }
 document.querySelectorAll("#nav button").forEach(b => { b.onclick = () => showTab(b.dataset.t); });
@@ -832,11 +836,11 @@ async function doSearch() {
   const term = $("#q").value.trim(), box = $("#sRes");
   $("#qClr").hidden = !term;
   const seq = ++S.sSeq;
-  if (term.length < 2) { S.sRes = null; box.innerHTML = '<div class="empty">Wonach suchst du?</div>'; return; }
+  if (term.length < 2) { S.sRes = null; renderHome(); return; }
   if (!S.ready) { box.innerHTML = '<div class="empty">Keine Verbindung zu Music Assistant</div>'; return; }
   box.innerHTML = '<div class="spin"></div>';
   try {
-    const r = await cmd("music/search", { search_query: term, media_types: TYPES[S.filter], limit: S.filter === "all" ? 10 : 40 }, 25000);
+    const r = await cmdP("music/search", Object.assign({ search_query: term, media_types: TYPES[S.filter], limit: S.filter === "all" ? 10 : 40 }, profProv("providers")), 25000);
     if (seq !== S.sSeq) return;
     S.sRes = r || {}; renderResults();
   } catch (e) {
@@ -847,7 +851,7 @@ async function doSearch() {
 function renderResults() {
   if (S.nav && S.nav.length) { renderNav(); return; }
   const r = S.sRes, box = $("#sRes"); S.sItems = [];
-  if (!r) return;
+  if (!r) { renderHome(); return; }
   const all = S.filter === "all";
   let html = "";
   TYPES[S.filter].forEach(k => {
@@ -885,6 +889,79 @@ $("#sRes").onclick = e => {
   /* Künstler/Album/Playlist antippen = öffnen, ⋯ = Abspiel-Menü; Titel = Abspiel-Menü */
   if (it.media_type === "track" || e.target.closest(".go")) openItem(it); else navPush(it);
 };
+
+/* ---------- Profile: Musik-Konten pro Person (Benutzer aus Music Assistant) ----------
+   Jedes Gerät merkt sich sein Profil. Suche, „Meine Musik“ und Abspielen laufen über die Musikquellen,
+   die in Music Assistant für diesen Benutzer freigegeben sind (z. B. eigenes Spotify-Konto). */
+S.users = []; S.me = null; S.noImp = false;
+async function loadProfiles() {
+  try {
+    const [me, list] = await Promise.all([cmd("auth/me").catch(() => null), cmd("auth/users")]);
+    S.me = me && (me.user_id || me.id) || null;
+    S.users = (list || []).filter(u => u && u.enabled !== false && (u.role === "admin" || u.role === "user"));
+  } catch (e) { S.users = []; }
+  if (S.tab === "search" && !S.sRes && !(S.nav && S.nav.length)) renderHome();
+}
+function prof() {
+  if (S.users.length < 2) return null;
+  const id = ls.get("jb_prof") || S.me;
+  return S.users.find(u => u.user_id === id) || S.users.find(u => u.user_id === S.me) || null;
+}
+function profName(u) { return (u && (u.display_name || u.username)) || ""; }
+/* Quellen-Filter des Profils (leer = alle) */
+function profProv(key) {
+  const u = prof(), f = u && Array.isArray(u.provider_filter) ? u.provider_filter : [];
+  return f.length ? { [key]: f } : {};
+}
+/* Abspielen im Namen des Profils (Statistik/Konto), nur wenn es nicht der eigene Benutzer ist */
+function profUser() { const u = prof(); return u && u.user_id !== S.me && !S.noImp ? { user: u.username } : {}; }
+function cmdP(command, args, timeout) {
+  const extra = profUser();
+  if (!extra.user) return cmd(command, args, timeout);
+  return cmd(command, Object.assign({}, args, extra), timeout).catch(e => {
+    if (/scope|permission|impersonat|not allowed|unauthori|forbidden/i.test(errText(e))) { S.noImp = true; return cmd(command, args, timeout); }
+    throw e;
+  });
+}
+function profAvatar(u, cls) {
+  const n = profName(u), url = u && u.avatar_url;
+  return '<span class="pav' + (cls ? " " + cls : "") + '">' + (url ? '<img alt="" src="' + esc(url) + '">' : esc(n.slice(0, 1).toUpperCase())) + "</span>";
+}
+let homeSeq = 0;
+async function renderHome() {
+  const box = $("#sRes"); if (!box) return;
+  const u = prof(), seq = ++homeSeq;
+  let head = "";
+  if (S.users.length > 1) {
+    head = '<div class="profrow">' + S.users.map(x => '<button class="profb' + (u && x.user_id === u.user_id ? " on" : "") + '" data-u="' + esc(x.user_id) + '">' +
+      profAvatar(x) + "<span>" + esc(profName(x)) + "</span></button>").join("") + "</div>";
+  }
+  if (!S.ready) { box.innerHTML = head + '<div class="empty">Wonach suchst du?</div>'; return; }
+  box.innerHTML = head + '<div class="spin"></div>';
+  const pv = profProv("provider");
+  const [pl, fav] = await Promise.all([
+    cmdP("music/playlists/library_items", Object.assign({ limit: 60, order_by: "sort_name" }, pv), 20000).catch(() => []),
+    cmdP("music/tracks/library_items", Object.assign({ favorite: true, limit: 40, order_by: "timestamp_added_desc" }, pv), 20000)
+      .catch(() => cmdP("music/tracks/library_items", Object.assign({ favorite: true, limit: 40 }, pv), 20000)).catch(() => [])
+  ]);
+  if (seq !== homeSeq || S.sRes || (S.nav && S.nav.length)) return;
+  S.sItems = [];
+  const row = it => { const i = S.sItems.push(it) - 1;
+    return '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120)) + '<span class="rm"><span class="r1">' + esc(it.name) +
+      '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>"; };
+  let html = head;
+  const p = (pl || []).filter(x => x && x.uri), f = (fav || []).filter(x => x && x.uri);
+  if (p.length) html += '<div class="sec"><div class="sech"><span>' + (u ? "Playlists von " + esc(profName(u)) : "Playlists") + "</span></div>" + p.map(row).join("") + "</div>";
+  if (f.length) html += '<div class="sec"><div class="sech"><span>Lieblingssongs</span></div>' + f.map(row).join("") + "</div>";
+  if (!p.length && !f.length) html += '<div class="empty">Wonach suchst du?</div>';
+  box.innerHTML = html;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".profb"); if (!b) return;
+  ls.set("jb_prof", b.dataset.u); S.sRes = null;
+  const u = prof(); toast("Musik von " + profName(u));
+  if ($("#q").value.trim().length >= 2) doSearch(); else renderHome();
+});
 
 /* ---------- Durchklicken: Künstler → Titel/Alben, Album/Playlist → Titel ---------- */
 S.nav = [];
@@ -999,7 +1076,7 @@ function openItem(it) {
   }));
 }
 async function enqueue(it, opt) {
-  const ok = await qc("play_media", { media: it.uri, option: opt });
+  const ok = await qc("play_media", Object.assign({ media: it.uri, option: opt }, profUser()));
   if (!ok) return;
   toast(opt === "play" ? "Spielt jetzt: " + it.name : opt === "next" ? "Kommt als Nächstes: " + it.name : "Hinten angestellt: " + it.name);
   if (opt === "play") skipFx();
