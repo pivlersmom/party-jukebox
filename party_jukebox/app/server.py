@@ -812,6 +812,7 @@ async def config_js(request):
         "player": OPT.get("party_player") or "",
         "drinks": drinks(),
         "maToken": bool(OPT.get("ma_token")),
+        "profiles": SETTINGS.get("profiles"),  # in der Jukebox angezeigte MA-Benutzer (None = alle)
     }
     body = "window.PJ=" + json.dumps(cfg, ensure_ascii=False) + ";"
     return web.Response(text=body, content_type="application/javascript", headers={"Cache-Control": "no-store"})
@@ -869,7 +870,7 @@ async def party_settings_get(request):
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
            "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN),
-           "host_pin": host_pin_set()}
+           "host_pin": host_pin_set(), "profiles": SETTINGS.get("profiles")}
     if not is_host(request):
         return web.json_response({**out, "host": False}, status=403, headers={"Cache-Control": "no-store"})
     try:
@@ -904,6 +905,8 @@ async def party_settings_post(request):
         SETTINGS["lyr_offset"] = round(max(-8.0, min(8.0, float(data["lyr_offset"]))), 1)
     if data.get("tv_lite") in ("auto", "on", "off"):
         SETTINGS["tv_lite"] = data["tv_lite"]
+    if isinstance(data.get("profiles"), list):
+        SETTINGS["profiles"] = [str(x)[:64] for x in data["profiles"][:30] if x]
     if isinstance(data.get("rooms"), list):
         SETTINGS["rooms"] = [c for c in (clean_room(r) for r in data["rooms"][:20] if isinstance(r, dict)) if c]
         log.info("Räume gespeichert: %s", ", ".join(r["name"] for r in SETTINGS["rooms"]) or "keine")

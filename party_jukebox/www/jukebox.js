@@ -675,6 +675,12 @@ function renderSettings() {
   else html += swRow("plugin", "Party-Plugin", P.enabled ? "Gäste können per QR-Code mitmachen" : "ausgeschaltet – keine Gäste-Anmeldung", P.enabled);
   html += '<a class="row lrow" href="' + esc(maLink) + '" target="_blank" rel="noopener"><span class="rm"><span class="r1">In Music Assistant öffnen</span>' +
     '<span class="r2">alle Plugin-Einstellungen (Party-Name, Player, Farben …)</span></span><span class="lic">↗</span></a>';
+  if ((S.allUsers || []).length > 1) {
+    const sel = Array.isArray(d.profiles) ? d.profiles : null;
+    html += '<div class="shh gsh">Profile in der Suche</div>' + S.allUsers.map(u =>
+      '<button class="row srow pfr' + ((sel ? sel.includes(u.user_id) : profDefault(u)) ? " on" : "") + '" data-u="' + esc(u.user_id) + '"><span class="rm"><span class="r1">' +
+      esc(profName(u)) + '</span><span class="r2">' + esc(u.username + " · " + (u.role || "")) + '</span></span><span class="gsw"><i></i></span></button>').join("");
+  }
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
     (d.host_pin ? "Neue PIN (4–8 Ziffern)" : "PIN festlegen (4–8 Ziffern)") + '"><button class="act" id="pinSave">Speichern</button></div>' +
@@ -699,7 +705,13 @@ function renderSettings() {
     '<a class="row lrow" href="https://paypal.me/stephanstiefermann" target="_blank" rel="noopener"><span class="rm"><span class="r1">☕ Projekt unterstützen</span>' +
     '<span class="r2">freiwillig per PayPal – danke!</span></span><span class="lic">↗</span></a>';
   openSheet("settings", html, c => {
-    c.querySelectorAll(".srow").forEach(b => b.onclick = () => {
+    c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
+      b.classList.toggle("on");
+      const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);
+      PJ.profiles = ids; S.users = S.allUsers.filter(u => ids.includes(u.user_id));
+      setSave({ profiles: ids });
+    });
+    c.querySelectorAll(".srow:not(.pfr)").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
       if (k === "effects" || k === "skip_votes") setSave({ [k]: on });
@@ -898,9 +910,15 @@ async function loadProfiles() {
   try {
     const [me, list] = await Promise.all([cmd("auth/me").catch(() => null), cmd("auth/users")]);
     S.me = me && (me.user_id || me.id) || null;
-    S.users = (list || []).filter(u => u && u.enabled !== false && (u.role === "admin" || u.role === "user"));
+    S.allUsers = (list || []).filter(u => u && u.enabled !== false && u.role !== "guest");
+    const sel = Array.isArray(PJ.profiles) ? PJ.profiles : null;  // Auswahl in den Einstellungen (null = alle)
+    S.users = S.allUsers.filter(u => sel ? sel.includes(u.user_id) : profDefault(u));
   } catch (e) { S.users = []; }
   if (S.tab === "search" && !S.sRes && !(S.nav && S.nav.length)) renderHome();
+}
+/* Ohne Auswahl: echte Personen, keine Technik-Konten (Dashboard-Anzeige, Gast, Kiosk …) */
+function profDefault(u) {
+  return (u.role === "admin" || u.role === "user") && !/dashboard|viewer|kiosk|gast|guest|homeassistant|service/i.test((u.display_name || "") + " " + (u.username || ""));
 }
 function prof() {
   if (S.users.length < 2) return null;
