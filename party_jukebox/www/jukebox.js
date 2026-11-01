@@ -336,7 +336,7 @@ function nowInfo() {
     tvFetch();
     const t = S.tv;
     if (t) return { title: t.title || t.app || "TV", artist: [t.sub && t.sub !== t.title ? t.sub : "", t.app && t.app !== t.title && t.app !== t.sub ? t.app : "", "TV-Ton"].filter(Boolean).join(" · "),
-      img: t.logo || t.img || "", small: t.logo || t.img || "", dur: 0, key: "tv|" + t.title, tv: true, logo: !!t.logo };
+      img: t.logo || t.img || "", small: t.logo || t.img || "", dur: 0, key: "tv|" + t.title, tv: true, logo: !!t.logo, dark: !!t.dark };
     return { title: "TV-Ton", artist: pname(p), img: "", small: "", dur: 0, key: "tv", tv: true };
   }
   if (ci) return { title: (mi && mi.name) || ci.name || "", artist: artistsOf(mi), img: imgUrl(ci, 600), small: imgUrl(ci, 120),
@@ -381,6 +381,7 @@ function renderNow() {
   setText($("#npArtist"), n ? n.artist : (S.pid ? "Über die Suche Musik auswählen" : ""));
   setCover(n ? n.img : "");
   $("#cover").classList.toggle("tvlogo", !!(n && n.logo));
+  $("#cover").classList.toggle("tvdark", !!(n && n.logo && n.dark));
   const pl = isPlaying();
   $("#bPp").classList.toggle("playing", pl);
   $("#bPp").setAttribute("aria-label", pl ? "Pause" : "Abspielen");

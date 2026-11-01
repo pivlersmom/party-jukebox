@@ -459,3 +459,4 @@ header .gstbtn{justify-self:end}
 
 /* TV-Ton: Senderlogo ganz zeigen (nicht beschneiden) */
 #cover.tvlogo img{object-fit:contain;padding:14%;background:#f4f6fb;box-sizing:border-box}
+#cover.tvlogo.tvdark img{background:linear-gradient(135deg,#1c2238,#0b0d14);padding:22%}

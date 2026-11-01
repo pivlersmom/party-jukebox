@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.57
+- TV-Ton: App-Logos weiß auf dunkler Fläche (DAZN war unsichtbar)
+
 ## 0.1.56
 - TV-Ton: App-Logo (z. B. DAZN, Netflix, YouTube), wenn die App kein eigenes Bild meldet
 

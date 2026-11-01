@@ -730,7 +730,7 @@ TV_ICONS = {"Netflix": "netflix", "YouTube": "youtube", "DAZN": "dazn", "Spotify
 
 def _applogo(name):
     slug = TV_ICONS.get(name)
-    return f"https://cdn.simpleicons.org/{slug}" if slug else ""
+    return f"https://cdn.simpleicons.org/{slug}/white" if slug else ""  # weiß auf dunkler Fläche (DAZN & Co. sind hell)
 
 
 def _appname(x):
@@ -785,6 +785,7 @@ async def party_tvnow(request):
         out["logo"] = await _tv_logo(session, out["channel"])
     if out and not out.get("logo") and not out.get("img"):
         out["logo"] = _applogo(out.get("app", ""))
+        out["dark"] = True
     return web.json_response(out, headers={"Cache-Control": "no-store"})
 
 
