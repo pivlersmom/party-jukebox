@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.54
+- Jukebox: Läuft TV-Ton über eine Soundbar, werden Sender, Sendung bzw. App angezeigt (optional, neue Optionen „TV-Ton …“), mit Senderlogo
+
 ## 0.1.53
 - Lautsprecher-Liste zeigt auch private Player (z. B. Handy mit der Music-Assistant-App)
 

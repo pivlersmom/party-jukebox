@@ -15,7 +15,7 @@ import hashlib
 import hmac
 import json
 import secrets
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 import logging
 import os
 import re
@@ -656,6 +656,134 @@ async def party_ha_entities(request):
     return web.json_response({"sensors": sens, "switches": sw}, headers={"Cache-Control": "no-store"})
 
 
+# ---------------------------------------------------------------- TV-Ton: Sender / App / Sendung
+# Optional (Add-on-Optionen): tv_cast_entity = Cast-Player des TV-Geräts (app_name, media_artist = Sender,
+# media_title = Sendung), tv_box_entities = weitere Player (z. B. Android-TV-Box) für den App-Namen,
+# tv_logo_index = /local/...js mit {name: datei} und tv_logo_dir = /local/... für Senderlogos.
+HA_LOCAL = "http://homeassistant:8123"
+TV_LOGOS = {"t": 0, "map": {}}
+
+
+def _tvnorm(x):
+    return re.sub(r"[^a-z0-9äöüß]+", "", (x or "").lower())
+
+
+def _tvbase(name):
+    n = (name or "").strip()
+    for rx, fam in ((r"^sky\s*sport\s*bundesliga", "Sky Sport Bundesliga"), (r"^sky\s*sport", "Sky Sport"),
+                    (r"^sky\s*cinema", "Sky Cinema"), (r"^dazn", "DAZN"), (r"^magenta\s*sport", "MagentaSport"),
+                    (r"^eurosport", "Eurosport")):
+        if re.match(rx, n, re.I):
+            return fam
+    n = re.sub(r"\s+(u?hd|4k)$", "", n, flags=re.I)
+    return re.sub(r"\s+\d+$", "", n).strip()
+
+
+async def _tv_logo(session, channel):
+    idx = (OPT.get("tv_logo_index") or "").strip()
+    if not idx or not channel:
+        return ""
+    if time.time() - TV_LOGOS["t"] > 3600:
+        TV_LOGOS["t"] = time.time()
+        try:
+            async with session.get(HA_LOCAL + idx, timeout=10) as r:
+                txt = await r.text()
+            m = re.search(r"\{.*\}", txt, re.S)
+            TV_LOGOS["map"] = json.loads(m.group(0)) if m else {}
+        except Exception as e:
+            log.info("Senderlogos nicht lesbar: %s", e)
+    mp = TV_LOGOS["map"]
+    for k in (channel, re.sub(r"\s+(u?hd|4k)$", "", channel, flags=re.I), _tvbase(channel)):
+        f = mp.get(_tvnorm(k))
+        if f:
+            return "party/tvimg?l=" + quote(f)
+    # unscharf: Füllwörter weg, dann gleich bzw. längster enthaltener Name ("MDR-Fernsehen Thüringen" → "MDR Thüringen")
+    fill = re.compile(r"(fernsehen|television|channel|deutschland|germany|international|uhd|hd|tv)")
+    key = fill.sub("", _tvnorm(channel))
+    best = None
+    if len(key) >= 2:
+        for k, f in mp.items():
+            ks = fill.sub("", k)
+            if ks == key:
+                best = (99, f); break
+            if len(ks) >= 4 and (ks in key or key in ks) and (not best or len(ks) > best[0]):
+                best = (len(ks), f)
+    return "party/tvimg?l=" + quote(best[1]) if best else ""
+
+
+async def _ha_state(session, eid):
+    if not eid or not SUP_TOKEN:
+        return None
+    try:
+        async with session.get(f"{HA_HTTP}/states/{eid}", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=8) as r:
+            return await r.json() if r.status == 200 else None
+    except Exception:
+        return None
+
+
+async def party_tvnow(request):
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    session = request.app["session"]
+    out = {}
+    cast = (OPT.get("tv_cast_entity") or "").strip()
+    st = await _ha_state(session, cast)
+    if st and st.get("state") in ("playing", "paused", "idle", "buffering", "on"):
+        a = st.get("attributes") or {}
+        app, artist, title = a.get("app_name") or "", a.get("media_artist") or "", a.get("media_title") or ""
+        if app and re.search(r"magenta", app, re.I) and artist:
+            out = {"title": title or artist, "sub": artist, "app": "MagentaTV", "channel": artist}
+        elif app and (title or artist):
+            out = {"title": title or artist, "sub": artist if title else "", "app": app}
+        elif app:
+            out = {"title": app, "sub": "", "app": app}
+        if out and a.get("entity_picture"):
+            out["img"] = "party/tvimg?e=" + quote(cast)
+    if not out:
+        for eid in [x.strip() for x in str(OPT.get("tv_box_entities") or "").split(",") if x.strip()]:
+            b = await _ha_state(session, eid)
+            if not b or b.get("state") in ("off", "unavailable", "standby"):
+                continue
+            a = b.get("attributes") or {}
+            app = a.get("app_name") or a.get("source") or ""
+            if app:
+                out = {"title": a.get("media_title") or app, "sub": app if a.get("media_title") else (a.get("friendly_name") or ""), "app": app}
+                break
+    if out.get("channel"):
+        out["logo"] = await _tv_logo(session, out["channel"])
+    return web.json_response(out, headers={"Cache-Control": "no-store"})
+
+
+async def party_tvimg(request):
+    """Bilder für die TV-Anzeige: Senderlogo aus /local oder Bild des Cast-Players (über HA, mit Token)."""
+    if not is_host(request):
+        raise web.HTTPForbidden()
+    session = request.app["session"]
+    url, headers = None, {}
+    lf = request.query.get("l")
+    if lf and "/" not in lf and ".." not in lf:
+        d = (OPT.get("tv_logo_dir") or "").strip().rstrip("/")
+        if d:
+            url = HA_LOCAL + d + "/" + quote(lf)
+    e = request.query.get("e")
+    if e and e == (OPT.get("tv_cast_entity") or "").strip():
+        st = await _ha_state(session, e)
+        pic = ((st or {}).get("attributes") or {}).get("entity_picture") or ""
+        if pic.startswith("/"):
+            url, headers = HA_LOCAL + pic, {"Authorization": f"Bearer {SUP_TOKEN}"}
+        elif pic.startswith("http"):
+            url = pic
+    if not url:
+        raise web.HTTPNotFound()
+    try:
+        async with session.get(url, headers=headers, timeout=10) as r:
+            body = await r.read()
+            return web.Response(body=body, status=r.status, content_type=r.content_type or "image/png",
+                                headers={"Cache-Control": "max-age=300"})
+    except Exception:
+        raise web.HTTPNotFound()
+
+
 # ---------------------------------------------------------------- Music Assistant
 async def discover_ma(session):
     """MA-Adresse: Option, sonst MA-Add-on über den Supervisor finden, sonst Host:8095."""
@@ -1123,6 +1251,8 @@ def make_app():
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)
+    app.router.add_get("/party/tvnow", party_tvnow)
+    app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)
     app.router.add_post("/party/host/pin", host_pin_post)
     app.router.add_get("/ma/ws", ma_websocket)

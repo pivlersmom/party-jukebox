@@ -26,6 +26,18 @@ configuration:
   skip_votes:
     name: Votes skip songs
     description: Skip the current song when the majority of guests vote 👎.
+  tv_cast_entity:
+    name: TV audio – Cast player
+    description: Optional. Cast player of the TV device. When a soundbar plays TV audio, the jukebox shows channel, programme or app from here.
+  tv_box_entities:
+    name: TV audio – more players
+    description: Optional, comma separated (e.g. Android TV / Fire TV box) – provide the app name if the Cast player reports nothing.
+  tv_logo_index:
+    name: TV audio – channel logo list
+    description: Optional. /local/...js mapping channel name → logo file.
+  tv_logo_dir:
+    name: TV audio – channel logo folder
+    description: Optional. Folder of the logo files under /local.
   drinks:
     name: Drinks
     description: One line per drink in the format Name|Emoji|Phrase, e.g. Beer|🍺|a beer

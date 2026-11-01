@@ -456,3 +456,6 @@ header .gstbtn{justify-self:end}
 .profb.on{color:var(--tx);border-color:var(--a2);background:rgba(41,182,246,.12)}
 .pav{width:32px;height:32px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--grad);color:#fff;font-weight:800;flex:none}
 .pav img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* TV-Ton: Senderlogo ganz zeigen (nicht beschneiden) */
+#cover.tvlogo img{object-fit:contain;padding:14%;background:#f4f6fb;box-sizing:border-box}

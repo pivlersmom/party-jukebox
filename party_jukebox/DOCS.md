@@ -75,3 +75,10 @@ Logs: Reiter **Protokoll** des Add-ons.
 Hat Music Assistant mehrere Benutzer (Einstellungen → Benutzerverwaltung), zeigt die Jukebox unter **Suche** oben „Musik von …“.
 Jedes Gerät merkt sich sein Profil. Suche, Playlists, Lieblingssongs und Abspielen laufen dann nur über die Musikquellen,
 die in Music Assistant für diesen Benutzer freigegeben sind – z. B. ein zweites Spotify-Konto als eigene Musikquelle.
+
+## TV-Ton anzeigen (optional)
+
+Spielt eine Soundbar (z. B. Sonos Beam) den Ton vom Fernseher, kann die Jukebox statt „TV Audio“ zeigen, was läuft:
+- **TV-Ton – Cast-Player:** Cast-Player des TV-Geräts (z. B. einer TV-Box). Liefert Sender und Sendung bzw. App und Titel.
+- **TV-Ton – weitere Player:** z. B. Android-TV- oder Fire-TV-Player, mit Komma getrennt – für den App-Namen.
+- **Senderlogos (optional):** eine JS-Datei unter /local mit `{"sendername": "datei.png"}` und der Ordner der Logos.

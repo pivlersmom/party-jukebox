@@ -314,8 +314,31 @@ function isPlaying() {
   if (Date.now() < S.ppHold) return S.ppWant;
   return ((S.q && S.q.state) || pstate(S.players[S.pid])) === "playing";
 }
+/* TV-Ton (z. B. Soundbar am Fernseher): Sender, Sendung bzw. App vom Add-on (/party/tvnow) statt alter Warteschlange */
+function isTvSource(p) {
+  const cm = p && p.current_media;
+  return !!p && (p.active_source === "tv" || (cm && (cm.source_id === "tv" || cm.uri === "homeTheater-input")));
+}
+S.tv = null; S.tvAt = 0; S.tvBusy = false;
+function tvFetch() {
+  if (S.tvBusy || Date.now() - S.tvAt < 10000) return;
+  S.tvBusy = true;
+  fetch("party/tvnow", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null).then(j => {
+    S.tvBusy = false; S.tvAt = Date.now();
+    const k = JSON.stringify(j || {});
+    if (k !== JSON.stringify(S.tv || {})) { S.tv = j && Object.keys(j).length ? j : null; renderNow(); }
+  });
+}
+setInterval(() => { const p = S.players[S.pid]; if (isTvSource(p) && !document.hidden) tvFetch(); }, 3000);
 function nowInfo() {
   const q = S.q, ci = q && q.current_item, mi = ci && ci.media_item, p = S.players[S.pid];
+  if (isTvSource(p)) {
+    tvFetch();
+    const t = S.tv;
+    if (t) return { title: t.title || t.app || "TV", artist: [t.sub && t.sub !== t.title ? t.sub : "", t.app && t.app !== t.title && t.app !== t.sub ? t.app : "", "TV-Ton"].filter(Boolean).join(" · "),
+      img: t.logo || t.img || "", small: t.logo || t.img || "", dur: 0, key: "tv|" + t.title, tv: true, logo: !!t.logo };
+    return { title: "TV-Ton", artist: pname(p), img: "", small: "", dur: 0, key: "tv", tv: true };
+  }
   if (ci) return { title: (mi && mi.name) || ci.name || "", artist: artistsOf(mi), img: imgUrl(ci, 600), small: imgUrl(ci, 120),
     dur: +ci.duration || +(mi && mi.duration) || 0, key: ci.queue_item_id };
   const cm = p && p.current_media;
@@ -357,6 +380,7 @@ function renderNow() {
   setText($("#npTitle"), n ? n.title : (S.pid ? "Gerade läuft nichts" : (S.ready ? "Kein Lautsprecher gefunden" : "")));
   setText($("#npArtist"), n ? n.artist : (S.pid ? "Über die Suche Musik auswählen" : ""));
   setCover(n ? n.img : "");
+  $("#cover").classList.toggle("tvlogo", !!(n && n.logo));
   const pl = isPlaying();
   $("#bPp").classList.toggle("playing", pl);
   $("#bPp").setAttribute("aria-label", pl ? "Pause" : "Abspielen");

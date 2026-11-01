@@ -26,6 +26,18 @@ configuration:
   skip_votes:
     name: Abstimmung überspringt Songs
     description: Stimmt die Mehrheit der Gäste 👎, wird der laufende Song übersprungen.
+  tv_cast_entity:
+    name: TV-Ton – Cast-Player
+    description: Optional. Cast-Player des TV-Geräts (z. B. media_player.wohnzimmer_tv_cast). Läuft TV-Ton über eine Soundbar, zeigt die Jukebox Sender, Sendung bzw. App von hier.
+  tv_box_entities:
+    name: TV-Ton – weitere Player
+    description: Optional, mit Komma getrennt (z. B. Android-TV- oder Fire-TV-Box) – liefern den App-Namen, wenn der Cast-Player nichts meldet.
+  tv_logo_index:
+    name: TV-Ton – Senderlogo-Liste
+    description: Optional. /local/...js mit Zuordnung Sendername → Logodatei (z. B. /local/senderlogos-index.js).
+  tv_logo_dir:
+    name: TV-Ton – Senderlogo-Ordner
+    description: Optional. Ordner der Logodateien unter /local (z. B. /local/senderlogos/senderlogos).
   drinks:
     name: Getränke
     description: Eine Zeile pro Getränk im Format Name|Emoji|Satz, z. B. Bier|🍺|ein Bier
