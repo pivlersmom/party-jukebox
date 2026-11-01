@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.56
+- TV-Ton: App-Logo (z. B. DAZN, Netflix, YouTube), wenn die App kein eigenes Bild meldet
+
 ## 0.1.55
 - TV-Ton: App-Namen statt Paketnamen (z. B. „DAZN“ statt „com.dazn“)
 

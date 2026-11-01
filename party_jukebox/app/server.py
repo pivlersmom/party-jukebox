@@ -721,6 +721,18 @@ TV_APPS = {"com.netflix.ninja": "Netflix", "com.wbd.stream": "HBO Max", "com.goo
            "com.plexapp.android": "Plex", "org.xbmc.kodi": "Kodi"}
 
 
+# App-Logos (Simple Icons, im Browser geladen); fehlt eins, bleibt das Bild leer
+TV_ICONS = {"Netflix": "netflix", "YouTube": "youtube", "DAZN": "dazn", "Spotify": "spotify", "TIDAL": "tidal",
+            "Prime Video": "primevideo", "Apple TV": "appletv", "HBO Max": "hbo", "Paramount+": "paramountplus",
+            "Plex": "plex", "Kodi": "kodi", "ZDF": "zdf", "arte": "arte", "Amazon Music": "amazonmusic", "WOW": "sky",
+            "MagentaSport": "telekom", "MagentaTV": "telekom", "Pluto TV": "plutotv", "Joyn": "joyn", "RTL+": "rtl"}
+
+
+def _applogo(name):
+    slug = TV_ICONS.get(name)
+    return f"https://cdn.simpleicons.org/{slug}" if slug else ""
+
+
 def _appname(x):
     x = (x or "").strip()
     if x in TV_APPS:
@@ -771,6 +783,8 @@ async def party_tvnow(request):
                 break
     if out.get("channel"):
         out["logo"] = await _tv_logo(session, out["channel"])
+    if out and not out.get("logo") and not out.get("img"):
+        out["logo"] = _applogo(out.get("app", ""))
     return web.json_response(out, headers={"Cache-Control": "no-store"})
 
 
