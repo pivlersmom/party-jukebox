@@ -1,5 +1,5 @@
 name: Party-Jukebox
-version: "0.1.50"
+version: "0.1.51"
 slug: party_jukebox
 description: Jukebox, Party-Seite für Gäste und TV-Anzeige für Music Assistant
 url: https://github.com/pivlersmom/party-jukebox
@@ -17,7 +17,11 @@ ports:
 ports_description:
   8099/tcp: Webseiten (Jukebox, Party, TV) im Heimnetz
 webui: "http://[HOST]:[PORT:8099]/"
+ingress: true
+ingress_port: 8099
+ingress_stream: true
 panel_icon: mdi:music-circle
+panel_title: Jukebox
 options:
   ma_url: ""
   ma_token: ""

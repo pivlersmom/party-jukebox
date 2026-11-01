@@ -383,6 +383,7 @@ window.playerCmd = c => {
   else if (c === "play") { if (!isPlaying()) togglePlay(); }
   else if (c === "pause") { if (isPlaying()) togglePlay(); }
   else if (c === "play_pause" || c === "toggle") togglePlay();
+  else if (String(c).startsWith("select:")) { const id = String(c).slice(7); if (S.players[id] && JB.selectPlayer) JB.selectPlayer(id); }
   else if (String(c).startsWith("jump:")) {
     const it = qList[+String(c).slice(5)], qid = S.qid || S.pid;
     if (it && qid) cmd("player_queues/play_index", { queue_id: qid, index: it.queue_item_id }).catch(e => toast("Music Assistant: " + ((e && e.message) || e)));
@@ -416,8 +417,18 @@ Object.defineProperty(window, "ms", { configurable: true, get: () => ({ state: i
 window.onVolumeKey = d => { const v = curVol(); if (v != null) volSet(v + (d > 0 ? 3 : -3)); };
 window.onVolumeSet = v => { if (curVol() != null) volSet(+v); };
 
+/* Android Auto: Lautsprecher und Profil an die App melden */
+let aaKey = "";
+function syncAa() {
+  if (typeof A.setAaContext !== "function" || !S.pid) return;
+  const u = JB.profUser ? JB.profUser() : {}, pv = JB.profProv ? JB.profProv("p") : {};
+  const ctx = { pid: S.pid, user: u.user || "", providers: pv.p || [] }, k = JSON.stringify(ctx);
+  if (k !== aaKey) { aaKey = k; call("setAaContext", k); }
+}
+
 let mKey = null, pLast = null, vLast = null, vmLast = null, posT = 0;
 function sync() {
+  syncAa();
   const n = nowInfo(), pl = isPlaying();
   const key = n ? n.title + "|" + n.artist + "|" + n.img : "";
   if (key !== mKey) {

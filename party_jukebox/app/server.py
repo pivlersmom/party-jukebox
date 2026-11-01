@@ -103,8 +103,17 @@ def host_pin_set():
     return isinstance(hp, dict) and bool(hp.get("hash"))
 
 
+def via_ingress(request):
+    """Aufruf über Home Assistant (Ingress, z. B. Seitenleiste oder Nabu Casa): HA hat den Benutzer schon angemeldet."""
+    return bool(request.headers.get("X-Ingress-Path")) and (request.remote or "") == "172.30.32.2"
+
+
+def ingress_prefix(request):
+    return (request.headers.get("X-Ingress-Path") or "").rstrip("/") if via_ingress(request) else ""
+
+
 def is_host(request):
-    if not host_pin_set():
+    if not host_pin_set() or via_ingress(request):
         return True
     tok = request.cookies.get(HOST_COOKIE) or ""
     return bool(tok) and any(hmac.compare_digest(tok, t) for t in SETTINGS.get("host_tokens") or [])
@@ -1055,10 +1064,11 @@ async def ma_http(request):
 # ---------------------------------------------------------------- Statische Seiten
 @web.middleware
 async def no_cache_html(request, handler):
+    pre = ingress_prefix(request)
     if request.path == "/":
-        raise web.HTTPFound("/start.html")
+        raise web.HTTPFound(pre + ("/jukebox.html" if pre else "/start.html"))
     if request.path in ("/jukebox.html", "/jukebox") and not is_host(request):
-        raise web.HTTPFound("/host.html?next=jukebox.html")
+        raise web.HTTPFound(pre + "/host.html?next=jukebox.html")
     resp = await handler(request)
     p = request.path
     if p.endswith((".html", ".js", ".css", ".json")) or p == "/":
@@ -1069,7 +1079,8 @@ async def no_cache_html(request, handler):
 
 
 async def index(request):
-    raise web.HTTPFound("/start.html")
+    pre = ingress_prefix(request)
+    raise web.HTTPFound(pre + ("/jukebox.html" if pre else "/start.html"))
 
 
 async def tick(app):

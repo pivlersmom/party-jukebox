@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.51
+- Jukebox auch über Home Assistant erreichbar (Seitenleiste „Jukebox“, unterwegs über Nabu Casa) – dort ohne Gastgeber-PIN, Home Assistant hat schon angemeldet
+- Schnittstelle für Android-Auto-Apps (gewählter Lautsprecher und Profil)
+
 ## 0.1.50
 - Profile: Technik-Konten (Dashboard-Anzeige, Gast, Kiosk) werden ausgeblendet
 - Jukebox-Einstellungen → „Profile in der Suche“: festlegen, welche Benutzer angezeigt werden
