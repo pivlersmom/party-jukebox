@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.55
+- TV-Ton: App-Namen statt Paketnamen (z. B. „DAZN“ statt „com.dazn“)
+
 ## 0.1.54
 - Jukebox: Läuft TV-Ton über eine Soundbar, werden Sender, Sendung bzw. App angezeigt (optional, neue Optionen „TV-Ton …“), mit Senderlogo
 

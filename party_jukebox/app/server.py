@@ -711,6 +711,26 @@ async def _tv_logo(session, channel):
     return "party/tvimg?l=" + quote(best[1]) if best else ""
 
 
+TV_APPS = {"com.netflix.ninja": "Netflix", "com.wbd.stream": "HBO Max", "com.google.android.youtube.tv": "YouTube",
+           "com.disney.disneyplus": "Disney+", "com.amazon.amazonvideo.livingroom": "Prime Video", "com.dazn": "DAZN",
+           "de.sky.online": "WOW", "com.spotify.tv.android": "Spotify", "com.aspiro.tidal": "TIDAL",
+           "de.swr.avp.ard.tv": "ARD Mediathek", "com.zdf.android.mediathek": "ZDF", "com.apple.atve.androidtv.appletv": "Apple TV",
+           "de.rtli.tvnow": "RTL+", "de.prosiebensat1digital.seventv": "Joyn", "tv.arte.plus7": "arte", "tv.pluto.android": "Pluto TV",
+           "com.telekom.androidtv.sport": "MagentaSport", "com.cbs.ca": "Paramount+", "com.amazon.music.tv": "Amazon Music",
+           "de.telekom.magentatv.atv": "MagentaTV", "com.google.android.apps.tv.launcherx": "Startseite",
+           "com.plexapp.android": "Plex", "org.xbmc.kodi": "Kodi"}
+
+
+def _appname(x):
+    x = (x or "").strip()
+    if x in TV_APPS:
+        return TV_APPS[x]
+    if re.match(r"^[a-z0-9_]+(\.[a-z0-9_]+)+$", x):  # Paketname → letzter sinnvoller Teil
+        parts = [p for p in x.split(".") if p not in ("com", "de", "tv", "android", "atv", "app", "mobile")]
+        return (parts[-1] if parts else x).capitalize()
+    return x
+
+
 async def _ha_state(session, eid):
     if not eid or not SUP_TOKEN:
         return None
@@ -730,7 +750,7 @@ async def party_tvnow(request):
     st = await _ha_state(session, cast)
     if st and st.get("state") in ("playing", "paused", "idle", "buffering", "on"):
         a = st.get("attributes") or {}
-        app, artist, title = a.get("app_name") or "", a.get("media_artist") or "", a.get("media_title") or ""
+        app, artist, title = _appname(a.get("app_name") or ""), a.get("media_artist") or "", a.get("media_title") or ""
         if app and re.search(r"magenta", app, re.I) and artist:
             out = {"title": title or artist, "sub": artist, "app": "MagentaTV", "channel": artist}
         elif app and (title or artist):
@@ -745,7 +765,7 @@ async def party_tvnow(request):
             if not b or b.get("state") in ("off", "unavailable", "standby"):
                 continue
             a = b.get("attributes") or {}
-            app = a.get("app_name") or a.get("source") or ""
+            app = _appname(a.get("app_name") or a.get("app_id") or a.get("source") or "")
             if app:
                 out = {"title": a.get("media_title") or app, "sub": app if a.get("media_title") else (a.get("friendly_name") or ""), "app": app}
                 break
