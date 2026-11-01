@@ -230,7 +230,8 @@ function onEvent(m) {
 const pname = p => (p && (p.display_name || p.name)) || "";
 const pstate = p => (p ? (p.playback_state || p.state || "idle") : "idle");
 function usable(p) {
-  return !!p && p.available !== false && p.enabled !== false && !p.hide_in_ui && !p.private &&
+  // private Player (z. B. Handy mit der Music-Assistant-App) auch zeigen – sonst fehlt das eigene Handy
+  return !!p && p.available !== false && p.enabled !== false && !p.hide_in_ui &&
     !HIDE_TYPES.includes(p.type) && !p.synced_to;
 }
 function playerList() { return Object.values(S.players).filter(usable).sort((a, b) => pname(a).localeCompare(pname(b), "de")); }

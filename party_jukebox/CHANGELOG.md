@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.53
+- Lautsprecher-Liste zeigt auch private Player (z. B. Handy mit der Music-Assistant-App)
+
 ## 0.1.52
 - Einstellungen: „Handy als Lautsprecher“ (nur in Android-Apps mit dieser Funktion sichtbar)
 
