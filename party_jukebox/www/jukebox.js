@@ -339,8 +339,21 @@ function nowInfo() {
       img: t.logo || t.img || "", small: t.logo || t.img || "", dur: 0, key: "tv|" + t.title, tv: true, logo: !!t.logo, dark: !!t.dark };
     return { title: "TV-Ton", artist: pname(p), img: "", small: "", dur: 0, key: "tv", tv: true };
   }
-  if (ci) return { title: (mi && mi.name) || ci.name || "", artist: artistsOf(mi), img: imgUrl(ci, 600), small: imgUrl(ci, 120),
-    dur: +ci.duration || +(mi && mi.duration) || 0, key: ci.queue_item_id };
+  if (ci) {
+    /* Radio: laufender Song aus den Stream-Daten (Titel, Interpret, Cover), Sender darunter */
+    const sd = ci.streamdetails, sm = sd && sd.stream_metadata;
+    if ((mi && mi.media_type === "radio") || (sd && sd.media_type === "radio")) {
+      let t = sm && sm.title, a = sm && sm.artist;
+      if (!t && sd && sd.stream_title) { const m = String(sd.stream_title).split(" - "); if (m.length > 1) { a = m.shift(); t = m.join(" - "); } else t = sd.stream_title; }
+      const station = (mi && mi.name) || ci.name || "";
+      const cov = (sm && sm.image_url) || "";
+      if (t) return { title: t, artist: [a, station].filter(Boolean).join(" · "), img: cov || imgUrl(ci, 600), small: cov || imgUrl(ci, 120),
+        dur: 0, key: ci.queue_item_id + "|" + t, radio: true };
+      return { title: station, artist: "Radio", img: imgUrl(ci, 600), small: imgUrl(ci, 120), dur: 0, key: ci.queue_item_id, radio: true };
+    }
+    return { title: (mi && mi.name) || ci.name || "", artist: artistsOf(mi), img: imgUrl(ci, 600), small: imgUrl(ci, 120),
+      dur: +ci.duration || +(mi && mi.duration) || 0, key: ci.queue_item_id };
+  }
   const cm = p && p.current_media;
   if (cm && (cm.title || cm.uri)) return { title: cm.title || cm.uri, artist: cm.artist || "", img: cm.image_url || "",
     small: cm.image_url || "", dur: +cm.duration || 0, key: cm.uri };

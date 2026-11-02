@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.58
+- Jukebox: Radio zeigt den laufenden Song (Titel, Interpret, Cover aus den Stream-Daten), Sender darunter; kein Fortschrittsbalken bei Radio
+
 ## 0.1.57
 - TV-Ton: App-Logos weiß auf dunkler Fläche (DAZN war unsichtbar)
 
