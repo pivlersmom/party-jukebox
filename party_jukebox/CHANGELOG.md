@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.85
+- Favoriten: Zuordnung über die Adresse statt über den Namen (gleichnamige Podcasts werden nicht mehr alle markiert)
+- Erstes Befüllen überschreibt nie eine vorhandene Liste
+
 ## 0.1.84
 - „Neue Podcast-Folgen“ aus den Podcast-Favoriten der gewählten Person; lädt sofort neu, wenn ein Podcast dazukommt
 

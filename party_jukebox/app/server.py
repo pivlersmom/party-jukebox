@@ -111,8 +111,15 @@ def _save_favs():
         log.warning("Favoriten nicht gespeichert: %s", e)
 
 
-def _fav_key(it):
-    return (str(it.get("media_type") or "") + ":" + str(it.get("name") or "").strip().lower())[:300]
+def _fav_keys(it):
+    """Alle Adressen eines Eintrags: eigene URI + je Anbieter (Bibliothek und Spotify/Tidal sind derselbe Podcast)."""
+    ks = {str(it.get("uri") or "")}
+    mt = str(it.get("media_type") or "")
+    for m in it.get("provider_mappings") or []:
+        if isinstance(m, dict) and m.get("provider_instance") and m.get("item_id") is not None:
+            ks.add(f"{m['provider_instance']}://{mt}/{m['item_id']}")
+    ks.discard("")
+    return ks
 
 
 def _fav_clean(it):
@@ -149,19 +156,24 @@ async def party_favs_post(request):
         _save_favs()
         return web.json_response({"ok": True, "prefs": p})
     if isinstance(data.get("items"), list):
+        # erstes Befüllen – nie eine schon vorhandene Liste überschreiben (sonst gehen neue ♥ verloren)
+        if uid in FAVS and FAVS[uid] and not data.get("force"):
+            return web.json_response({"ok": True, "count": len(FAVS[uid]), "kept": True})
         FAVS[uid] = [x for x in (_fav_clean(i) for i in data["items"][:3000]) if x]
         _save_favs()
+        log.info("Favoriten für %s angelegt: %d", uid, len(FAVS[uid]))
         return web.json_response({"ok": True, "count": len(FAVS[uid])})
     it = _fav_clean(data.get("item"))
     if not it:
         return web.json_response({"ok": False, "error": "kein Eintrag"}, status=400)
-    k = _fav_key(it)
-    lst = [x for x in FAVS.get(uid, []) if _fav_key(x) != k]
+    k = _fav_keys(it)
+    lst = [x for x in FAVS.get(uid, []) if not (_fav_keys(x) & k)]
     if data.get("on"):
         lst.insert(0, it)
     FAVS[uid] = lst[:3000]
     _save_favs()
-    others = any(_fav_key(x) == k for u, l in FAVS.items() if u not in (uid, "_prefs") for x in l)
+    others = any(_fav_keys(x) & k for u, l in FAVS.items() if u not in (uid, "_prefs") for x in l)
+    log.info("Favorit %s für %s: %s", "an" if data.get("on") else "aus", uid, it.get("name"))
     return web.json_response({"ok": True, "others": others})
 
 

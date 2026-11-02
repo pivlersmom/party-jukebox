@@ -1103,7 +1103,14 @@ const FAVCATS = [["playlist", "Playlists"], ["album", "Alben"], ["artist", "Kün
 const favLocal = {};   // gerade umgeschaltet (bis MA es meldet)
 /* Favoriten pro Person: das Add-on merkt sich, wer was markiert hat (Music Assistant kennt nur „für alle“) */
 const favUid = () => (prof() || {}).user_id || S.me || "default";
-const favKey = it => (it.media_type || "") + ":" + unent(it.name || "").trim().toLowerCase();
+/* alle Adressen eines Eintrags (eigene URI + je Anbieter) – so passt Bibliothek ↔ Spotify, gleichnamige Podcasts aber nicht */
+const favKeys = it => {
+  const ks = [it.uri];
+  (it.provider_mappings || []).forEach(m => { if (m && m.provider_instance && m.item_id != null) ks.push(m.provider_instance + "://" + it.media_type + "/" + m.item_id); });
+  return ks.filter(Boolean);
+};
+const favSet = items => { const set = new Set(); items.forEach(x => favKeys(x).forEach(k => set.add(k))); return set; };
+const favHas = (set, it) => favKeys(it).some(k => set.has(k));
 function favSlim(it) {   // nur was zum Anzeigen und Öffnen nötig ist
   const o = { uri: it.uri, media_type: it.media_type, name: unent(it.name), item_id: it.item_id, provider: it.provider, favorite: true };
   const im = pickImg(it); if (im) o.image = typeof im === "string" ? im : { path: im.path, provider: im.provider, remotely_accessible: im.remotely_accessible, proxy_id: im.proxy_id, type: im.type };
@@ -1111,11 +1118,16 @@ function favSlim(it) {   // nur was zum Anzeigen und Öffnen nötig ist
   ["owner", "publisher", "year", "artist_str"].forEach(k => { if (it[k]) o[k] = it[k]; });
   if (it.authors) o.authors = it.authors.slice(0, 4);
   if (it.album && it.album.name) o.album = { name: it.album.name };
-  if (it.provider_mappings) o.provider_mappings = it.provider_mappings.map(m => ({ provider_instance: m.provider_instance })).slice(0, 4);
+  if (it.provider_mappings) o.provider_mappings = it.provider_mappings.map(m => ({ provider_instance: m.provider_instance, item_id: m.item_id })).slice(0, 6);
   return o;
 }
 async function loadMyFavs() {
   const uid = favUid();
+  if (S.myFavLoading && S.myFavLoading.uid === uid) return S.myFavLoading.p;
+  const p = loadMyFavs2(uid); S.myFavLoading = { uid, p };
+  try { return await p; } finally { if (S.myFavLoading && S.myFavLoading.p === p) S.myFavLoading = null; }
+}
+async function loadMyFavs2(uid) {
   let j = null;
   try { const r = await fetch("party/favs?user=" + encodeURIComponent(uid), { cache: "no-store" }); if (r.ok) j = await r.json(); } catch (e) {}
   if (!j) return null;
@@ -1128,13 +1140,13 @@ async function loadMyFavs() {
     items = [].concat(...res).filter(x => x && x.uri).map(favSlim);
     fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: uid, items }) }).catch(() => {});
   }
-  S.myFav = { uid, items, keys: new Set(items.map(favKey)), prefs: j.prefs || {} };
+  S.myFav = { uid, items, keys: favSet(items), prefs: j.prefs || {} };
   return S.myFav;
 }
 function isFavIt(it) {
   if (!it) return false;
   if (favLocal[it.uri] != null) return favLocal[it.uri];
-  return S.myFav && S.myFav.uid === favUid() ? S.myFav.keys.has(favKey(it)) : !!it.favorite;
+  return S.myFav && S.myFav.uid === favUid() ? favHas(S.myFav.keys, it) : !!it.favorite;
 }
 function favMark(it) { return isFavIt(it) ? '<span class="favh">♥</span> ' : ""; }
 let favSeq = 0;
@@ -1281,9 +1293,9 @@ async function toggleFav(it) {
       if (r.ok) others = !!(await r.json()).others;
     } catch (e) {}
     if (S.myFav && S.myFav.uid === favUid()) {
-      const k = favKey(it);
-      S.myFav.items = S.myFav.items.filter(x => favKey(x) !== k); if (on) S.myFav.items.unshift(favSlim(it));
-      S.myFav.keys = new Set(S.myFav.items.map(favKey));
+      const ks = new Set(favKeys(it));
+      S.myFav.items = S.myFav.items.filter(x => !favKeys(x).some(k => ks.has(k))); if (on) S.myFav.items.unshift(favSlim(it));
+      S.myFav.keys = favSet(S.myFav.items);
     }
     if (on) { await cmd("music/favorites/add_item", { item: it.uri }).catch(() => {}); toast("❤️ " + unent(it.name) + " – Favorit"); }
     else if (others) toast(unent(it.name) + " – kein Favorit mehr (bei dir)");
