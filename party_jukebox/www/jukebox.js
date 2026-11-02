@@ -1078,7 +1078,7 @@ function setFilter(f) {
   doSearch();
   $("#v-search").scrollTop = 0;
 }
-$("#q").addEventListener("input", () => later(doSearch, 380, "search"));
+$("#q").addEventListener("input", () => later(doSearch, 800, "search"));
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(timers.search); doSearch(); $("#q").blur(); } });
 $("#qClr").onclick = () => { $("#q").value = ""; doSearch(); $("#q").focus(); };
 $("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) setFilter(c.dataset.f); };

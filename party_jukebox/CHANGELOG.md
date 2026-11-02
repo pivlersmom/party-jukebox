@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.82
+- Suche startet erst nach 0,8 s Tipp-Pause (weniger Anfragen an Spotify & Co.)
+
 ## 0.1.81
 - Logo oben links: Apps, die ihr eigenes Symbol liefern, zeigen dieses (sonst wie bisher)
 
