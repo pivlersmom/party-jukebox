@@ -1121,6 +1121,7 @@ async function renderFav() {
   if (!S.favData) box.innerHTML = '<div class="spin"></div>'; else paintFav();
   const done = () => { if (seq === favSeq) paintFav(); };
   const pv = profProv("provider");
+  loadRecent();   // „Zuletzt gespielt“ immer frisch (kommt aus der MA-Datenbank, belastet Spotify nicht)
   /* Nicht bei jedem Antippen von „Start“ alles neu holen – schont Spotify (sonst bremst Spotify alle Anfragen aus) */
   const age = Date.now() - (S.home.at || 0);
   if (S.favData && age < 10 * 60e3) return;
@@ -1131,13 +1132,6 @@ async function renderFav() {
     cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", Object.assign({ favorite: true, limit: 500, order_by: "sort_name" }, pv), 25000).catch(() => [])))
     .then(res => { S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); }); done(); });
   // Zuletzt gespielt
-  // nur was DIESE Person gestartet hat (Playlist/Album statt jedes einzelnen Titels); ältere MA-Versionen: ohne Filter
-  const uid = (prof() || {}).user_id || S.me;
-  const rp = Object.assign({ limit: 30, user_initiated_only: true, always_include_media_types: ["podcast", "podcast_episode", "audiobook"] },
-    uid ? { userid: uid } : {}, pv.provider ? { providers: pv.provider } : {});
-  cmd("music/recently_played_items", rp, 20000).catch(() => cmdP("music/recently_played_items", { limit: 20 }, 20000))
-    .then(r => { const seen = new Set();
-      S.home.recent = (r || []).filter(x => x && x.uri && !seen.has(x.uri) && seen.add(x.uri)).slice(0, 20); done(); }).catch(() => {});
   // Meine Playlists
   cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, pv), 20000)
     .then(r => { S.home.pl = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
@@ -1159,6 +1153,18 @@ async function renderFav() {
     done();
   }).catch(() => {});
 }
+/* Zuletzt gespielt: nur was DIESE Person gestartet hat (Playlist/Album statt jedes einzelnen Titels) */
+function loadRecent() {
+  const pv = profProv("provider"), uid = (prof() || {}).user_id || S.me;
+  const rp = Object.assign({ limit: 30, user_initiated_only: true, fully_played_only: false, always_include_media_types: ["podcast", "podcast_episode", "audiobook"] },
+    uid ? { userid: uid } : {}, pv.provider ? { providers: pv.provider } : {});
+  cmd("music/recently_played_items", rp, 20000).catch(() => cmdP("music/recently_played_items", { limit: 20 }, 20000))
+    .then(r => { const seen = new Set(), old = (S.home.recent || []).map(x => x.uri).join();
+      S.home.recent = (r || []).filter(x => x && x.uri && !seen.has(x.uri) && seen.add(x.uri)).slice(0, 20);
+      if (S.home.recent.map(x => x.uri).join() !== old && S.favMode && !(S.nav && S.nav.length)) paintFav(); }).catch(() => {});
+}
+/* Startseite offen: jede Minute nachsehen, ob etwas Neues gespielt wurde */
+setInterval(() => { if (S.favMode && !S.favCat && !(S.nav && S.nav.length) && !document.hidden && S.ready && S.home) loadRecent(); }, 60000);
 /* waagerechte Reihe mit Covern */
 function hrow(title, arr, opt) {
   if (!arr || !arr.length) return "";

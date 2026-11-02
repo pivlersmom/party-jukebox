@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.80
+- „Zuletzt gespielt“ aktualisiert sich bei jedem Öffnen der Startseite und jede Minute; zählt schon ab dem Start (nicht erst nach komplettem Hören)
+
 ## 0.1.79
 - Überall die Quelle sichtbar: Tidal, Spotify [Konto], TuneIn, Radio Browser … (bei Bibliothek: wo der Eintrag liegt)
 
