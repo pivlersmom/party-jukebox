@@ -1675,3 +1675,11 @@ renderAll();
 try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();
 })();
+
+/* Logo oben links: in einer App, die ihr eigenes Symbol liefert (Vanpis Jukebox), das App-Symbol zeigen */
+(function () {
+  const A = window.AndroidMediaSession, el = document.querySelector(".brand .logo");
+  if (!el || !A || typeof A.appIcon !== "function") return;
+  let u = ""; try { u = A.appIcon(); } catch (e) {}
+  if (u && u.startsWith("data:image/")) { el.innerHTML = '<img alt="" src="' + u + '">'; el.classList.add("app"); }
+})();

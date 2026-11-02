@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.81
+- Logo oben links: Apps, die ihr eigenes Symbol liefern, zeigen dieses (sonst wie bisher)
+
 ## 0.1.80
 - „Zuletzt gespielt“ aktualisiert sich bei jedem Öffnen der Startseite und jede Minute; zählt schon ab dem Start (nicht erst nach komplettem Hören)
 
