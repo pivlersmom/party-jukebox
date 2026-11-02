@@ -768,7 +768,7 @@ function renderSettings() {
     let ps = {}; try { ps = JSON.parse(AMS.phonePlayerState()); } catch (e) {}
     html += '<div class="shh gsh">Handy als Lautsprecher</div>' +
       '<button class="row srow php' + (ps.on ? " on" : "") + '"><span class="rm"><span class="r1">Dieses Handy als Player</span><span class="r2">' +
-      (ps.on ? (ps.pid ? "aktiv – in Android Auto unter Lautsprecher" : "startet … (einmal einrichten, falls nötig)") : "für Musik im Auto (Android Auto)") +
+      (ps.on ? (ps.pid ? "aktiv – in Android Auto unter Lautsprecher" + (ps.fmt ? " · Übertragung " + esc(ps.fmt) : "") : "startet … (einmal einrichten, falls nötig)") : "für Musik im Auto (Android Auto)") +
       '</span></span><span class="gsw"><i></i></span></button>' +
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
   }

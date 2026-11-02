@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.69
+- Einstellungen → Handy als Lautsprecher: zeigt das Übertragungsformat (FLAC/PCM), wenn die App es liefert
+
 ## 0.1.68
 - Jukebox: Wiedergabe-Knöpfe kleiner, Lautstärke ohne Scrollen erreichbar
 
