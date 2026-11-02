@@ -762,10 +762,6 @@ function renderSettings() {
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
   }
   html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
-  if (AMS && typeof AMS.getAppVersion === "function") {  // Version der Android-App
-    let v = ""; try { v = AMS.getAppVersion(); } catch (e) {}
-    if (v) html += '<div class="rshint">App-Version ' + esc(v) + ' · Add-on ' + esc(String((window.PJ || {}).version || "")) + '</div>';
-  }
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
     (d.host_pin ? "Neue PIN (4–8 Ziffern)" : "PIN festlegen (4–8 Ziffern)") + '"><button class="act" id="pinSave">Speichern</button></div>' +
@@ -789,6 +785,12 @@ function renderSettings() {
   html += '<div class="shh gsh">Projekt</div>' +
     '<a class="row lrow" href="https://paypal.me/stephanstiefermann" target="_blank" rel="noopener"><span class="rm"><span class="r1">☕ Projekt unterstützen</span>' +
     '<span class="r2">freiwillig per PayPal – danke!</span></span><span class="lic">↗</span></a>';
+  {  // Versionen ganz unten: Android-App (falls vorhanden) und Add-on
+    const AMS2 = window.AndroidMediaSession; let v = "";
+    try { if (AMS2 && typeof AMS2.getAppVersion === "function") v = AMS2.getAppVersion(); } catch (e) {}
+    const av = String((window.PJ || {}).version || "");
+    if (v || av) html += '<div class="rshint" style="text-align:center;margin-top:18px">' + [v ? "App " + esc(v) : "", av ? "Add-on " + esc(av) : ""].filter(Boolean).join(" · ") + '</div>';
+  }
   openSheet("settings", html, c => {
     loadQs(c);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
