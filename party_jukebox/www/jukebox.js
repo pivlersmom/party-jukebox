@@ -729,6 +729,10 @@ function renderSettings() {
       '</span></span><span class="gsw"><i></i></span></button>' +
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
   }
+  if (AMS && typeof AMS.getAppVersion === "function") {  // Version der Android-App
+    let v = ""; try { v = AMS.getAppVersion(); } catch (e) {}
+    if (v) html += '<div class="rshint">App-Version ' + esc(v) + ' · Add-on ' + esc(String((window.PJ || {}).version || "")) + '</div>';
+  }
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
     (d.host_pin ? "Neue PIN (4–8 Ziffern)" : "PIN festlegen (4–8 Ziffern)") + '"><button class="act" id="pinSave">Speichern</button></div>' +

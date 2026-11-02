@@ -994,8 +994,25 @@ async def party_guests(request):
     return web.json_response(PARTY.guests_json(), headers={"Cache-Control": "no-store"})
 
 
+ADDON_VERSION = ""
+
+
+async def _addon_version(session):
+    """eigene Add-on-Version vom Supervisor (einmal holen, dann merken)"""
+    global ADDON_VERSION
+    if ADDON_VERSION or not SUP_TOKEN:
+        return ADDON_VERSION
+    try:
+        async with session.get("http://supervisor/addons/self/info", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=5) as r:
+            ADDON_VERSION = ((await r.json()).get("data") or {}).get("version") or ""
+    except Exception:
+        pass
+    return ADDON_VERSION
+
+
 async def config_js(request):
     cfg = {
+        "version": await _addon_version(request.app["session"]),
         "name": party_name(),
         "player": OPT.get("party_player") or "",
         "drinks": drinks(),

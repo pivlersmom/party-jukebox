@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.61
+- Jukebox-Einstellungen: Versionsnummer von App und Add-on
+
 ## 0.1.60
 - Neu: /party/presence – wer ist zuhause (Personen aus Home Assistant, nur Gastgeber)
 
