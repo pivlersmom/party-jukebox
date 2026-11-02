@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.86
+- Empfehlungen auf der Startseite im Namen der gewählten Person (ihr Hörverhalten, ihre Musikquellen)
+- „Neue Podcast-Folgen“ automatisch ganz oben, wenn jemand mind. 3 Lieblings-Podcasts hat (per „↑/↓“ änderbar)
+
 ## 0.1.85
 - Favoriten: Zuordnung über die Adresse statt über den Namen (gleichnamige Podcasts werden nicht mehr alle markiert)
 - Erstes Befüllen überschreibt nie eine vorhandene Liste

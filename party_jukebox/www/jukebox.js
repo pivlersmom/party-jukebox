@@ -1184,10 +1184,13 @@ async function renderFav() {
   cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, pv), 20000)
     .then(r => { S.home.pl = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
   // Empfehlungen (max. 4 Reihen)
-  cmd("music/recommendations", {}, 30000).then(async rows => {
-    const want = (rows || []).filter(f => f && !/^(recommendations|musicbrainz|tunein)/.test(f.provider || "") && f.enabled_by_default !== false).slice(0, 4);
+  // Empfehlungen im Namen der gewählten Person (ihr Hörverhalten) und nur aus ihren Musikquellen
+  cmdP("music/recommendations", {}, 30000).then(async rows => {
+    const mine = pv.provider || null;
+    const want = (rows || []).filter(f => f && !/^(recommendations|musicbrainz|tunein)/.test(f.provider || "") && f.enabled_by_default !== false &&
+      (!mine || mine.includes(f.provider))).slice(0, 4);
     const out = await Promise.all(want.map(f => (f.items && f.items.length ? Promise.resolve(f.items) :
-      cmd("music/recommendations/items", { provider: f.provider, item_id: f.item_id }, 40000).catch(() => []))
+      cmdP("music/recommendations/items", { provider: f.provider, item_id: f.item_id }, 40000).catch(() => []))
       .then(it => ({ name: recName(f.name), items: (it || []).filter(x => x && x.uri && OKTYPES.includes(x.media_type)).slice(0, 20) }))));
     S.home.rec = out.filter(r => r.items.length); done();
   }).catch(() => {});
@@ -1239,7 +1242,9 @@ function paintFav() {
     // Personen-Auswahl (wie in der Suche): Startseite zeigt Favoriten, Playlists, Podcasts dieser Person
     let html = S.users.length > 1 ? '<div class="profrow">' + S.users.map(x => '<button class="profb' + (u && x.user_id === u.user_id ? " on" : "") +
       '" data-u="' + esc(x.user_id) + '">' + profAvatar(x) + "<span>" + esc(profName(x)) + "</span></button>").join("") + "</div>" : "";
-    const podTop = !!(S.myFav && S.myFav.prefs && S.myFav.prefs.podtop);
+    // Podcasts oben: eigene Wahl („↑ Ganz oben“), sonst automatisch bei mind. 3 Lieblings-Podcasts
+    const pref = S.myFav && S.myFav.prefs ? S.myFav.prefs.podtop : undefined;
+    const podTop = pref != null ? !!pref : ((S.favData || {}).podcast || []).length >= 3;
     const podRow = hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · "),
       act: '<button class="more podtop">' + (podTop ? "↓ Nach unten" : "↑ Ganz oben") + "</button>" });
     if (podTop) html += podRow;
@@ -1336,7 +1341,7 @@ async function toggleFav(it) {
     const pt = e.target.closest(".podtop");
     if (pt) {
       e.stopImmediatePropagation();
-      const v = !(S.myFav && S.myFav.prefs && S.myFav.prefs.podtop);
+      const v = !pt.textContent.includes("Nach unten");
       if (S.myFav) { S.myFav.prefs = S.myFav.prefs || {}; S.myFav.prefs.podtop = v; }
       fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: favUid(), prefs: { podtop: v } }) }).catch(() => {});
       paintFav(); return;
