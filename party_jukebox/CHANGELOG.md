@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.70
+- Suche: Filter Radio, Podcasts und Hörbücher; Podcast antippen = Folgen (neueste zuerst)
+
 ## 0.1.69
 - Einstellungen → Handy als Lautsprecher: zeigt das Übertragungsformat (FLAC/PCM), wenn die App es liefert
 

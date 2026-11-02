@@ -936,15 +936,25 @@ $("#setBtn").onclick = async () => {
 };
 
 /* ---------- Suche ---------- */
-const TYPES = { all: ["track", "artist", "album", "playlist"], track: ["track"], artist: ["artist"], album: ["album"], playlist: ["playlist"] };
-const LABEL = { track: "Titel", artist: "Künstler", album: "Alben", playlist: "Playlists" };
-const RKEY = { track: "tracks", artist: "artists", album: "albums", playlist: "playlists" };
+const TYPES = { all: ["track", "artist", "album", "playlist"], track: ["track"], artist: ["artist"], album: ["album"], playlist: ["playlist"],
+  radio: ["radio"], podcast: ["podcast"], audiobook: ["audiobook"] };
+const LABEL = { track: "Titel", artist: "Künstler", album: "Alben", playlist: "Playlists", radio: "Radio", podcast: "Podcasts", audiobook: "Hörbücher" };
+const RKEY = { track: "tracks", artist: "artists", album: "albums", playlist: "playlists", radio: "radio", podcast: "podcasts", audiobook: "audiobooks" };
+/* Direkt abspielbar (Antippen = Abspiel-Menü); alles andere wird geöffnet */
+const PLAYABLE = ["track", "radio", "audiobook", "podcast_episode"];
+const dateOf = it => { const d = it && it.metadata && it.metadata.release_date; return d ? new Date(d) : null; };
 function subOf(it) {
   const t = it.media_type;
   if (t === "track") return [artistsOf(it), it.album && it.album.name].filter(Boolean).join(" · ");
   if (t === "album") return [artistsOf(it), it.year].filter(Boolean).join(" · ") || "Album";
   if (t === "artist") return "Künstler";
   if (t === "playlist") return it.owner ? "Playlist · " + it.owner : "Playlist";
+  if (t === "radio") return "Radiosender";
+  if (t === "podcast") return ["Podcast", it.publisher].filter(Boolean).join(" · ");
+  if (t === "audiobook") return ["Hörbuch", (it.authors || []).join(", ")].filter(Boolean).join(" · ");
+  if (t === "podcast_episode") { const d = dateOf(it);
+    return [d && !isNaN(d) ? d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }) : "", it.duration ? fmt(it.duration) : "",
+      it.fully_played ? "gehört" : ""].filter(Boolean).join(" · "); }
   return "";
 }
 async function doSearch() {
@@ -1003,7 +1013,7 @@ $("#sRes").onclick = e => {
   const row = e.target.closest(".row"); if (!row) return;
   const it = S.sItems[+row.dataset.i]; if (!it) return;
   /* Künstler/Album/Playlist antippen = öffnen, ⋯ = Abspiel-Menü; Titel = Abspiel-Menü */
-  if (it.media_type === "track" || e.target.closest(".go")) openItem(it); else navPush(it);
+  if (PLAYABLE.includes(it.media_type) || e.target.closest(".go")) openItem(it); else navPush(it);
 };
 
 /* ---------- Profile: Musik-Konten pro Person (Benutzer aus Music Assistant) ----------
@@ -1108,6 +1118,12 @@ async function loadNav(n) {
       const [tr, al] = await Promise.all([cmd("music/artists/artist_tracks", a, 25000).catch(() => []), cmd("music/artists/artist_albums", a, 25000).catch(() => [])]);
       d = { tracks: tr || [], albums: al || [] };
     } else if (it.media_type === "album") d = { tracks: await cmd("music/albums/album_tracks", a, 25000) || [] };
+    else if (it.media_type === "podcast") {
+      // Folgen: neueste zuerst
+      const ep = await cmd("music/podcasts/podcast_episodes", a, 40000) || [];
+      ep.sort((x, y) => ((dateOf(y) || 0) - (dateOf(x) || 0)) || ((y.position || 0) - (x.position || 0)));
+      d = { tracks: ep };
+    }
     else d = { tracks: await cmd("music/playlists/playlist_tracks", a, 40000) || [] };
     n.data = d;
   } catch (e) { n.data = { err: errText(e) }; }
@@ -1126,7 +1142,7 @@ function renderNav() {
   else {
     const tr = (d.tracks || []).filter(x => x && x.uri), max = art && !n.all ? 10 : 300;
     if (tr.length) {
-      html += '<div class="sec"><div class="sech"><span>' + (art ? "Titel" : tr.length + " Titel") + "</span>" +
+      html += '<div class="sec"><div class="sech"><span>' + (art ? "Titel" : tr.length + (it.media_type === "podcast" ? " Folgen" : " Titel")) + "</span>" +
         (art && tr.length > 10 ? '<button class="bmore">' + (n.all ? "Weniger" : "Alle " + tr.length) + "</button>" : "") + "</div>";
       tr.slice(0, max).forEach((t, k) => {
         const i = S.sItems.push(t) - 1, no = it.media_type === "album" ? (t.track_number || k + 1) : null;
