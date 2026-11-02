@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.71
+- Neuer Reiter „Favoriten“ – nach Art sortiert (Playlists, Alben, Künstler, Titel, Podcasts, Hörbücher, Radio)
+- Suche: Cover lange drücken = Favorit speichern/entfernen (auch das große Cover von Playlist, Album, Künstler)
+- Großes Cover mit Titel darunter beim Öffnen von Playlist, Album, Künstler, Podcast
+
 ## 0.1.70
 - Suche: Filter Radio, Podcasts und Hörbücher; Podcast antippen = Folgen (neueste zuerst)
 

@@ -19,6 +19,8 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Warteschlange: Titel per Griff ≡ verschieben, entfernen, Titel als Nächstes einreihen
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
+- **Favoriten-Reiter**: alle Favoriten nach Playlists, Alben, Künstlern, Titeln, Podcasts, Hörbüchern und Radio sortiert. In der Suche ein Cover **lange drücken** (oder das große Cover einer Playlist/eines Albums) → als Favorit speichern bzw. entfernen (♥)
+- Suche auch nach **Radio, Podcasts und Hörbüchern**; ein Podcast zeigt seine Folgen (neueste zuerst)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
 - **Liste leeren & TV-Ton**: schwebender Knopf in der Warteschlange – kommende Titel oder alles entfernen; bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) auch auf den Fernseher-Ton umschalten und zurück
 - In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik

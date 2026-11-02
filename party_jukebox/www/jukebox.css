@@ -298,12 +298,15 @@ body.dragq .grip{cursor:grabbing}
 @keyframes gmq{to{transform:translateX(-100%)}}
 
 /* Durchklicken (Künstler / Album / Playlist) */
-.bhead{display:flex;align-items:center;gap:12px;margin:6px 2px 10px}
-.bhead .bback{flex:none;width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center}
+/* großes Cover mittig, Titel darunter; Zurück-Knopf oben links */
+.bhead{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;margin:6px 2px 14px;text-align:center}
+.bhead .bback{position:absolute;left:0;top:0;z-index:1;width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center}
 .bhead .bback svg{width:22px;height:22px;color:var(--tx)}
-.bhead .th.lg{width:72px;height:72px}
-.bhead .rm{flex:1;min-width:0;display:flex;flex-direction:column}
-.bhead .r1{font-size:18px;font-weight:800;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bhead .th.lg{width:min(220px,58vw);height:min(220px,58vw);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.bhead .th.lg.round{border-radius:50%}
+.bhead .th.lg svg{width:30%;height:30%}
+.bhead .rm{width:100%;min-width:0;display:flex;flex-direction:column;align-items:center}
+.bhead .r1{font-size:20px;font-weight:800;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .bacts{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;margin:0 2px 6px}
 .bact{display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:12px;background:var(--card2);font-weight:700;font-size:13px;white-space:nowrap}
 .bact svg{width:17px;height:17px;flex:none}
@@ -477,3 +480,9 @@ header .gstbtn{justify-self:end}
 .qsw.on .gsw{background:var(--grad)}
 .qsw.on .gsw i{transform:translateX(18px)}
 .qsw[hidden]{display:none}
+
+/* Favoriten */
+body[data-tab="fav"] #v-search>.sbox{display:none}
+.favh{color:#ff5fa2}
+.bhead .th.favable{cursor:pointer;-webkit-touch-callout:none;user-select:none}
+.row .th{-webkit-touch-callout:none;user-select:none}

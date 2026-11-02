@@ -48,6 +48,7 @@ const ICON = {
   grip: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  heart: '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.4 3 5 6.4 5c2 0 3.3 1.1 4.1 2.3h3C14.3 6.1 15.6 5 17.6 5 21 5 22.7 8.4 21.2 11.4 19 15.6 12 20 12 20z"/></svg>',
   nextup: '<svg viewBox="0 0 24 24"><path d="M4 6h10M4 11h10M4 16h6"/><path d="M18 8v11M15 16l3 3 3-3"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   back: '<svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg>',
@@ -574,11 +575,17 @@ $("#mini").onclick = e => { if (e.target.closest("#miniPp")) { togglePlay(); ret
 
 /* ---------- Ansichten ---------- */
 function showTab(t) {
+  const wasFav = S.favMode;
   S.tab = t; document.body.dataset.tab = t;
-  ["now", "search", "queue"].forEach(x => {
-    $("#v-" + x).classList.toggle("on", x === t);
-    document.querySelector('#nav [data-t="' + x + '"]').classList.toggle("on", x === t);
+  S.favMode = t === "fav";
+  ["now", "search", "queue", "fav"].forEach(x => {
+    const nb = document.querySelector('#nav [data-t="' + x + '"]'); if (nb) nb.classList.toggle("on", x === t);
+    if (x !== "fav") $("#v-" + x).classList.toggle("on", x === t || (x === "search" && t === "fav"));
   });
+  // Favoriten nutzen die Ansicht der Suche (gleiche Listen, Öffnen, Abspiel-Menü) – ohne Suchfeld
+  if (S.favMode !== wasFav && S.nav && S.nav.length) { S.nav = []; S.navSeq = (S.navSeq || 0) + 1; }
+  if (t === "fav") { renderFav(); $("#v-search").scrollTop = 0; }
+  if (t === "search" && wasFav) { if (S.sRes) renderResults(); else renderHome(); }
   if (t === "queue") { renderItems(); if (!S.itemsOk) loadItems(); }
   if (t === "search" && !$("#q").value) {
     if (!S.sRes && !(S.nav && S.nav.length)) renderHome();
@@ -976,6 +983,7 @@ async function doSearch() {
 }
 function renderResults() {
   if (S.nav && S.nav.length) { renderNav(); return; }
+  if (S.favMode) { renderFav(); return; }
   const r = S.sRes, box = $("#sRes"); S.sItems = [];
   if (!r) { renderHome(); return; }
   const all = S.filter === "all";
@@ -989,7 +997,7 @@ function renderResults() {
     arr.slice(0, max).forEach(it => {
       const i = S.sItems.push(it) - 1;
       html += '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120), it.media_type === "artist" ? "round" : "") +
-        '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
+        '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
     });
     html += "</div>";
   });
@@ -1015,6 +1023,89 @@ $("#sRes").onclick = e => {
   /* Künstler/Album/Playlist antippen = öffnen, ⋯ = Abspiel-Menü; Titel = Abspiel-Menü */
   if (PLAYABLE.includes(it.media_type) || e.target.closest(".go")) openItem(it); else navPush(it);
 };
+
+/* ---------- Favoriten ----------
+   Reiter „Favoriten“: alle Favoriten aus Music Assistant, nach Art sortiert.
+   Lange drücken (0,6 s) auf ein Cover in der Suche / auf das große Cover einer Playlist, eines Albums …
+   = als Favorit speichern bzw. entfernen (♥ vor dem Namen). */
+const FAVCATS = [["playlist", "Playlists"], ["album", "Alben"], ["artist", "Künstler"], ["track", "Titel"],
+  ["podcast", "Podcasts"], ["audiobook", "Hörbücher"], ["radio", "Radio"]];
+const favLocal = {};   // gerade umgeschaltet (bis MA es meldet)
+function isFavIt(it) { return it && (favLocal[it.uri] != null ? favLocal[it.uri] : !!it.favorite); }
+function favMark(it) { return isFavIt(it) ? '<span class="favh">♥</span> ' : ""; }
+let favSeq = 0;
+async function renderFav() {
+  const box = $("#sRes"); if (!box || !S.favMode || (S.nav && S.nav.length)) return;
+  const seq = ++favSeq;
+  if (!S.ready) { box.innerHTML = '<div class="empty">Keine Verbindung zu Music Assistant</div>'; return; }
+  if (!S.favData) box.innerHTML = '<div class="qhead"><h2>Favoriten</h2></div><div class="spin"></div>';
+  else paintFav();
+  const res = await Promise.all(FAVCATS.map(([t]) =>
+    cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", { favorite: true, limit: 500, order_by: "sort_name" }, 25000).catch(() => [])));
+  if (seq !== favSeq) return;
+  S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); });
+  paintFav();
+}
+function paintFav() {
+  const box = $("#sRes"); if (!S.favMode || (S.nav && S.nav.length) || !S.favData) return;
+  S.sItems = []; S.favOpen = S.favOpen || {};
+  let html = '<div class="qhead"><h2>Favoriten</h2></div>', n = 0;
+  FAVCATS.forEach(([t, label]) => {
+    const arr = S.favData[t] || []; if (!arr.length) return; n += arr.length;
+    const open = S.favOpen[t], max = open ? arr.length : (t === "track" ? 6 : 4);
+    html += '<div class="sec"><div class="sech"><span>' + label + " · " + arr.length + "</span>" +
+      (arr.length > max || open ? '<button class="more favmore" data-c="' + t + '">' + (open ? "Weniger" : "Alle anzeigen") + "</button>" : "") + "</div>";
+    arr.slice(0, max).forEach(it => {
+      const i = S.sItems.push(it) - 1;
+      html += '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120), t === "artist" ? "round" : "") +
+        '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
+    });
+    html += "</div>";
+  });
+  if (!n) html += '<div class="empty">Noch keine Favoriten.<br>Tipp: In der Suche ein Cover lange drücken.</div>';
+  box.innerHTML = html;
+}
+async function toggleFav(it) {
+  if (!it || !it.uri) return;
+  const on = !isFavIt(it); favLocal[it.uri] = on;
+  try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
+  if (S.nav && S.nav.length) renderNav(); else renderResults();
+  try {
+    if (on) { await cmd("music/favorites/add_item", { item: it.uri }); toast("❤️ " + it.name + " – Favorit"); }
+    else {
+      let l = it.provider === "library" ? it : null;
+      if (!l) l = await cmd("music/get_library_item", { media_type: it.media_type, item_id: String(it.item_id), provider_instance_id_or_domain: it.provider }).catch(() => null);
+      if (!l || l.item_id == null) throw new Error("nicht in der Bibliothek");
+      await cmd("music/favorites/remove_item", { media_type: l.media_type || it.media_type, library_item_id: l.item_id });
+      toast(it.name + " – kein Favorit mehr");
+    }
+    it.favorite = on; S.favData = null;
+  } catch (e) { favLocal[it.uri] = !on; toast("Favorit ging nicht: " + errText(e)); }
+  delete favLocal[it.uri];
+  if (S.nav && S.nav.length) renderNav(); else renderResults();
+}
+/* Lange drücken auf ein Cover in der Liste oder auf das große Cover */
+(function () {
+  const box = $("#sRes"); let t = null, x0 = 0, y0 = 0, fired = false;
+  const target = e => {
+    const big = e.target.closest(".bhead .th"); if (big) { const n = S.nav[S.nav.length - 1]; return n && n.it; }
+    const th = e.target.closest(".row .th"), row = th && th.closest(".row");
+    return row ? S.sItems[+row.dataset.i] : null;
+  };
+  box.addEventListener("pointerdown", e => {
+    const it = target(e); if (!it) return;
+    fired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(t);
+    t = setTimeout(() => { fired = true; toggleFav(it); }, 600);
+  });
+  const cancel = () => clearTimeout(t);
+  box.addEventListener("pointermove", e => { if (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10) cancel(); });
+  box.addEventListener("pointerup", cancel); box.addEventListener("pointercancel", cancel);
+  box.addEventListener("contextmenu", e => { if (target(e)) e.preventDefault(); });
+  // nach dem langen Drücken kein normales Antippen auslösen
+  box.addEventListener("click", e => { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  box.addEventListener("click", e => { const m = e.target.closest(".favmore"); if (!m) return;
+    e.stopImmediatePropagation(); S.favOpen = S.favOpen || {}; S.favOpen[m.dataset.c] = !S.favOpen[m.dataset.c]; paintFav(); }, true);
+})();
 
 /* ---------- Profile: Musik-Konten pro Person (Benutzer aus Music Assistant) ----------
    Jedes Gerät merkt sich sein Profil. Suche, „Meine Musik“ und Abspielen laufen über die Musikquellen,
@@ -1061,6 +1152,7 @@ function profAvatar(u, cls) {
 }
 let homeSeq = 0;
 async function renderHome() {
+  if (S.favMode) { renderFav(); return; }
   const box = $("#sRes"); if (!box) return;
   const u = prof(), seq = ++homeSeq;
   let head = "";
@@ -1133,8 +1225,8 @@ function renderNav() {
   const n = S.nav[S.nav.length - 1], box = $("#sRes"); if (!n) return;
   const it = n.it, d = n.data, art = it.media_type === "artist";
   S.sItems = [];
-  let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' + thumb(imgUrl(it, 240), "lg" + (art ? " round" : "")) +
-    '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span></div>' +
+  let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' + thumb(imgUrl(it, 480), "lg favable" + (art ? " round" : "")) +
+    '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span></div>' +
     '<div class="bacts"><button class="bact pri" data-o="play">' + ICON.play + 'Abspielen</button><button class="bact" data-o="next">' + ICON.nextup +
     'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>';
   if (!d) html += '<div class="spin"></div>';
