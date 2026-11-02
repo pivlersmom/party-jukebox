@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.65
+- Jukebox: TV-Knopf rechts in der Knopfreihe, Knöpfe schrumpfen auf schmalen Handys statt aus dem Bild zu laufen
+
 ## 0.1.64
 - Schalter auswählen: zuerst nur Helfer (input_boolean), die Suche findet auch alle anderen Schalter
 - Anleitung: Schalter, TV-Ton und Liste leeren beschrieben
