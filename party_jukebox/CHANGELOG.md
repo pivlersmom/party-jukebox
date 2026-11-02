@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.87
+- Einstellungen → Startseite: Reihenfolge der Reihen pro Person festlegen (▲▼) und einzelne Reihen ausblenden
+
 ## 0.1.86
 - Empfehlungen auf der Startseite im Namen der gewählten Person (ihr Hörverhalten, ihre Musikquellen)
 - „Neue Podcast-Folgen“ automatisch ganz oben, wenn jemand mind. 3 Lieblings-Podcasts hat (per „↑/↓“ änderbar)

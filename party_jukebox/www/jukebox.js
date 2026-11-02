@@ -824,6 +824,7 @@ function renderSettings() {
       '</span></span><span class="gsw"><i></i></span></button>' +
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
   }
+  html += '<div class="shh gsh">Startseite' + (prof() ? " von " + esc(profName(prof())) : "") + '</div><div id="hoBox"></div>';
   html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
@@ -855,7 +856,7 @@ function renderSettings() {
     if (v || av) html += '<div class="rshint" style="text-align:center;margin-top:18px">' + [v ? "App " + esc(v) : "", av ? "Add-on " + esc(av) : ""].filter(Boolean).join(" · ") + '</div>';
   }
   openSheet("settings", html, c => {
-    loadQs(c);
+    loadQs(c); paintHomeOrder(c);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
       const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);
@@ -1223,6 +1224,43 @@ function loadRecent() {
 }
 /* Startseite offen: jede Minute nachsehen, ob etwas Neues gespielt wurde */
 setInterval(() => { if (S.favMode && !S.favCat && !(S.nav && S.nav.length) && !document.hidden && S.ready && S.home) loadRecent(); }, 60000);
+/*
+ * Reihenfolge der Startseite pro Person (Einstellungen → Startseite): ▲▼ verschieben, Schalter = ein/aus.
+ * Ohne eigene Wahl: Podcast-Folgen oben, wenn jemand mind. 3 Lieblings-Podcasts hat.
+ */
+const HOME_SECS = [["recent", "Zuletzt gespielt"], ["fav", "Favoriten"], ["rec", "Empfehlungen"], ["pl", "Meine Playlists"], ["pods", "Neue Podcast-Folgen"]];
+function homeOrder() {
+  const pr = (S.myFav && S.myFav.prefs) || {}, ids = HOME_SECS.map(x => x[0]);
+  let order = Array.isArray(pr.order) ? pr.order.filter(x => ids.includes(x)) : null;
+  if (!order) {
+    order = ids.slice();
+    const podTop = pr.podtop != null ? !!pr.podtop : ((S.favData || {}).podcast || []).length >= 3;
+    if (podTop) order = ["pods"].concat(order.filter(x => x !== "pods"));
+  }
+  ids.forEach(x => { if (!order.includes(x)) order.push(x); });
+  return { order, hidden: Array.isArray(pr.hidden) ? pr.hidden : [] };
+}
+function saveHomePrefs(p) {
+  if (S.myFav) S.myFav.prefs = Object.assign(S.myFav.prefs || {}, p);
+  fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: favUid(), prefs: p }) }).catch(() => {});
+  if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
+}
+async function paintHomeOrder(c) {
+  const box = c.querySelector("#hoBox"); if (!box) return;
+  if (!S.myFav || S.myFav.uid !== favUid()) { box.innerHTML = '<div class="rshint">lädt …</div>'; await loadMyFavs(); }
+  const { order, hidden } = homeOrder(), name = id => (HOME_SECS.find(x => x[0] === id) || [, id])[1];
+  box.innerHTML = order.map((id, i) => '<div class="hord' + (hidden.includes(id) ? "" : " on") + '" data-id="' + id + '"><span class="r1">' + name(id) + "</span>" +
+    '<button class="ho-up" aria-label="nach oben"' + (i ? "" : " disabled") + ">▲</button>" +
+    '<button class="ho-dn" aria-label="nach unten"' + (i < order.length - 1 ? "" : " disabled") + ">▼</button>" +
+    '<button class="ho-sw gsw" aria-label="ein/aus"><i></i></button></div>').join("") +
+    '<div class="rshint">Gilt für die gewählte Person. Oben = zuerst.</div>';
+  box.querySelectorAll(".hord").forEach(r => {
+    const id = r.dataset.id;
+    r.querySelector(".ho-up").onclick = () => { const o = order.slice(), i = o.indexOf(id); if (i > 0) { [o[i - 1], o[i]] = [o[i], o[i - 1]]; saveHomePrefs({ order: o }); paintHomeOrder(c); } };
+    r.querySelector(".ho-dn").onclick = () => { const o = order.slice(), i = o.indexOf(id); if (i < o.length - 1) { [o[i + 1], o[i]] = [o[i], o[i + 1]]; saveHomePrefs({ order: o }); paintHomeOrder(c); } };
+    r.querySelector(".ho-sw").onclick = () => { const h = hidden.includes(id) ? hidden.filter(x => x !== id) : hidden.concat(id); saveHomePrefs({ hidden: h, order }); paintHomeOrder(c); };
+  });
+}
 /* waagerechte Reihe mit Covern */
 function hrow(title, arr, opt) {
   if (!arr || !arr.length) return "";
@@ -1242,13 +1280,11 @@ function paintFav() {
     // Personen-Auswahl (wie in der Suche): Startseite zeigt Favoriten, Playlists, Podcasts dieser Person
     let html = S.users.length > 1 ? '<div class="profrow">' + S.users.map(x => '<button class="profb' + (u && x.user_id === u.user_id ? " on" : "") +
       '" data-u="' + esc(x.user_id) + '">' + profAvatar(x) + "<span>" + esc(profName(x)) + "</span></button>").join("") + "</div>" : "";
-    // Podcasts oben: eigene Wahl („↑ Ganz oben“), sonst automatisch bei mind. 3 Lieblings-Podcasts
-    const pref = S.myFav && S.myFav.prefs ? S.myFav.prefs.podtop : undefined;
-    const podTop = pref != null ? !!pref : ((S.favData || {}).podcast || []).length >= 3;
-    const podRow = hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · "),
-      act: '<button class="more podtop">' + (podTop ? "↓ Nach unten" : "↑ Ganz oben") + "</button>" });
-    if (podTop) html += podRow;
-    html += hrow("Zuletzt gespielt", H.recent); let n = 0, tiles = "";
+    // Reihen in der Reihenfolge der Person (Einstellungen → Startseite)
+    const sec = {};
+    sec.pods = hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · ") });
+    sec.recent = hrow("Zuletzt gespielt", H.recent);
+    let n = 0, tiles = "";
     FAVCATS.forEach(([t, label]) => {
       const arr = (S.favData || {})[t] || []; if (!arr.length) return; n += arr.length;
       const imgs = arr.map(x => imgUrl(x, 160)).filter(Boolean).slice(0, 4);
@@ -1256,10 +1292,11 @@ function paintFav() {
         imgs.map(u => '<img loading="lazy" alt="" src="' + esc(u) + '">').join("") + '</span><span class="fl">' + label +
         '</span><span class="fn">' + arr.length + "</span></button>";
     });
-    if (tiles) html += '<div class="sec"><div class="sech"><span>Favoriten</span></div><div class="favgrid">' + tiles + "</div></div>";
-    (H.rec || []).forEach(r => { html += hrow(r.name, r.items); });
-    html += hrow("Meine Playlists", H.pl);
-    if (!podTop) html += podRow;
+    sec.fav = tiles ? '<div class="sec"><div class="sech"><span>Favoriten</span></div><div class="favgrid">' + tiles + "</div></div>" : "";
+    sec.rec = (H.rec || []).map(r => hrow(r.name, r.items)).join("");
+    sec.pl = hrow("Meine Playlists", H.pl);
+    const { order, hidden } = homeOrder();
+    order.forEach(id => { if (!hidden.includes(id)) html += sec[id] || ""; });
     if (!html) html = S.favData ? '<div class="empty">Noch nichts da.<br>Tipp: In der Suche ein Cover lange drücken = Favorit.</div>' : '<div class="spin"></div>';
     box.innerHTML = html; return;
   }

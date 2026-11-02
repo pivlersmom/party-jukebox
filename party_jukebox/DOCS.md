@@ -49,6 +49,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
   - „Nur wenn“ (optional): zusätzliche Bedingung, z. B. `sensor.ladestation=charging`.
   - Läuft an der Soundbar gerade TV-Ton, wird nichts verbunden oder getrennt.
 - **Party-Plugin** – in Music Assistant installieren, ein-/ausschalten, Link zu allen Plugin-Einstellungen.
+- **Startseite** – pro Person: Reihenfolge der Reihen (Zuletzt gespielt, Favoriten, Empfehlungen, Meine Playlists, Neue Podcast-Folgen) mit ▲▼ ändern, einzelne Reihen ausblenden. Ohne eigene Wahl stehen die Podcast-Folgen oben, wenn jemand mind. 3 Lieblings-Podcasts hat.
 - **Schalter** – ausgewählte Home-Assistant-Schalter direkt in der Jukebox ein-/ausschalten:
   - „Schalter auswählen“ zeigt zuerst die **Helfer** (`input_boolean`). Einen Helfer legst du in HA unter *Einstellungen → Geräte & Dienste → Helfer → Helfer erstellen → Schalter* an und fragst ihn in deiner Automation als Bedingung ab (z. B. „Musik beim Heimkommen nur wenn Helfer an“).
   - Über das **Suchfeld** findest du auch alle anderen Schalter (`switch.*`, z. B. Steckdosen).
