@@ -1255,14 +1255,18 @@ function renderItems() {
       '<span class="ib grip' + (i >= minDragIdx() ? "" : " off") + '" aria-label="Ziehen zum Verschieben">' + ICON.grip + "</span></div>";
   }).join("");
   box.innerHTML = html;
-  $("#qClear").hidden = !S.items.length;
+  $("#qClear").hidden = !S.items.length && !(window.PJtv && PJtv.avail());
 }
 /* Liste leeren: nur kommende Titel (laufender spielt weiter) oder alles (Musik stoppt) */
 $("#qClear").onclick = () => {
-  openSheet("qclear", '<div class="shh">Liste leeren</div>' +
+  const tv = window.PJtv && PJtv.avail(), tvOn = tv && PJtv.on();
+  openSheet("qclear", (tv ? '<div class="shh">Fernseher</div><button class="row lrow tvo"><span class="rm"><span class="r1">' +
+      (tvOn ? "🎵 Zurück zur Musik" : "📺 TV-Ton") + '</span><span class="r2">' + (tvOn ? "Warteschlange spielt weiter" : "Box spielt den Ton vom Fernseher") + "</span></span></button>" : "") +
+    (S.items.length ? '<div class="shh">Liste leeren</div>' +
     '<button class="row lrow act" data-o="next"><span class="rm"><span class="r1">Kommende Titel entfernen</span><span class="r2">Der laufende Titel spielt weiter</span></span></button>' +
-    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>',
-    c => c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); clearQueue(b.dataset.o === "all"); }; }));
+    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>' : ""),
+    c => { c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); clearQueue(b.dataset.o === "all"); }; });
+      const t = c.querySelector(".tvo"); if (t) t.onclick = () => { closeSheet(); PJtv.toggle(); }; });
 };
 async function clearQueue(all) {
   if (all) { if (await qc("clear")) { S.items = []; renderItems(); toast("Warteschlange geleert"); } return; }

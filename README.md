@@ -20,8 +20,7 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
-- **TV-Ton**: bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) schaltet ein Knopf auf den Fernseher um – nochmal tippen = zurück zur Musik
-- **Liste leeren**: schwebender Knopf in der Warteschlange (nur kommende Titel oder alles)
+- **Liste leeren & TV-Ton**: schwebender Knopf in der Warteschlange – kommende Titel oder alles entfernen; bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) auch auf den Fernseher-Ton umschalten und zurück
 - In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik
 
 | Suche | Künstler | Warteschlange |

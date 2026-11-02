@@ -54,7 +54,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
   - Über das **Suchfeld** findest du auch alle anderen Schalter (`switch.*`, z. B. Steckdosen).
   - Nur ausgewählte Schalter erscheinen – nichts ausgewählt = der Bereich bleibt leer. Max. 20.
   - Nur für den Gastgeber; Gäste sehen und schalten nichts.
-- **TV-Ton** – bei Lautsprechern mit TV-Eingang erscheint im Reiter „Läuft“ ein TV-Knopf: schaltet auf den Fernseher, nochmal tippen = zurück zur Musik.
+- **TV-Ton** – bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam): Warteschlange → Mülleimer-Knopf → „📺 TV-Ton“. Ist der Fernseher aktiv, steht dort „🎵 Zurück zur Musik“.
 - **Favoriten** – im Reiter „Läuft“ das Cover lange drücken.
 - **Songtext** – im Reiter „Läuft“ das Cover kurz antippen.
 

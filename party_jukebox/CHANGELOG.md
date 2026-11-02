@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.67
+- TV-Ton jetzt im Menü des Mülleimers (Warteschlange) statt in der Knopfreihe
+
 ## 0.1.66
 - Jukebox-Einstellungen: Schalter-Zustand aktualisiert sich (alle 5 s und beim Zurückkehren in die App)
 

@@ -245,15 +245,17 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button></span>' +
     '<span class="mmid"><button class="aq" id="mAq" hidden></button></span>' +
     '<span class="mside r"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>' +
-    '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button><button class="mbtn tv" id="mTv" aria-label="TV-Ton" hidden><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg></button></span>';
+    '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button></span>';
   meta.after(row);
   const det = document.createElement("div"); det.className = "aqd"; row.after(det);
-  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio"), bT = row.querySelector("#mTv");
+  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio");
 
   /* TV-Ton: Lautsprecher mit TV-Eingang (z. B. Sonos Beam) auf den Fernseher umschalten – nochmal tippen = zurück zur Musik */
   const tvSrc = p => p && Array.isArray(p.source_list) && p.source_list.find(s => s && !s.passive && (s.id === "tv" || String(s.name).toLowerCase() === "tv"));
   const onTv = p => !!p && (p.active_source === "tv" || (p.current_media && (p.current_media.source_id === "tv" || p.current_media.uri === "homeTheater-input")));
-  bT.onclick = async () => {
+  /* TV-Ton: liegt im Menü des Mülleimers (Warteschlange) – jukebox.js fragt hier nach */
+  window.PJtv = { avail: () => !!tvSrc(S.players[S.pid]), on: () => onTv(S.players[S.pid]) };
+  window.PJtv.toggle = async () => {
     const p = S.players[S.pid], src = tvSrc(p); if (!src) return;
     try {
       if (onTv(p)) { await cmd("player_queues/play", { queue_id: qid() }); toast("🎵 Zurück zur Musik"); }
@@ -367,8 +369,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     const id = qid(), dj = id && djStatus[id];
     bD.hidden = !djAvail; bD.classList.toggle("on", !!dj); bD.title = dj ? "AI DJ · " + hostName(dj) : "AI DJ";
     const pl = S.players[S.pid];
-    bT.hidden = !tvSrc(pl); bT.classList.toggle("on", onTv(pl)); bT.title = onTv(pl) ? "Zurück zur Musik" : "TV-Ton";
-    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden && bT.hidden);
+    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden);
   }
   let lastQ = "", n = 0;
   setInterval(() => {
