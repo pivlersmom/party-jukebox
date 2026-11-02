@@ -584,7 +584,7 @@ function showTab(t) {
   });
   // Favoriten nutzen die Ansicht der Suche (gleiche Listen, Öffnen, Abspiel-Menü) – ohne Suchfeld
   if (S.favMode !== wasFav && S.nav && S.nav.length) { S.nav = []; S.navSeq = (S.navSeq || 0) + 1; }
-  if (t === "fav") { renderFav(); $("#v-search").scrollTop = 0; }
+  if (t === "fav") { if (!wasFav) S.favCat = null; renderFav(); $("#v-search").scrollTop = 0; }
   if (t === "search" && wasFav) { if (S.sRes) renderResults(); else renderHome(); }
   if (t === "queue") { renderItems(); if (!S.itemsOk) loadItems(); }
   if (t === "search" && !$("#q").value) {
@@ -1047,24 +1047,44 @@ async function renderFav() {
   S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); });
   paintFav();
 }
+/* Übersicht = Kacheln je Art (kein langes Scrollen); Kachel antippen = Liste dieser Art mit Suchfeld */
 function paintFav() {
   const box = $("#sRes"); if (!S.favMode || (S.nav && S.nav.length) || !S.favData) return;
-  S.sItems = []; S.favOpen = S.favOpen || {};
-  let html = '<div class="qhead"><h2>Favoriten</h2></div>', n = 0;
-  FAVCATS.forEach(([t, label]) => {
-    const arr = S.favData[t] || []; if (!arr.length) return; n += arr.length;
-    const open = S.favOpen[t], max = open ? arr.length : (t === "track" ? 6 : 4);
-    html += '<div class="sec"><div class="sech"><span>' + label + " · " + arr.length + "</span>" +
-      (arr.length > max || open ? '<button class="more favmore" data-c="' + t + '">' + (open ? "Weniger" : "Alle anzeigen") + "</button>" : "") + "</div>";
-    arr.slice(0, max).forEach(it => {
-      const i = S.sItems.push(it) - 1;
-      html += '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120), t === "artist" ? "round" : "") +
-        '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
+  S.sItems = [];
+  const cat = S.favCat && FAVCATS.find(c => c[0] === S.favCat);
+  if (!cat) {
+    let html = '<div class="qhead"><h2>Favoriten</h2></div><div class="favgrid">', n = 0;
+    FAVCATS.forEach(([t, label]) => {
+      const arr = S.favData[t] || []; if (!arr.length) return; n += arr.length;
+      const imgs = arr.map(x => imgUrl(x, 160)).filter(Boolean).slice(0, 4);
+      html += '<button class="favtile" data-c="' + t + '"><span class="fcol n' + imgs.length + (t === "artist" ? " round" : "") + '">' +
+        imgs.map(u => '<img loading="lazy" alt="" src="' + esc(u) + '">').join("") + '</span><span class="fl">' + label +
+        '</span><span class="fn">' + arr.length + "</span></button>";
     });
     html += "</div>";
+    if (!n) html = '<div class="qhead"><h2>Favoriten</h2></div><div class="empty">Noch keine Favoriten.<br>Tipp: In der Suche ein Cover lange drücken oder ♥ antippen.</div>';
+    box.innerHTML = html; return;
+  }
+  const [t, label] = cat, arr = S.favData[t] || [];
+  let html = '<div class="favhead"><button class="bback favback" aria-label="Zurück">' + ICON.back + '</button><h2>' + label +
+    '</h2><span class="fn">' + arr.length + '</span></div>' +
+    (arr.length > 8 ? '<input class="fi" id="favQ" type="search" placeholder="In ' + label + ' suchen …" autocomplete="off" value="' + esc(S.favQ || "") + '">' : "") +
+    '<div id="favL">';
+  arr.forEach(it => {
+    const i = S.sItems.push(it) - 1;
+    html += '<button class="row" data-i="' + i + '" data-n="' + esc((it.name + " " + subOf(it)).toLowerCase()) + '">' + thumb(imgUrl(it, 120), t === "artist" ? "round" : "") +
+      '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
   });
-  if (!n) html += '<div class="empty">Noch keine Favoriten.<br>Tipp: In der Suche ein Cover lange drücken.</div>';
-  box.innerHTML = html;
+  box.innerHTML = html + "</div>";
+  const q = $("#favQ");
+  const filt = () => { const v = (q.value || "").trim().toLowerCase(); S.favQ = q.value;
+    box.querySelectorAll("#favL .row").forEach(r => { r.hidden = v && !r.dataset.n.includes(v); }); };
+  if (q) { q.oninput = filt; filt(); }
+}
+function openFavCat(t) {
+  S.favCat = t; S.favQ = "";
+  try { history.pushState({ jbFav: 1 }, ""); } catch (e) {}
+  paintFav(); $("#v-search").scrollTop = 0;
 }
 async function toggleFav(it) {
   if (!it || !it.uri) return;
@@ -1105,8 +1125,12 @@ async function toggleFav(it) {
   box.addEventListener("contextmenu", e => { if (target(e)) e.preventDefault(); });
   // nach dem langen Drücken kein normales Antippen auslösen
   box.addEventListener("click", e => { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
-  box.addEventListener("click", e => { const m = e.target.closest(".favmore"); if (!m) return;
-    e.stopImmediatePropagation(); S.favOpen = S.favOpen || {}; S.favOpen[m.dataset.c] = !S.favOpen[m.dataset.c]; paintFav(); }, true);
+  box.addEventListener("click", e => {
+    const tile = e.target.closest(".favtile"), back = e.target.closest(".favback");
+    if (!tile && !back) return;
+    e.stopImmediatePropagation();
+    if (tile) openFavCat(tile.dataset.c); else history.back();
+  }, true);
 })();
 
 /* ---------- Profile: Musik-Konten pro Person (Benutzer aus Music Assistant) ----------
@@ -1199,7 +1223,7 @@ function navPush(it) {
   $("#v-search").scrollTop = 0;
 }
 window.addEventListener("popstate", () => {
-  if (!S.nav.length) return;
+  if (!S.nav.length) { if (S.favMode && S.favCat) { S.favCat = null; paintFav(); $("#v-search").scrollTop = 0; } return; }
   S.nav.pop(); S.navSeq = (S.navSeq || 0) + 1;
   if (S.nav.length) renderNav(); else renderResults();
   $("#v-search").scrollTop = 0;

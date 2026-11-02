@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.73
+- Favoriten: Übersicht als Kacheln je Art (mit Cover-Collage und Anzahl); antippen = Liste mit Suchfeld
+
 ## 0.1.72
 - ♥-Knopf oben rechts bei Playlist, Album, Künstler, Podcast; langes Drücken aufs Cover zuverlässiger (mit Rückmeldung)
 

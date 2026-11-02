@@ -494,3 +494,19 @@ body[data-tab="fav"] #v-search>.sbox{display:none}
 .bhead .bfav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}
 .bhead .bfav.on{color:#ff5fa2}
 .bhead .bfav.on svg{fill:currentColor}
+/* Favoriten-Übersicht: Kacheln */
+.favgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 2px 16px}
+.favtile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px;border-radius:16px;background:var(--card2);border:1px solid var(--line);text-align:left}
+.favtile:active{transform:scale(.97)}
+.fcol{width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;display:grid;background:var(--card);margin-bottom:6px}
+.fcol.n2,.fcol.n3,.fcol.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.fcol.n2 img{grid-row:span 2}
+.fcol.n3 img:first-child{grid-row:span 2}
+.fcol img{width:100%;height:100%;object-fit:cover;display:block}
+.favtile .fl{font-size:15px;font-weight:800}
+.favtile .fn,.favhead .fn{font-size:12px;font-weight:700;color:var(--dim)}
+.favhead{display:flex;align-items:center;gap:12px;margin:6px 2px 10px}
+.favhead .bback{flex:none;width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center}
+.favhead .bback svg{width:22px;height:22px;color:var(--tx)}
+.favhead h2{flex:1;margin:0;font-size:22px}
+#favQ{margin:0 2px 10px;width:calc(100% - 4px)}
