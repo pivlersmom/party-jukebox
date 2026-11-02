@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.79
+- Überall die Quelle sichtbar: Tidal, Spotify [Konto], TuneIn, Radio Browser … (bei Bibliothek: wo der Eintrag liegt)
+
 ## 0.1.78
 - Startseite „Zuletzt gespielt“: nur von der gewählten Person gestartet (Playlist/Album statt einzelner Titel)
 

@@ -997,7 +997,29 @@ const PLAYABLE = ["track", "radio", "audiobook", "podcast_episode"];
 const dateOf = it => { const d = it && it.metadata && it.metadata.release_date; return d ? new Date(d) : null; };
 /* Anbieter liefern manchmal "&amp;" statt "&" */
 const unent = t => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+/*
+ * Quelle anzeigen (Tidal, Spotify [Konto], TuneIn, Radio Browser …): Namen der Anbieter einmal von MA holen.
+ * Bibliotheks-Einträge zeigen, bei welchen Anbietern sie liegen.
+ */
+S.provName = {};
+function loadProviders() {
+  cmd("providers", {}, 15000).then(l => {
+    (l || []).forEach(p => { const id = p.instance_id || p.lookup_key; if (id) S.provName[id] = p.name || p.domain || id; });
+    if (S.favMode && !(S.nav && S.nav.length)) paintFav();
+  }).catch(() => {});
+}
+function provOf(it) {
+  if (!it) return "";
+  const ids = it.provider && it.provider !== "library" ? [it.provider]
+    : (it.provider_mappings || []).map(m => m && (m.provider_instance || m.provider_domain)).filter(Boolean);
+  const names = [...new Set(ids.map(id => S.provName[id] || (/^[a-z_]+$/.test(id) ? id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "")).filter(Boolean))];
+  return names.slice(0, 2).join(" + ");
+}
 function subOf(it) {
+  const base = subBase(it), pv = provOf(it);
+  return pv && !base.includes(pv) ? (base ? base + " · " + pv : pv) : base;
+}
+function subBase(it) {
   const t = it.media_type;
   if (t === "track") return [artistsOf(it), it.album && it.album.name].filter(Boolean).join(" · ");
   if (t === "album") return [artistsOf(it), it.year].filter(Boolean).join(" · ") || "Album";
@@ -1253,6 +1275,7 @@ async function loadProfiles() {
   } catch (e) { S.users = []; }
   if (S.tab === "search" && !S.sRes && !(S.nav && S.nav.length)) renderHome();
   if (S.tab === "home") renderFav();
+  loadProviders();
 }
 /* Ohne Auswahl: echte Personen, keine Technik-Konten (Dashboard-Anzeige, Gast, Kiosk …) */
 function profDefault(u) {
