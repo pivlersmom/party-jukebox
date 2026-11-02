@@ -87,6 +87,84 @@ def save_settings():
         log.warning("Einstellungen nicht gespeichert: %s", e)
 
 
+# ---------------------------------------------------------------- Favoriten pro Person
+# Music Assistant kennt Favoriten nur für alle gemeinsam. Die Jukebox merkt sich zusätzlich,
+# WER etwas mit ♥ markiert hat (pro MA-Benutzer), damit jede Person ihre eigene Startseite hat.
+FAVS_FILE = STATE_FILE.with_name("favs.json")
+
+
+def _load_favs():
+    try:
+        d = json.loads(FAVS_FILE.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+FAVS = _load_favs()
+
+
+def _save_favs():
+    try:
+        FAVS_FILE.write_text(json.dumps(FAVS))
+    except Exception as e:
+        log.warning("Favoriten nicht gespeichert: %s", e)
+
+
+def _fav_key(it):
+    return (str(it.get("media_type") or "") + ":" + str(it.get("name") or "").strip().lower())[:300]
+
+
+def _fav_clean(it):
+    if not isinstance(it, dict) or not it.get("uri") or not it.get("name"):
+        return None
+    raw = json.dumps(it)
+    return it if len(raw) <= 4000 else None
+
+
+async def party_favs_get(request):
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    uid = str(request.query.get("user") or "default")[:80]
+    prefs = (FAVS.get("_prefs") or {}).get(uid, {})
+    return web.json_response({"known": uid in FAVS, "items": FAVS.get(uid, []), "prefs": prefs}, headers={"Cache-Control": "no-store"})
+
+
+async def party_favs_post(request):
+    """{user, items:[…]} = Liste setzen (erstes Befüllen) · {user, item, on} = einen Favoriten an/aus."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    uid = str(data.get("user") or "default")[:80]
+    if uid == "_prefs":
+        return web.json_response({"ok": False}, status=400)
+    if isinstance(data.get("prefs"), dict):   # z. B. {"podtop": true} = Podcasts auf der Startseite ganz oben
+        p = FAVS.setdefault("_prefs", {}).setdefault(uid, {})
+        for k, v in list(data["prefs"].items())[:20]:
+            if isinstance(v, (bool, int, str)):
+                p[str(k)[:40]] = v
+        _save_favs()
+        return web.json_response({"ok": True, "prefs": p})
+    if isinstance(data.get("items"), list):
+        FAVS[uid] = [x for x in (_fav_clean(i) for i in data["items"][:3000]) if x]
+        _save_favs()
+        return web.json_response({"ok": True, "count": len(FAVS[uid])})
+    it = _fav_clean(data.get("item"))
+    if not it:
+        return web.json_response({"ok": False, "error": "kein Eintrag"}, status=400)
+    k = _fav_key(it)
+    lst = [x for x in FAVS.get(uid, []) if _fav_key(x) != k]
+    if data.get("on"):
+        lst.insert(0, it)
+    FAVS[uid] = lst[:3000]
+    _save_favs()
+    others = any(_fav_key(x) == k for u, l in FAVS.items() if u not in (uid, "_prefs") for x in l)
+    return web.json_response({"ok": True, "others": others})
+
+
 # ---------------------------------------------------------------- Gastgeber-PIN
 # Ist eine PIN gesetzt, sind Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur für
 # angemeldete Geräte (Cookie) erlaubt. Gäste-Seite und TV-Anzeige bleiben frei.
@@ -1362,6 +1440,8 @@ def make_app():
     app.router.add_get("/party/presence", party_presence)
     app.router.add_get("/party/switches", party_switches)
     app.router.add_post("/party/switch", party_switch)
+    app.router.add_get("/party/favs", party_favs_get)
+    app.router.add_post("/party/favs", party_favs_post)
     app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)
     app.router.add_post("/party/host/pin", host_pin_post)

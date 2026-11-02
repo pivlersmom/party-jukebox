@@ -55,6 +55,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
   - Nur ausgewählte Schalter erscheinen – nichts ausgewählt = der Bereich bleibt leer. Max. 20.
   - Nur für den Gastgeber; Gäste sehen und schalten nichts.
 - **TV-Ton** – bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam): Warteschlange → Mülleimer-Knopf → „📺 TV-Ton“. Ist der Fernseher aktiv, steht dort „🎵 Zurück zur Musik“.
+- **Favoriten pro Person** – ♥ bei Playlist/Album/Künstler oder Cover lange drücken. Die Jukebox merkt sich, wer was markiert hat (Music Assistant selbst kennt Favoriten nur für alle). „Neue Podcast-Folgen“ lässt sich pro Person mit „↑ Ganz oben“ an den Anfang der Startseite holen.
 - **Favoriten** – im Reiter „Läuft“ das Cover lange drücken.
 - **Songtext** – im Reiter „Läuft“ das Cover kurz antippen.
 

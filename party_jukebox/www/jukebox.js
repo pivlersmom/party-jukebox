@@ -1101,7 +1101,41 @@ $("#sRes").onclick = e => {
 const FAVCATS = [["playlist", "Playlists"], ["album", "Alben"], ["artist", "Künstler"], ["track", "Titel"],
   ["podcast", "Podcasts"], ["audiobook", "Hörbücher"], ["radio", "Radio"]];
 const favLocal = {};   // gerade umgeschaltet (bis MA es meldet)
-function isFavIt(it) { return it && (favLocal[it.uri] != null ? favLocal[it.uri] : !!it.favorite); }
+/* Favoriten pro Person: das Add-on merkt sich, wer was markiert hat (Music Assistant kennt nur „für alle“) */
+const favUid = () => (prof() || {}).user_id || S.me || "default";
+const favKey = it => (it.media_type || "") + ":" + unent(it.name || "").trim().toLowerCase();
+function favSlim(it) {   // nur was zum Anzeigen und Öffnen nötig ist
+  const o = { uri: it.uri, media_type: it.media_type, name: unent(it.name), item_id: it.item_id, provider: it.provider, favorite: true };
+  const im = pickImg(it); if (im) o.image = typeof im === "string" ? im : { path: im.path, provider: im.provider, remotely_accessible: im.remotely_accessible, proxy_id: im.proxy_id, type: im.type };
+  if (it.artists) o.artists = (it.artists || []).map(a => ({ name: a && a.name })).slice(0, 4);
+  ["owner", "publisher", "year", "artist_str"].forEach(k => { if (it[k]) o[k] = it[k]; });
+  if (it.authors) o.authors = it.authors.slice(0, 4);
+  if (it.album && it.album.name) o.album = { name: it.album.name };
+  if (it.provider_mappings) o.provider_mappings = it.provider_mappings.map(m => ({ provider_instance: m.provider_instance })).slice(0, 4);
+  return o;
+}
+async function loadMyFavs() {
+  const uid = favUid();
+  let j = null;
+  try { const r = await fetch("party/favs?user=" + encodeURIComponent(uid), { cache: "no-store" }); if (r.ok) j = await r.json(); } catch (e) {}
+  if (!j) return null;
+  let items = j.items || [];
+  if (!j.known) {
+    // erstes Mal: mit den bisherigen Favoriten aus den Musikquellen dieser Person befüllen
+    const pv = profProv("provider");
+    const res = await Promise.all(FAVCATS.map(([t]) =>
+      cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", Object.assign({ favorite: true, limit: 500, order_by: "sort_name" }, pv), 25000).catch(() => [])));
+    items = [].concat(...res).filter(x => x && x.uri).map(favSlim);
+    fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: uid, items }) }).catch(() => {});
+  }
+  S.myFav = { uid, items, keys: new Set(items.map(favKey)), prefs: j.prefs || {} };
+  return S.myFav;
+}
+function isFavIt(it) {
+  if (!it) return false;
+  if (favLocal[it.uri] != null) return favLocal[it.uri];
+  return S.myFav && S.myFav.uid === favUid() ? S.myFav.keys.has(favKey(it)) : !!it.favorite;
+}
 function favMark(it) { return isFavIt(it) ? '<span class="favh">♥</span> ' : ""; }
 let favSeq = 0;
 /*
@@ -1127,10 +1161,13 @@ async function renderFav() {
   if (S.favData && age < 10 * 60e3) return;
   const podsOld = Date.now() - (S.home.podsAt || 0) > 30 * 60e3;
   S.home.at = Date.now();
-  // Favoriten
-  Promise.all(FAVCATS.map(([t]) =>
-    cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", Object.assign({ favorite: true, limit: 500, order_by: "sort_name" }, pv), 25000).catch(() => [])))
-    .then(res => { S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); }); done(); });
+  // Favoriten (pro Person)
+  loadMyFavs().then(f => {
+    S.favData = {}; FAVCATS.forEach(([t]) => { S.favData[t] = []; });
+    ((f && f.items) || []).forEach(x => { if (S.favData[x.media_type]) S.favData[x.media_type].push(x); });
+    FAVCATS.forEach(([t]) => S.favData[t].sort((a, b) => (a.name || "").localeCompare(b.name || "", "de")));
+    done();
+  });
   // Zuletzt gespielt
   // Meine Playlists
   cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, pv), 20000)
@@ -1168,7 +1205,7 @@ setInterval(() => { if (S.favMode && !S.favCat && !(S.nav && S.nav.length) && !d
 /* waagerechte Reihe mit Covern */
 function hrow(title, arr, opt) {
   if (!arr || !arr.length) return "";
-  return '<div class="sec"><div class="sech"><span>' + esc(title) + '</span></div><div class="hs">' + arr.map(it => {
+  return '<div class="sec"><div class="sech"><span>' + esc(title) + "</span>" + (opt && opt.act || "") + '</div><div class="hs">' + arr.map(it => {
     const i = S.sItems.push(it) - 1;
     return '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 240), it.media_type === "artist" ? "round" : "") +
       '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(opt && opt.sub ? opt.sub(it) : subOf(it)) + "</span></span></button>";
@@ -1184,6 +1221,10 @@ function paintFav() {
     // Personen-Auswahl (wie in der Suche): Startseite zeigt Favoriten, Playlists, Podcasts dieser Person
     let html = S.users.length > 1 ? '<div class="profrow">' + S.users.map(x => '<button class="profb' + (u && x.user_id === u.user_id ? " on" : "") +
       '" data-u="' + esc(x.user_id) + '">' + profAvatar(x) + "<span>" + esc(profName(x)) + "</span></button>").join("") + "</div>" : "";
+    const podTop = !!(S.myFav && S.myFav.prefs && S.myFav.prefs.podtop);
+    const podRow = hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · "),
+      act: '<button class="more podtop">' + (podTop ? "↓ Nach unten" : "↑ Ganz oben") + "</button>" });
+    if (podTop) html += podRow;
     html += hrow("Zuletzt gespielt", H.recent); let n = 0, tiles = "";
     FAVCATS.forEach(([t, label]) => {
       const arr = (S.favData || {})[t] || []; if (!arr.length) return; n += arr.length;
@@ -1195,7 +1236,7 @@ function paintFav() {
     if (tiles) html += '<div class="sec"><div class="sech"><span>Favoriten</span></div><div class="favgrid">' + tiles + "</div></div>";
     (H.rec || []).forEach(r => { html += hrow(r.name, r.items); });
     html += hrow("Meine Playlists", H.pl);
-    html += hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · ") });
+    if (!podTop) html += podRow;
     if (!html) html = S.favData ? '<div class="empty">Noch nichts da.<br>Tipp: In der Suche ein Cover lange drücken = Favorit.</div>' : '<div class="spin"></div>';
     box.innerHTML = html; return;
   }
@@ -1226,15 +1267,29 @@ async function toggleFav(it) {
   try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
   if (S.nav && S.nav.length) renderNav(); else renderResults();
   try {
-    if (on) { await cmd("music/favorites/add_item", { item: it.uri }); toast("❤️ " + it.name + " – Favorit"); }
+    // persönliche Liste (Add-on) – „others“: hat noch jemand anderes diesen Favoriten?
+    let others = false;
+    try {
+      const r = await fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: favUid(), item: favSlim(it), on }) });
+      if (r.ok) others = !!(await r.json()).others;
+    } catch (e) {}
+    if (S.myFav && S.myFav.uid === favUid()) {
+      const k = favKey(it);
+      S.myFav.items = S.myFav.items.filter(x => favKey(x) !== k); if (on) S.myFav.items.unshift(favSlim(it));
+      S.myFav.keys = new Set(S.myFav.items.map(favKey));
+    }
+    if (on) { await cmd("music/favorites/add_item", { item: it.uri }).catch(() => {}); toast("❤️ " + unent(it.name) + " – Favorit"); }
+    else if (others) toast(unent(it.name) + " – kein Favorit mehr (bei dir)");
     else {
       let l = it.provider === "library" ? it : null;
       if (!l) l = await cmd("music/get_library_item", { media_type: it.media_type, item_id: String(it.item_id), provider_instance_id_or_domain: it.provider }).catch(() => null);
-      if (!l || l.item_id == null) throw new Error("nicht in der Bibliothek");
-      await cmd("music/favorites/remove_item", { media_type: l.media_type || it.media_type, library_item_id: l.item_id });
-      toast(it.name + " – kein Favorit mehr");
+      if (l && l.item_id != null) await cmd("music/favorites/remove_item", { media_type: l.media_type || it.media_type, library_item_id: l.item_id }).catch(() => {});
+      toast(unent(it.name) + " – kein Favorit mehr");
     }
     it.favorite = on; S.favData = null;
+    // MA legt den Eintrag erst kurz danach in der Bibliothek an → Startseite nach 4 s nochmal frisch laden
+    setTimeout(() => { S.favData = null; if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) renderFav(); }, 4000);
   } catch (e) { favLocal[it.uri] = !on; toast("Favorit ging nicht: " + errText(e)); }
   delete favLocal[it.uri];
   if (S.nav && S.nav.length) renderNav(); else renderResults();
@@ -1260,6 +1315,14 @@ async function toggleFav(it) {
   // nach dem langen Drücken kein normales Antippen auslösen
   box.addEventListener("click", e => { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   box.addEventListener("click", e => {
+    const pt = e.target.closest(".podtop");
+    if (pt) {
+      e.stopImmediatePropagation();
+      const v = !(S.myFav && S.myFav.prefs && S.myFav.prefs.podtop);
+      if (S.myFav) { S.myFav.prefs = S.myFav.prefs || {}; S.myFav.prefs.podtop = v; }
+      fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: favUid(), prefs: { podtop: v } }) }).catch(() => {});
+      paintFav(); return;
+    }
     const tile = e.target.closest(".favtile"), back = e.target.closest(".favback");
     if (!tile && !back) return;
     e.stopImmediatePropagation();
@@ -1280,7 +1343,7 @@ async function loadProfiles() {
     S.users = S.allUsers.filter(u => sel ? sel.includes(u.user_id) : profDefault(u));
   } catch (e) { S.users = []; }
   if (S.tab === "search" && !S.sRes && !(S.nav && S.nav.length)) renderHome();
-  if (S.tab === "home") renderFav();
+  if (S.tab === "home") renderFav(); else loadMyFavs();
   loadProviders();
 }
 /* Ohne Auswahl: echte Personen, keine Technik-Konten (Dashboard-Anzeige, Gast, Kiosk …) */
@@ -1344,7 +1407,7 @@ async function renderHome() {
 }
 document.addEventListener("click", e => {
   const b = e.target.closest(".profb"); if (!b) return;
-  ls.set("jb_prof", b.dataset.u); S.sRes = null; S.favData = null; S.home = {};
+  ls.set("jb_prof", b.dataset.u); S.sRes = null; S.favData = null; S.home = {}; S.myFav = null;
   const u = prof(); toast("Musik von " + profName(u));
   if (S.favMode) renderFav(); else if ($("#q").value.trim().length >= 2) doSearch(); else renderHome();
 });

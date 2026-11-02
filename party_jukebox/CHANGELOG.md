@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.83
+- Favoriten pro Person: jede Person (MA-Benutzer) hat eigene Favoriten auf der Startseite; beim ersten Öffnen mit den bisherigen Favoriten aus ihren Musikquellen befüllt
+- In Music Assistant wird ein Favorit erst entfernt, wenn ihn niemand mehr hat
+- Startseite: „Neue Podcast-Folgen“ per „↑ Ganz oben“ pro Person nach oben holen
+
 ## 0.1.82
 - Suche startet erst nach 0,8 s Tipp-Pause (weniger Anfragen an Spotify & Co.)
 
