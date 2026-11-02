@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.74
+- Neuer Aufbau wie bei Spotify: Startseite (Zuletzt gespielt, Favoriten, Empfehlungen, Meine Playlists, neue Podcast-Folgen)
+- Player klappt aus der Mini-Leiste hoch; ⌄, Wischen nach unten oder Zurück klappt zu
+- Untere Leiste: Start · Suche · Warteschlange
+
 ## 0.1.73
 - Favoriten: Übersicht als Kacheln je Art (mit Cover-Collage und Anzahl); antippen = Liste mit Suchfeld
 

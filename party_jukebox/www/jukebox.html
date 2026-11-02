@@ -20,7 +20,7 @@
 <script src="jukebox.js" defer></script>
 <script src="jukebox-extra.js" defer></script>
 </head>
-<body data-tab="now">
+<body data-tab="home">
 <div id="glow"></div>
 
 <header id="top">
@@ -36,7 +36,13 @@
 
 <main>
   <!-- Jetzt läuft -->
-  <section class="view on" id="v-now">
+  <section class="view" id="v-now">
+    <!-- aufgeklappter Player (wie Spotify): ⌄ oder nach unten wischen = zuklappen -->
+    <div class="nphead">
+      <button id="npClose" aria-label="Zuklappen" data-ic="chev"></button>
+      <button id="npSpk" aria-label="Lautsprecher wählen"><span data-ic="speaker"></span><span id="npSpkN"></span></button>
+      <span class="npsp"></span>
+    </div>
     <div class="nowin">
       <div class="cover" id="cover"><span class="ph" data-ic="note"></span><img id="coverImg" alt=""></div>
       <div class="meta">
@@ -68,7 +74,7 @@
   </section>
 
   <!-- Suche -->
-  <section class="view" id="v-search">
+  <section class="view on" id="v-search">
     <div class="sbox">
       <div class="sfield">
         <span class="sic" data-ic="search"></span>
@@ -107,9 +113,8 @@
 </button>
 
 <nav id="nav">
-  <button class="on" data-t="now"><span data-ic="disc"></span><span>Läuft</span></button>
+  <button class="on" data-t="home"><span data-ic="home"></span><span>Start</span></button>
   <button data-t="search"><span data-ic="search"></span><span>Suche</span></button>
-  <button data-t="fav"><span data-ic="heart"></span><span>Favoriten</span></button>
   <button data-t="queue"><span data-ic="list"></span><span>Warteschlange</span><b class="badge" id="qBadge" hidden></b></button>
 </nav>
 

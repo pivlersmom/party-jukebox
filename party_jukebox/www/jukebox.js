@@ -48,6 +48,7 @@ const ICON = {
   grip: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  home: '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
   heart: '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.4 3 5 6.4 5c2 0 3.3 1.1 4.1 2.3h3C14.3 6.1 15.6 5 17.6 5 21 5 22.7 8.4 21.2 11.4 19 15.6 12 20 12 20z"/></svg>',
   nextup: '<svg viewBox="0 0 24 24"><path d="M4 6h10M4 11h10M4 16h6"/><path d="M18 8v11M15 16l3 3 3-3"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
@@ -93,7 +94,7 @@ const S = {
   players: {}, pid: null, q: null, qid: null,
   tBase: 0, tAt: 0, seekHold: 0, ppHold: 0, ppWant: false, vHold: 0, lastRq: 0,
   items: [], itemsOk: false, iSeq: 0,
-  tab: "now", filter: "all", sSeq: 0, sRes: null, sItems: []
+  tab: "home", favMode: true, filter: "all", sSeq: 0, sRes: null, sItems: []
 };
 
 /* ---------- MA-WebSocket ---------- */
@@ -574,25 +575,69 @@ $("#bRp").onclick = () => {
 $("#mini").onclick = e => { if (e.target.closest("#miniPp")) { togglePlay(); return; } showTab("now"); };
 
 /* ---------- Ansichten ---------- */
+/*
+ * Ansichten: Start · Suche · Warteschlange (untere Leiste).
+ * „now“ ist der aufgeklappte Player – er legt sich über alles (Mini-Leiste antippen) und klappt wieder zu.
+ * Start nutzt die Ansicht der Suche (gleiche Listen, Öffnen, Abspiel-Menü) – ohne Suchfeld.
+ */
 function showTab(t) {
-  const wasFav = S.favMode;
+  if (t === "now") { openPlayer(); return; }
+  if (S.playerOpen) closePlayer(true);
+  const wasHome = S.favMode;
   S.tab = t; document.body.dataset.tab = t;
-  S.favMode = t === "fav";
-  ["now", "search", "queue", "fav"].forEach(x => {
-    const nb = document.querySelector('#nav [data-t="' + x + '"]'); if (nb) nb.classList.toggle("on", x === t);
-    if (x !== "fav") $("#v-" + x).classList.toggle("on", x === t || (x === "search" && t === "fav"));
-  });
-  // Favoriten nutzen die Ansicht der Suche (gleiche Listen, Öffnen, Abspiel-Menü) – ohne Suchfeld
-  if (S.favMode !== wasFav && S.nav && S.nav.length) { S.nav = []; S.navSeq = (S.navSeq || 0) + 1; }
-  if (t === "fav") { if (!wasFav) S.favCat = null; renderFav(); $("#v-search").scrollTop = 0; }
-  if (t === "search" && wasFav) { if (S.sRes) renderResults(); else renderHome(); }
+  S.favMode = t === "home";
+  ["home", "search", "queue"].forEach(x => { const nb = document.querySelector('#nav [data-t="' + x + '"]'); if (nb) nb.classList.toggle("on", x === t); });
+  $("#v-search").classList.toggle("on", t === "search" || t === "home");
+  $("#v-queue").classList.toggle("on", t === "queue");
+  if (S.favMode !== wasHome && S.nav && S.nav.length) { S.nav = []; S.navSeq = (S.navSeq || 0) + 1; }
+  if (t === "home") { S.favCat = null; renderFav(); $("#v-search").scrollTop = 0; }
+  if (t === "search" && wasHome) { if (S.sRes) renderResults(); else renderHome(); }
   if (t === "queue") { renderItems(); if (!S.itemsOk) loadItems(); }
   if (t === "search" && !$("#q").value) {
     if (!S.sRes && !(S.nav && S.nav.length)) renderHome();
-    if (S.users.length < 2) setTimeout(() => $("#q").focus(), 60);  // mit Profilen: erst „Meine Musik“ zeigen
+    if (S.users.length < 2) setTimeout(() => $("#q").focus(), 60);
   }
-  if (t === "now") tick();
 }
+/* Player auf-/zuklappen. Zurück-Taste (Android) klappt zu.
+   Der Player hängt direkt am <body>, damit er über Kopfzeile und unterer Leiste liegt. */
+document.body.appendChild($("#v-now"));
+/* Player auf-/zuklappen. Zurück-Taste (Android) klappt zu. */
+function openPlayer() {
+  if (S.playerOpen) return;
+  S.playerOpen = true; document.body.classList.add("npopen");
+  $("#v-now").classList.add("on"); $("#v-now").scrollTop = 0;
+  try { history.pushState({ jbPlayer: 1 }, ""); } catch (e) {}
+  tick();
+}
+function closePlayer(silent) {
+  if (!S.playerOpen) return;
+  S.playerOpen = false; document.body.classList.remove("npopen");
+  const v = $("#v-now"); v.classList.remove("on"); v.style.transform = "";
+  if (!silent && history.state && history.state.jbPlayer) { S.skipPop = true; history.back(); }
+}
+$("#npClose").onclick = () => closePlayer();
+$("#npSpk").onclick = () => $("#plBtn").click();
+(function () {   // Lautsprecher-Name auch im Player-Kopf
+  const src = $("#plName"), dst = $("#npSpkN");
+  const cp = () => { dst.textContent = src.textContent; };
+  cp(); new MutationObserver(cp).observe(src, { childList: true, characterData: true, subtree: true });
+})();
+(function () {   // nach unten wischen = zuklappen (nur wenn ganz oben, nicht auf Reglern)
+  const v = $("#v-now"); let y0 = null, dy = 0;
+  v.addEventListener("touchstart", e => {
+    if (v.scrollTop > 0 || e.target.closest(".sl,.vol,.modes,.ctl")) { y0 = null; return; }
+    y0 = e.touches[0].clientY; dy = 0; v.style.transition = "none";
+  }, { passive: true });
+  v.addEventListener("touchmove", e => {
+    if (y0 == null) return; dy = Math.max(0, e.touches[0].clientY - y0);
+    v.style.transform = dy ? "translateY(" + dy + "px)" : "";
+  }, { passive: true });
+  v.addEventListener("touchend", () => {
+    if (y0 == null) return; v.style.transition = "";
+    if (dy > 110) closePlayer(); else v.style.transform = "";
+    y0 = null;
+  });
+})();
 document.querySelectorAll("#nav button").forEach(b => { b.onclick = () => showTab(b.dataset.t); });
 
 /* ---------- Unteres Fenster ---------- */
@@ -1035,34 +1080,78 @@ const favLocal = {};   // gerade umgeschaltet (bis MA es meldet)
 function isFavIt(it) { return it && (favLocal[it.uri] != null ? favLocal[it.uri] : !!it.favorite); }
 function favMark(it) { return isFavIt(it) ? '<span class="favh">♥</span> ' : ""; }
 let favSeq = 0;
+/*
+ * Startseite: Zuletzt gespielt · Favoriten (Kacheln) · Empfehlungen · Meine Playlists · Neue Podcast-Folgen.
+ * Alles wird parallel geladen; was schon da ist, wird sofort gezeigt (S.home), der Rest füllt sich nach.
+ */
+const REC_DE = { "custom mixes": "Deine Mixe", "new tracks": "Neue Titel", "new albums": "Neue Alben", "radio stations for you": "Radio für dich",
+  "the hits": "Die Hits", "recent albums": "Zuletzt gehörte Alben", "top tracks": "Top-Titel", "featured playlists": "Empfohlene Playlists",
+  "new german playlists": "Neue deutsche Playlists", "made for you": "Für dich gemacht" };
+const recName = n => REC_DE[(n || "").toLowerCase()] || (/^because you listened to /i.test(n || "") ? "Weil du " + n.substring(24).trim() + " gehört hast" : n);
+const OKTYPES = ["track", "album", "artist", "playlist", "radio", "podcast", "audiobook", "podcast_episode"];
 async function renderFav() {
   const box = $("#sRes"); if (!box || !S.favMode || (S.nav && S.nav.length)) return;
   const seq = ++favSeq;
   if (!S.ready) { box.innerHTML = '<div class="empty">Keine Verbindung zu Music Assistant</div>'; return; }
-  if (!S.favData) box.innerHTML = '<div class="qhead"><h2>Favoriten</h2></div><div class="spin"></div>';
-  else paintFav();
-  const res = await Promise.all(FAVCATS.map(([t]) =>
-    cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", { favorite: true, limit: 500, order_by: "sort_name" }, 25000).catch(() => [])));
-  if (seq !== favSeq) return;
-  S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); });
-  paintFav();
+  S.home = S.home || {};
+  if (!S.favData) box.innerHTML = '<div class="spin"></div>'; else paintFav();
+  const done = () => { if (seq === favSeq) paintFav(); };
+  const pv = profProv("provider");
+  // Favoriten
+  Promise.all(FAVCATS.map(([t]) =>
+    cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", { favorite: true, limit: 500, order_by: "sort_name" }, 25000).catch(() => [])))
+    .then(res => { S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); }); done(); });
+  // Zuletzt gespielt
+  cmdP("music/recently_played_items", { limit: 20 }, 20000).then(r => { S.home.recent = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
+  // Meine Playlists
+  cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, pv), 20000)
+    .then(r => { S.home.pl = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
+  // Empfehlungen (max. 4 Reihen)
+  cmd("music/recommendations", {}, 30000).then(async rows => {
+    const want = (rows || []).filter(f => f && !/^(recommendations|musicbrainz|tunein)/.test(f.provider || "") && f.enabled_by_default !== false).slice(0, 4);
+    const out = await Promise.all(want.map(f => (f.items && f.items.length ? Promise.resolve(f.items) :
+      cmd("music/recommendations/items", { provider: f.provider, item_id: f.item_id }, 40000).catch(() => []))
+      .then(it => ({ name: recName(f.name), items: (it || []).filter(x => x && x.uri && OKTYPES.includes(x.media_type)).slice(0, 20) }))));
+    S.home.rec = out.filter(r => r.items.length); done();
+  }).catch(() => {});
+  // Neue Podcast-Folgen (Favoriten-Podcasts, letzte 7 Tage)
+  cmdP("music/podcasts/library_items", { favorite: true, limit: 12 }, 20000).then(async pods => {
+    const week = Date.now() - 7 * 864e5;
+    const lists = await Promise.all((pods || []).map(p => cmd("music/podcasts/podcast_episodes",
+      { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])));
+    S.home.pods = [].concat(...lists).filter(x => x && x.uri && (dateOf(x) || 0) >= week).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0)).slice(0, 20);
+    done();
+  }).catch(() => {});
+}
+/* waagerechte Reihe mit Covern */
+function hrow(title, arr, opt) {
+  if (!arr || !arr.length) return "";
+  return '<div class="sec"><div class="sech"><span>' + esc(title) + '</span></div><div class="hs">' + arr.map(it => {
+    const i = S.sItems.push(it) - 1;
+    return '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 240), it.media_type === "artist" ? "round" : "") +
+      '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(opt && opt.sub ? opt.sub(it) : subOf(it)) + "</span></span></button>";
+  }).join("") + "</div></div>";
 }
 /* Übersicht = Kacheln je Art (kein langes Scrollen); Kachel antippen = Liste dieser Art mit Suchfeld */
 function paintFav() {
-  const box = $("#sRes"); if (!S.favMode || (S.nav && S.nav.length) || !S.favData) return;
+  const box = $("#sRes"); if (!S.favMode || (S.nav && S.nav.length)) return;
   S.sItems = [];
   const cat = S.favCat && FAVCATS.find(c => c[0] === S.favCat);
   if (!cat) {
-    let html = '<div class="qhead"><h2>Favoriten</h2></div><div class="favgrid">', n = 0;
+    const H = S.home || {};
+    let html = hrow("Zuletzt gespielt", H.recent), n = 0, tiles = "";
     FAVCATS.forEach(([t, label]) => {
-      const arr = S.favData[t] || []; if (!arr.length) return; n += arr.length;
+      const arr = (S.favData || {})[t] || []; if (!arr.length) return; n += arr.length;
       const imgs = arr.map(x => imgUrl(x, 160)).filter(Boolean).slice(0, 4);
-      html += '<button class="favtile" data-c="' + t + '"><span class="fcol n' + imgs.length + (t === "artist" ? " round" : "") + '">' +
+      tiles += '<button class="favtile" data-c="' + t + '"><span class="fcol n' + imgs.length + (t === "artist" ? " round" : "") + '">' +
         imgs.map(u => '<img loading="lazy" alt="" src="' + esc(u) + '">').join("") + '</span><span class="fl">' + label +
         '</span><span class="fn">' + arr.length + "</span></button>";
     });
-    html += "</div>";
-    if (!n) html = '<div class="qhead"><h2>Favoriten</h2></div><div class="empty">Noch keine Favoriten.<br>Tipp: In der Suche ein Cover lange drücken oder ♥ antippen.</div>';
+    if (tiles) html += '<div class="sec"><div class="sech"><span>Favoriten</span></div><div class="favgrid">' + tiles + "</div></div>";
+    (H.rec || []).forEach(r => { html += hrow(r.name, r.items); });
+    html += hrow("Meine Playlists", H.pl);
+    html += hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · ") });
+    if (!html) html = S.favData ? '<div class="empty">Noch nichts da.<br>Tipp: In der Suche ein Cover lange drücken = Favorit.</div>' : '<div class="spin"></div>';
     box.innerHTML = html; return;
   }
   const [t, label] = cat, arr = S.favData[t] || [];
@@ -1146,6 +1235,7 @@ async function loadProfiles() {
     S.users = S.allUsers.filter(u => sel ? sel.includes(u.user_id) : profDefault(u));
   } catch (e) { S.users = []; }
   if (S.tab === "search" && !S.sRes && !(S.nav && S.nav.length)) renderHome();
+  if (S.tab === "home") renderFav();
 }
 /* Ohne Auswahl: echte Personen, keine Technik-Konten (Dashboard-Anzeige, Gast, Kiosk …) */
 function profDefault(u) {
@@ -1223,6 +1313,8 @@ function navPush(it) {
   $("#v-search").scrollTop = 0;
 }
 window.addEventListener("popstate", () => {
+  if (S.skipPop) { S.skipPop = false; return; }
+  if (S.playerOpen) { closePlayer(true); return; }
   if (!S.nav.length) { if (S.favMode && S.favCat) { S.favCat = null; paintFav(); $("#v-search").scrollTop = 0; } return; }
   S.nav.pop(); S.navSeq = (S.navSeq || 0) + 1;
   if (S.nav.length) renderNav(); else renderResults();

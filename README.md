@@ -19,7 +19,9 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Warteschlange: Titel per Griff ≡ verschieben, entfernen, Titel als Nächstes einreihen
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
-- **Favoriten-Reiter**: alle Favoriten nach Playlists, Alben, Künstlern, Titeln, Podcasts, Hörbüchern und Radio sortiert. In der Suche ein Cover **lange drücken** (oder das große Cover einer Playlist/eines Albums) → als Favorit speichern bzw. entfernen (♥)
+- **Startseite** wie bei Spotify: Zuletzt gespielt, Favoriten (Kacheln je Art, antippen = Liste mit Suchfeld), Empfehlungen, Meine Playlists, neue Podcast-Folgen. Die Leiste unten hat Start · Suche · Warteschlange.
+- **Player zum Aufklappen**: Mini-Leiste antippen → großes Cover mit Steuerung; ⌄, nach unten wischen oder Zurück klappt ihn zu
+- **Favorit speichern**: ♥ oben rechts bei Playlist/Album/Künstler oder Cover lange drücken
 - Suche auch nach **Radio, Podcasts und Hörbüchern**; ein Podcast zeigt seine Folgen (neueste zuerst)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
 - **Liste leeren & TV-Ton**: schwebender Knopf in der Warteschlange – kommende Titel oder alles entfernen; bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) auch auf den Fernseher-Ton umschalten und zurück
