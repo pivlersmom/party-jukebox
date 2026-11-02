@@ -486,3 +486,11 @@ body[data-tab="fav"] #v-search>.sbox{display:none}
 .favh{color:#ff5fa2}
 .bhead .th.favable{cursor:pointer;-webkit-touch-callout:none;user-select:none}
 .row .th{-webkit-touch-callout:none;user-select:none}
+/* Cover lange drücken: Bild darf weder gezogen noch markiert werden (sonst bricht Android den Druck ab) */
+#sRes .th img{pointer-events:none;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+#sRes .th{touch-action:pan-y;transition:transform .5s ease}
+#sRes .th.press{transform:scale(.94)}
+.bhead .bfav{position:absolute;right:0;top:0;z-index:1;width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center;color:var(--dim)}
+.bhead .bfav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}
+.bhead .bfav.on{color:#ff5fa2}
+.bhead .bfav.on svg{fill:currentColor}

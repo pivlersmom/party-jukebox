@@ -1015,6 +1015,7 @@ $("#qClr").onclick = () => { $("#q").value = ""; doSearch(); $("#q").focus(); };
 $("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) setFilter(c.dataset.f); };
 $("#sRes").onclick = e => {
   if (e.target.closest(".bback")) { history.back(); return; }
+  if (e.target.closest(".bfav")) { const n = S.nav[S.nav.length - 1]; if (n) toggleFav(n.it); return; }
   const ba = e.target.closest(".bact"); if (ba) { const n = S.nav[S.nav.length - 1]; if (n) enqueue(n.it, ba.dataset.o); return; }
   const tg = e.target.closest(".bmore"); if (tg) { const n = S.nav[S.nav.length - 1]; if (n) { n.all = !n.all; renderNav(); } return; }
   const more = e.target.closest(".more"); if (more) { setFilter(more.dataset.f); return; }
@@ -1095,9 +1096,10 @@ async function toggleFav(it) {
   box.addEventListener("pointerdown", e => {
     const it = target(e); if (!it) return;
     fired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(t);
-    t = setTimeout(() => { fired = true; toggleFav(it); }, 600);
+    const th = e.target.closest(".th"); if (th) th.classList.add("press");
+    t = setTimeout(() => { fired = true; if (th) th.classList.remove("press"); toggleFav(it); }, 600);
   });
-  const cancel = () => clearTimeout(t);
+  const cancel = () => { clearTimeout(t); box.querySelectorAll(".th.press").forEach(x => x.classList.remove("press")); };
   box.addEventListener("pointermove", e => { if (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10) cancel(); });
   box.addEventListener("pointerup", cancel); box.addEventListener("pointercancel", cancel);
   box.addEventListener("contextmenu", e => { if (target(e)) e.preventDefault(); });
@@ -1225,7 +1227,8 @@ function renderNav() {
   const n = S.nav[S.nav.length - 1], box = $("#sRes"); if (!n) return;
   const it = n.it, d = n.data, art = it.media_type === "artist";
   S.sItems = [];
-  let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' + thumb(imgUrl(it, 480), "lg favable" + (art ? " round" : "")) +
+  let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' +
+    '<button class="bfav' + (isFavIt(it) ? " on" : "") + '" aria-label="Favorit">' + ICON.heart + "</button>" + thumb(imgUrl(it, 480), "lg favable" + (art ? " round" : "")) +
     '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span></div>' +
     '<div class="bacts"><button class="bact pri" data-o="play">' + ICON.play + 'Abspielen</button><button class="bact" data-o="next">' + ICON.nextup +
     'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>';
