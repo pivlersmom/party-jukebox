@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.68
+- Jukebox: Wiedergabe-Knöpfe kleiner, Lautstärke ohne Scrollen erreichbar
+
 ## 0.1.67
 - TV-Ton jetzt im Menü des Mülleimers (Warteschlange) statt in der Knopfreihe
 

@@ -75,26 +75,26 @@ body.blocked .view{display:none!important}
 .sl.off .knob{display:none}
 
 /* Steuerung */
-.ctl{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:360px;margin-top:6px}
-.ctl button{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;color:var(--tx);position:relative;transition:transform .1s}
+.ctl{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:340px;margin-top:2px}
+.ctl button{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--tx);position:relative;transition:transform .1s}
 .ctl button:active{transform:scale(.9)}
-.ctl button svg{width:28px;height:28px}
+.ctl button svg{width:24px;height:24px}
 .ctl .sm{color:var(--dim)}
-.ctl .sm svg{width:24px;height:24px}
+.ctl .sm svg{width:21px;height:21px}
 .ctl .sm.on{color:var(--a2)}
 .ctl .sm.on::after{content:"";position:absolute;bottom:4px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--a2)}
-#bRp .one{position:absolute;top:9px;right:8px;font-size:10px;font-weight:900;color:var(--a2);display:none}
+#bRp .one{position:absolute;top:6px;right:5px;font-size:10px;font-weight:900;color:var(--a2);display:none}
 #bRp.one .one{display:block}
-.ctl .pp{width:76px;height:76px;background:var(--grad);box-shadow:0 12px 34px rgba(224,64,251,.38)}
+.ctl .pp{width:60px;height:60px;background:var(--grad);box-shadow:0 8px 24px rgba(224,64,251,.38)}
 .pp svg,.mpp svg{fill:#fff;stroke:none}
-.ctl .pp svg{width:32px;height:32px}
+.ctl .pp svg{width:26px;height:26px}
 .i-pause{display:none!important}
 .playing .i-play{display:none!important}
 .playing .i-pause{display:inline-grid!important}
 body.noconn .ctl,body.noconn .vol,body.noconn .prog{opacity:.45;pointer-events:none}
 
 /* Lautstärke */
-.vol{width:100%;margin-top:14px;padding:8px 10px 8px;border-radius:18px;background:rgba(21,25,38,.82);border:1px solid var(--line)}
+.vol{width:100%;margin-top:10px;padding:8px 10px 8px;border-radius:18px;background:rgba(21,25,38,.82);border:1px solid var(--line)}
 .vrow{display:flex;align-items:center;gap:8px}
 .vrow button{width:38px;height:38px;display:grid;place-items:center;color:var(--dim);flex:none;border-radius:50%}
 .vrow button:active{transform:scale(.88);color:var(--tx)}
