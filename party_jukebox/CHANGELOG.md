@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.75
+- Startseite: Reihen lassen sich auch auf den Covern seitlich wischen; Kacheln etwas kleiner
+
 ## 0.1.74
 - Neuer Aufbau wie bei Spotify: Startseite (Zuletzt gespielt, Favoriten, Empfehlungen, Meine Playlists, neue Podcast-Folgen)
 - Player klappt aus der Mini-Leiste hoch; ⌄, Wischen nach unten oder Zurück klappt zu
