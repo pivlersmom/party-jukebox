@@ -1159,14 +1159,13 @@ async function renderFav() {
   /* Nicht bei jedem Antippen von „Start“ alles neu holen – schont Spotify (sonst bremst Spotify alle Anfragen aus) */
   const age = Date.now() - (S.home.at || 0);
   if (S.favData && age < 10 * 60e3) return;
-  const podsOld = Date.now() - (S.home.podsAt || 0) > 30 * 60e3;
   S.home.at = Date.now();
   // Favoriten (pro Person)
   loadMyFavs().then(f => {
     S.favData = {}; FAVCATS.forEach(([t]) => { S.favData[t] = []; });
     ((f && f.items) || []).forEach(x => { if (S.favData[x.media_type]) S.favData[x.media_type].push(x); });
     FAVCATS.forEach(([t]) => S.favData[t].sort((a, b) => (a.name || "").localeCompare(b.name || "", "de")));
-    done();
+    done(); loadPods();
   });
   // Zuletzt gespielt
   // Meine Playlists
@@ -1181,14 +1180,21 @@ async function renderFav() {
     S.home.rec = out.filter(r => r.items.length); done();
   }).catch(() => {});
   // Neue Podcast-Folgen (Favoriten-Podcasts, letzte 7 Tage)
-  if (podsOld) cmdP("music/podcasts/library_items", Object.assign({ favorite: true, limit: 12 }, pv), 20000).then(async pods => {
-    S.home.podsAt = Date.now();
-    const week = Date.now() - 7 * 864e5;
-    const lists = await Promise.all((pods || []).map(p => cmd("music/podcasts/podcast_episodes",
-      { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])));
-    S.home.pods = [].concat(...lists).filter(x => x && x.uri && (dateOf(x) || 0) >= week).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0)).slice(0, 20);
-    done();
-  }).catch(() => {});
+}
+/* Neue Folgen der Podcasts, die DIESE Person als Favorit hat (letzte 7 Tage). Neu laden, wenn sich die Podcast-Favoriten ändern, sonst alle 30 Min. */
+function loadPods(force) {
+  const pods = ((S.myFav && S.myFav.items) || []).filter(x => x.media_type === "podcast").slice(0, 12);
+  const sig = pods.map(p => p.uri).join("|");
+  if (!force && sig === S.home.podsSig && Date.now() - (S.home.podsAt || 0) < 30 * 60e3) return;
+  S.home.podsSig = sig; S.home.podsAt = Date.now();
+  if (!pods.length) { S.home.pods = []; return; }
+  const week = Date.now() - 7 * 864e5;
+  Promise.all(pods.map(p => cmd("music/podcasts/podcast_episodes",
+    { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider || "library" }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])))
+    .then(lists => {
+      S.home.pods = [].concat(...lists).filter(x => x && x.uri && (dateOf(x) || 0) >= week).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0)).slice(0, 20);
+      if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
+    });
 }
 /* Zuletzt gespielt: nur was DIESE Person gestartet hat (Playlist/Album statt jedes einzelnen Titels) */
 function loadRecent() {

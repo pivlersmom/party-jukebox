@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.84
+- „Neue Podcast-Folgen“ aus den Podcast-Favoriten der gewählten Person; lädt sofort neu, wenn ein Podcast dazukommt
+
 ## 0.1.83
 - Favoriten pro Person: jede Person (MA-Benutzer) hat eigene Favoriten auf der Startseite; beim ersten Öffnen mit den bisherigen Favoriten aus ihren Musikquellen befüllt
 - In Music Assistant wird ein Favorit erst entfernt, wenn ihn niemand mehr hat
