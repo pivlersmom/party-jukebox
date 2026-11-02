@@ -6,30 +6,31 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
   <img src="docs/screenshots/tv.jpg" width="100%" alt="TV-Anzeige">
 </p>
 
-| Jukebox | Party-Seite (Gäste) | Einstellungen |
+| Jukebox – Startseite | Player (aufgeklappt) | Party-Seite (Gäste) |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/jukebox-jetzt.jpg" width="260"> | <img src="docs/screenshots/party.jpg" width="260"> | <img src="docs/screenshots/jukebox-einstellungen.jpg" width="260"> |
+| <img src="docs/screenshots/jukebox-start.jpg" width="260"> | <img src="docs/screenshots/jukebox-jetzt.jpg" width="260"> | <img src="docs/screenshots/party.jpg" width="260"> |
 
 ---
 
 ## Was kann es?
 
 ### 🎛️ Jukebox (für dich)
-- Suchen nach Titeln, Künstlern, Alben und Playlists. Künstler, Alben und Playlists lassen sich öffnen und durchklicken.
+- Suchen nach Titeln, Künstlern, Alben, Playlists, Radio, Podcasts und Hörbüchern. Künstler, Alben, Playlists und Podcasts lassen sich öffnen (großes Cover) und durchklicken. Unter jedem Eintrag steht die Quelle (z. B. Tidal, Spotify, TuneIn).
 - Warteschlange: Titel per Griff ≡ verschieben, entfernen, Titel als Nächstes einreihen
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
 - **Startseite** wie bei Spotify: Zuletzt gespielt, Favoriten (Kacheln je Art, antippen = Liste mit Suchfeld), Empfehlungen, Meine Playlists, neue Podcast-Folgen. Die Leiste unten hat Start · Suche · Warteschlange.
 - **Player zum Aufklappen**: Mini-Leiste antippen → großes Cover mit Steuerung; ⌄, nach unten wischen oder Zurück klappt ihn zu
 - **Favorit speichern**: ♥ oben rechts bei Playlist/Album/Künstler oder Cover lange drücken
-- Suche auch nach **Radio, Podcasts und Hörbüchern**; ein Podcast zeigt seine Folgen (neueste zuerst)
+- Ein Podcast zeigt seine Folgen (neueste zuerst, mit Datum und „gehört“)
+- **Mehrere Personen**: oben auf der Startseite die Person wählen – Favoriten, Zuletzt gespielt, Empfehlungen und Playlists gehören dann zu ihr (eigene Musikquellen in Music Assistant)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
 - **Liste leeren & TV-Ton**: schwebender Knopf in der Warteschlange – kommende Titel oder alles entfernen; bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) auch auf den Fernseher-Ton umschalten und zurück
 - In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik
 
-| Suche | Künstler | Warteschlange |
+| Suche | Album geöffnet | Warteschlange |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/jukebox-suche.jpg" width="240"> | <img src="docs/screenshots/jukebox-kuenstler.jpg" width="240"> | <img src="docs/screenshots/jukebox-warteschlange.jpg" width="240"> |
+| <img src="docs/screenshots/jukebox-suche.jpg" width="240"> | <img src="docs/screenshots/jukebox-album.jpg" width="240"> | <img src="docs/screenshots/jukebox-warteschlange.jpg" width="240"> |
 
 ### 🥳 Party-Seite (für Gäste)
 Gäste scannen den QR-Code auf dem Fernseher und können:
@@ -41,15 +42,18 @@ Gäste scannen den QR-Code auf dem Fernseher und können:
 Aktueller Song mit Songtext (zeitgenau), Warteschlange, „Als Nächstes“, QR-Code, neue Gäste, Getränke-Ranking und Nachschub-Hinweise.
 
 ### ⚙️ Einstellungen direkt in der Jukebox
-Zahnrad oben rechts:
+Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info**:
 - **Lichteffekte** an/aus (eigene HA-Skripte bei Wunsch, Vordrängeln, Nachschub – [Vorlagen](lichteffekte/))
 - **Abstimmung** an/aus, **Gast-Limits** (Wünsche und Vordrängeln pro Gast, Nachfüllzeit)
 - **TV-Anzeige**: Songtext-Versatz, volle Optik oder Spar-Modus für langsame Geräte
 - **Räume · Auto-Beitritt**: Lautsprecher + Bewegungsmelder je Raum – wer den Raum betritt, hört die laufende Musik mit, ohne Bewegung trennt sich die Box wieder. Sperre per Schloss (mit Restzeit), optional über einen eigenen HA-Schalter (z. B. für Alexa)
 - **Party-Plugin** von Music Assistant installieren, ein- und ausschalten
+- **Startseite pro Person**: Reihenfolge der Reihen (Zuletzt gespielt, Favoriten, Empfehlungen, Meine Playlists, Neue Podcast-Folgen) mit ▲▼ festlegen, einzelne Reihen ausblenden
 - **Schalter**: eigene Home-Assistant-Schalter direkt in der Jukebox schalten (z. B. „Musik beim Heimkommen“). Unter „Schalter auswählen“ stehen zuerst deine **Helfer** (`input_boolean`) – die legst du in HA unter *Einstellungen → Geräte & Dienste → Helfer → Schalter* an und nutzt sie in deinen Automationen als Bedingung. Über das **Suchfeld** findest du auch alle anderen Schalter (`switch.*`). Es erscheinen nur die Schalter, die du auswählst – ohne Auswahl bleibt der Bereich leer.
 
-<p align="center"><img src="docs/screenshots/jukebox-raeume.jpg" width="260" alt="Räume"></p>
+| Einstellungen (Reiter) | Räume · Auto-Beitritt |
+|:---:|:---:|
+| <img src="docs/screenshots/jukebox-einstellungen.jpg" width="260"> | <img src="docs/screenshots/jukebox-raeume.jpg" width="260"> |
 
 ---
 
