@@ -1184,6 +1184,7 @@ function canMoveUp(i) {
 function renderItems() {
   if (drag) return;   // während des Ziehens nicht neu zeichnen
   const box = $("#qList"), n = nowInfo(), q = S.q;
+  $("#qClear").hidden = true;
   const left = q && typeof q.items === "number" ? Math.max(0, q.items - ((q.current_index == null ? -1 : q.current_index) + 1)) : S.items.length;
   setText($("#qCount"), left ? left + " Titel danach" : "");
   if (!S.ready) { box.innerHTML = '<div class="empty">Keine Verbindung zu Music Assistant</div>'; return; }
@@ -1203,6 +1204,28 @@ function renderItems() {
       '<span class="ib grip' + (i >= minDragIdx() ? "" : " off") + '" aria-label="Ziehen zum Verschieben">' + ICON.grip + "</span></div>";
   }).join("");
   box.innerHTML = html;
+  $("#qClear").hidden = !S.items.length;
+}
+/* Liste leeren: nur kommende Titel (laufender spielt weiter) oder alles (Musik stoppt) */
+$("#qClear").onclick = () => {
+  openSheet("qclear", '<div class="shh">Liste leeren</div>' +
+    '<button class="row lrow act" data-o="next"><span class="rm"><span class="r1">Kommende Titel entfernen</span><span class="r2">Der laufende Titel spielt weiter</span></span></button>' +
+    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>',
+    c => c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); clearQueue(b.dataset.o === "all"); }; }));
+};
+async function clearQueue(all) {
+  if (all) { if (await qc("clear")) { S.items = []; renderItems(); toast("Warteschlange geleert"); } return; }
+  const q = S.q, ci = q && q.current_index != null ? q.current_index : -1;
+  const buf = q && q.index_in_buffer != null ? q.index_in_buffer : ci;
+  toast("Entferne kommende Titel …");
+  try {
+    const r = await cmd("player_queues/items", { queue_id: S.qid, limit: 2000, offset: Math.max(0, buf + 1) });
+    const ids = (r || []).map(x => x && x.queue_item_id).filter(Boolean);
+    S.items = S.items.filter((it, i) => ci + 1 + i <= buf); renderItems();
+    for (const id of ids) await cmd("player_queues/delete_item", { queue_id: S.qid, item_id_or_index: id }).catch(() => {});
+    toast(ids.length + " Titel entfernt");
+  } catch (e) { toast("Warteschlange: " + errText(e)); }
+  loadItems();
 }
 $("#qList").onclick = async e => {
   const b = e.target.closest("[data-a]"), row = e.target.closest(".qi");

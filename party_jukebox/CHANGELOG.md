@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.59
+- Jukebox: schwebender Knopf „Liste leeren“ in der Warteschlange (nur kommende Titel oder alles)
+
 ## 0.1.58
 - Jukebox: Radio zeigt den laufenden Song (Titel, Interpret, Cover aus den Stream-Daten), Sender darunter; kein Fortschrittsbalken bei Radio
 
