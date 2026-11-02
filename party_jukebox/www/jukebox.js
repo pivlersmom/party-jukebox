@@ -682,7 +682,11 @@ async function loadQs(c) {
       if (!r.ok) throw new Error("HTTP " + r.status); } catch (e) { b.classList.toggle("on", !on); toast("Schalter: " + errText(e)); }
   });
   box.querySelector("#qsEdit").onclick = () => editQs(list.map(x => x.id));
+  // Zustand frisch halten (z. B. im Auto umgeschaltet), solange die Einstellungen offen sind
+  clearTimeout(loadQs.t);
+  loadQs.t = setTimeout(() => { if (box.isConnected) loadQs(c); }, 5000);
 }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && document.getElementById("qsBox")) loadQs(document); });
 async function editQs(chosen) {
   let all = [];
   try { const r = await fetch("party/ha/entities", { cache: "no-store" }); if (r.ok) all = (await r.json()).switches || []; } catch (e) {}

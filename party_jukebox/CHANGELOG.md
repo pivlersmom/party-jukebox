@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.66
+- Jukebox-Einstellungen: Schalter-Zustand aktualisiert sich (alle 5 s und beim Zurückkehren in die App)
+
 ## 0.1.65
 - Jukebox: TV-Knopf rechts in der Knopfreihe, Knöpfe schrumpfen auf schmalen Handys statt aus dem Bild zu laufen
 
