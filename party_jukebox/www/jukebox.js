@@ -1099,7 +1099,7 @@ async function renderFav() {
   const pv = profProv("provider");
   // Favoriten
   Promise.all(FAVCATS.map(([t]) =>
-    cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", { favorite: true, limit: 500, order_by: "sort_name" }, 25000).catch(() => [])))
+    cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", Object.assign({ favorite: true, limit: 500, order_by: "sort_name" }, pv), 25000).catch(() => [])))
     .then(res => { S.favData = {}; FAVCATS.forEach(([t], k) => { S.favData[t] = (res[k] || []).filter(x => x && x.uri); }); done(); });
   // Zuletzt gespielt
   cmdP("music/recently_played_items", { limit: 20 }, 20000).then(r => { S.home.recent = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
@@ -1115,7 +1115,7 @@ async function renderFav() {
     S.home.rec = out.filter(r => r.items.length); done();
   }).catch(() => {});
   // Neue Podcast-Folgen (Favoriten-Podcasts, letzte 7 Tage)
-  cmdP("music/podcasts/library_items", { favorite: true, limit: 12 }, 20000).then(async pods => {
+  cmdP("music/podcasts/library_items", Object.assign({ favorite: true, limit: 12 }, pv), 20000).then(async pods => {
     const week = Date.now() - 7 * 864e5;
     const lists = await Promise.all((pods || []).map(p => cmd("music/podcasts/podcast_episodes",
       { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])));
@@ -1138,8 +1138,11 @@ function paintFav() {
   S.sItems = [];
   const cat = S.favCat && FAVCATS.find(c => c[0] === S.favCat);
   if (!cat) {
-    const H = S.home || {};
-    let html = hrow("Zuletzt gespielt", H.recent), n = 0, tiles = "";
+    const H = S.home || {}, u = prof();
+    // Personen-Auswahl (wie in der Suche): Startseite zeigt Favoriten, Playlists, Podcasts dieser Person
+    let html = S.users.length > 1 ? '<div class="profrow">' + S.users.map(x => '<button class="profb' + (u && x.user_id === u.user_id ? " on" : "") +
+      '" data-u="' + esc(x.user_id) + '">' + profAvatar(x) + "<span>" + esc(profName(x)) + "</span></button>").join("") + "</div>" : "";
+    html += hrow("Zuletzt gespielt", H.recent); let n = 0, tiles = "";
     FAVCATS.forEach(([t, label]) => {
       const arr = (S.favData || {})[t] || []; if (!arr.length) return; n += arr.length;
       const imgs = arr.map(x => imgUrl(x, 160)).filter(Boolean).slice(0, 4);
@@ -1298,9 +1301,9 @@ async function renderHome() {
 }
 document.addEventListener("click", e => {
   const b = e.target.closest(".profb"); if (!b) return;
-  ls.set("jb_prof", b.dataset.u); S.sRes = null;
+  ls.set("jb_prof", b.dataset.u); S.sRes = null; S.favData = null; S.home = {};
   const u = prof(); toast("Musik von " + profName(u));
-  if ($("#q").value.trim().length >= 2) doSearch(); else renderHome();
+  if (S.favMode) renderFav(); else if ($("#q").value.trim().length >= 2) doSearch(); else renderHome();
 });
 
 /* ---------- Durchklicken: Künstler → Titel/Alben, Album/Playlist → Titel ---------- */

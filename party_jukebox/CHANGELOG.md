@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.76
+- Startseite: Personen-Auswahl oben; Favoriten und Podcasts nur aus den Musikquellen der gewählten Person
+
 ## 0.1.75
 - Startseite: Reihen lassen sich auch auf den Covern seitlich wischen; Kacheln etwas kleiner
 
