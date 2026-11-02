@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.64
+- Schalter auswählen: zuerst nur Helfer (input_boolean), die Suche findet auch alle anderen Schalter
+- Anleitung: Schalter, TV-Ton und Liste leeren beschrieben
+
 ## 0.1.63
 - Jukebox-Einstellungen: Versionsnummern ganz unten
 

@@ -49,12 +49,18 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
   - „Nur wenn“ (optional): zusätzliche Bedingung, z. B. `sensor.ladestation=charging`.
   - Läuft an der Soundbar gerade TV-Ton, wird nichts verbunden oder getrennt.
 - **Party-Plugin** – in Music Assistant installieren, ein-/ausschalten, Link zu allen Plugin-Einstellungen.
+- **Schalter** – ausgewählte Home-Assistant-Schalter direkt in der Jukebox ein-/ausschalten:
+  - „Schalter auswählen“ zeigt zuerst die **Helfer** (`input_boolean`). Einen Helfer legst du in HA unter *Einstellungen → Geräte & Dienste → Helfer → Helfer erstellen → Schalter* an und fragst ihn in deiner Automation als Bedingung ab (z. B. „Musik beim Heimkommen nur wenn Helfer an“).
+  - Über das **Suchfeld** findest du auch alle anderen Schalter (`switch.*`, z. B. Steckdosen).
+  - Nur ausgewählte Schalter erscheinen – nichts ausgewählt = der Bereich bleibt leer. Max. 20.
+  - Nur für den Gastgeber; Gäste sehen und schalten nichts.
+- **TV-Ton** – bei Lautsprechern mit TV-Eingang erscheint im Reiter „Läuft“ ein TV-Knopf: schaltet auf den Fernseher, nochmal tippen = zurück zur Musik.
 - **Favoriten** – im Reiter „Läuft“ das Cover lange drücken.
 - **Songtext** – im Reiter „Läuft“ das Cover kurz antippen.
 
 ## 5. Sicherheit
 - **Gastgeber-PIN** in der Jukebox unter ⚙ → Gastgeber-PIN festlegen: Danach sind Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur nach PIN erreichbar (jedes Gerät einmal, bleibt angemeldet). Gäste-Seite und TV-Anzeige bleiben frei. Auf der Gäste-Seite: Logo lange drücken → PIN → Jukebox. Ohne PIN kann jeder im WLAN die Jukebox öffnen.
-- Auf Home Assistant selbst haben die Seiten **keinen Zugriff** – niemand kann über das Add-on Lichter, Schlösser o. Ä. steuern.
+- Auf Home Assistant haben die Seiten **keinen allgemeinen Zugriff** – nur die Schalter, die du unter ⚙ → Schalter selbst ausgewählt hast, und nur aus der Jukebox (Gastgeber). Gäste-Seite und TV-Anzeige können nichts schalten.
 - Port 8099 **nicht** im Router ins Internet freigeben.
 
 ## 6. Probleme

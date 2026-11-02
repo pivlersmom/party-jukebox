@@ -20,6 +20,8 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
+- **TV-Ton**: bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) schaltet ein Knopf auf den Fernseher um – nochmal tippen = zurück zur Musik
+- **Liste leeren**: schwebender Knopf in der Warteschlange (nur kommende Titel oder alles)
 - In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik
 
 | Suche | Künstler | Warteschlange |
@@ -42,6 +44,7 @@ Zahnrad oben rechts:
 - **TV-Anzeige**: Songtext-Versatz, volle Optik oder Spar-Modus für langsame Geräte
 - **Räume · Auto-Beitritt**: Lautsprecher + Bewegungsmelder je Raum – wer den Raum betritt, hört die laufende Musik mit, ohne Bewegung trennt sich die Box wieder. Sperre per Schloss (mit Restzeit), optional über einen eigenen HA-Schalter (z. B. für Alexa)
 - **Party-Plugin** von Music Assistant installieren, ein- und ausschalten
+- **Schalter**: eigene Home-Assistant-Schalter direkt in der Jukebox schalten (z. B. „Musik beim Heimkommen“). Unter „Schalter auswählen“ stehen zuerst deine **Helfer** (`input_boolean`) – die legst du in HA unter *Einstellungen → Geräte & Dienste → Helfer → Schalter* an und nutzt sie in deinen Automationen als Bedingung. Über das **Suchfeld** findest du auch alle anderen Schalter (`switch.*`). Es erscheinen nur die Schalter, die du auswählst – ohne Auswahl bleibt der Bereich leer.
 
 <p align="center"><img src="docs/screenshots/jukebox-raeume.jpg" width="260" alt="Räume"></p>
 
@@ -99,7 +102,7 @@ Die Apps gibt es unter [Releases](https://github.com/pivlersmom/party-jukebox/re
 ## Sicherheit
 
 - Die Seiten sind im Heimnetz erreichbar (Port 8099). **Gastgeber-PIN** (Jukebox → ⚙ → Gastgeber-PIN): Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur nach PIN, das Gerät bleibt angemeldet. Gäste-Seite und TV-Anzeige bleiben frei. Auf der Gäste-Seite führt **Logo lange drücken** zur PIN-Abfrage. Ohne PIN kann jeder im WLAN die Jukebox öffnen.
-- Der Browser bekommt **keinen Zugriff auf Home Assistant**. Gäste können nichts im Haus steuern – HA nutzt nur das Add-on selbst (Skripte, Benachrichtigungen, Bewegungsmelder der eingetragenen Räume).
+- Der Browser bekommt **keinen Zugriff auf Home Assistant**. Gäste können nichts im Haus steuern – HA nutzt nur das Add-on selbst (Skripte, Benachrichtigungen, Bewegungsmelder der eingetragenen Räume, die unter „Schalter“ ausgewählten Schalter – nur für den Gastgeber).
 - Gäste in einem getrennten Gäste-WLAN erreichen die Seiten nicht. Port 8099 **nicht** ins Internet freigeben.
 
 ## Unterstützen

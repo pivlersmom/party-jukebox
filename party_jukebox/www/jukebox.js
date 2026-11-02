@@ -689,14 +689,21 @@ async function editQs(chosen) {
   const sel = new Set(chosen);
   const rows = () => all.map(x => '<button class="row qsw' + (sel.has(x.id) ? " on" : "") + '" data-id="' + esc(x.id) + '"><span class="rm"><span class="r1">' + esc(x.name) +
     '</span><span class="r2">' + esc(x.id) + '</span></span><span class="gsw"><i></i></span></button>').join("");
-  openSheet("qsedit", '<div class="shh">Schalter auswählen</div><input class="fi" id="qsF" placeholder="Suchen …" style="margin:0 6px 10px;width:calc(100% - 12px)"><div id="qsL">' + rows() + "</div>", c => {
+  // Ohne Suche nur Helfer (input_boolean) + bereits gewählte; die Suche findet auch alle switch.*
+  const helper = x => x.id.startsWith("input_boolean.") || sel.has(x.id);
+  all.sort((a, b) => (helper(b) - helper(a)) || a.name.localeCompare(b.name));
+  openSheet("qsedit", '<div class="shh">Schalter auswählen</div><input class="fi" id="qsF" placeholder="Suchen … (findet auch alle anderen Schalter)" style="margin:0 6px 10px;width:calc(100% - 12px)"><div id="qsL">' + rows() + "</div>", c => {
+    const filter = q => c.querySelectorAll("#qsL .qsw").forEach(b => {
+      const x = all.find(y => y.id === b.dataset.id);
+      b.hidden = q ? !b.textContent.toLowerCase().includes(q) : !(x && (x.id.startsWith("input_boolean.") || sel.has(x.id)));
+    });
+    filter("");
     const bind = () => c.querySelectorAll("#qsL .qsw").forEach(b => b.onclick = () => {
       const id = b.dataset.id; if (sel.has(id)) sel.delete(id); else sel.add(id); b.classList.toggle("on", sel.has(id));
       setSave({ switches: [...sel] });
     });
     bind();
-    c.querySelector("#qsF").oninput = e => { const q = e.target.value.toLowerCase();
-      c.querySelectorAll("#qsL .qsw").forEach(b => { b.hidden = q && !b.textContent.toLowerCase().includes(q); }); };
+    c.querySelector("#qsF").oninput = e => filter(e.target.value.trim().toLowerCase());
   });
 }
 function swRow(key, title, sub, on, dis) {
