@@ -667,6 +667,38 @@ async function setFetch(body) {
   if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
   return j;
 }
+/* ---------- Schalter aus Home Assistant (z. B. "Heimkommen Musik") – auch in Android Auto ---------- */
+async function loadQs(c) {
+  const box = c.querySelector("#qsBox"); if (!box) return;
+  let list = [];
+  try { const r = await fetch("party/switches", { cache: "no-store" }); if (r.ok) list = (await r.json()).switches || []; } catch (e) {}
+  box.innerHTML = list.map(x => '<button class="row qsw' + (x.state === "on" ? " on" : "") + '" data-id="' + esc(x.id) + '"><span class="rm"><span class="r1">' +
+      esc(x.name) + '</span><span class="r2">' + (x.state === "on" ? "an" : x.state === "off" ? "aus" : esc(x.state || "?")) + '</span></span><span class="gsw"><i></i></span></button>').join("") +
+    '<button class="row lrow" id="qsEdit"><span class="rm"><span class="r1">Schalter auswählen</span><span class="r2">' +
+    (list.length ? "welche hier und im Auto erscheinen" : "z. B. Heimkommen – erscheinen hier und im Auto") + '</span></span><span class="lic">›</span></button>';
+  box.querySelectorAll(".qsw").forEach(b => b.onclick = async () => {
+    const on = !b.classList.contains("on"); b.classList.toggle("on", on); b.querySelector(".r2").textContent = on ? "an" : "aus";
+    try { const r = await fetch("party/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity_id: b.dataset.id, on }) });
+      if (!r.ok) throw new Error("HTTP " + r.status); } catch (e) { b.classList.toggle("on", !on); toast("Schalter: " + errText(e)); }
+  });
+  box.querySelector("#qsEdit").onclick = () => editQs(list.map(x => x.id));
+}
+async function editQs(chosen) {
+  let all = [];
+  try { const r = await fetch("party/ha/entities", { cache: "no-store" }); if (r.ok) all = (await r.json()).switches || []; } catch (e) {}
+  const sel = new Set(chosen);
+  const rows = () => all.map(x => '<button class="row qsw' + (sel.has(x.id) ? " on" : "") + '" data-id="' + esc(x.id) + '"><span class="rm"><span class="r1">' + esc(x.name) +
+    '</span><span class="r2">' + esc(x.id) + '</span></span><span class="gsw"><i></i></span></button>').join("");
+  openSheet("qsedit", '<div class="shh">Schalter auswählen</div><input class="fi" id="qsF" placeholder="Suchen …" style="margin:0 6px 10px;width:calc(100% - 12px)"><div id="qsL">' + rows() + "</div>", c => {
+    const bind = () => c.querySelectorAll("#qsL .qsw").forEach(b => b.onclick = () => {
+      const id = b.dataset.id; if (sel.has(id)) sel.delete(id); else sel.add(id); b.classList.toggle("on", sel.has(id));
+      setSave({ switches: [...sel] });
+    });
+    bind();
+    c.querySelector("#qsF").oninput = e => { const q = e.target.value.toLowerCase();
+      c.querySelectorAll("#qsL .qsw").forEach(b => { b.hidden = q && !b.textContent.toLowerCase().includes(q); }); };
+  });
+}
 function swRow(key, title, sub, on, dis) {
   return '<button class="row srow' + (on ? " on" : "") + '" data-k="' + key + '"' + (dis ? " disabled" : "") + '><span class="rm"><span class="r1">' + esc(title) +
     '</span><span class="r2">' + esc(sub) + '</span></span><span class="gsw"><i></i></span></button>';
@@ -729,6 +761,7 @@ function renderSettings() {
       '</span></span><span class="gsw"><i></i></span></button>' +
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
   }
+  html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
   if (AMS && typeof AMS.getAppVersion === "function") {  // Version der Android-App
     let v = ""; try { v = AMS.getAppVersion(); } catch (e) {}
     if (v) html += '<div class="rshint">App-Version ' + esc(v) + ' · Add-on ' + esc(String((window.PJ || {}).version || "")) + '</div>';
@@ -757,6 +790,7 @@ function renderSettings() {
     '<a class="row lrow" href="https://paypal.me/stephanstiefermann" target="_blank" rel="noopener"><span class="rm"><span class="r1">☕ Projekt unterstützen</span>' +
     '<span class="r2">freiwillig per PayPal – danke!</span></span><span class="lic">↗</span></a>';
   openSheet("settings", html, c => {
+    loadQs(c);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
       const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);

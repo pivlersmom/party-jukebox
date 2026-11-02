@@ -240,14 +240,27 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
 (function () {
   const meta = document.querySelector("#v-now .meta"); if (!meta) return;
   const row = document.createElement("div"); row.className = "modes";
-  row.innerHTML = '<span class="mside l"><button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>' +
+  row.innerHTML = '<span class="mside l"><button class="mbtn tv" id="mTv" aria-label="TV-Ton" hidden><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg></button>' +
+    '<button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>' +
     '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button></span>' +
     '<span class="mmid"><button class="aq" id="mAq" hidden></button></span>' +
     '<span class="mside r"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>' +
     '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button></span>';
   meta.after(row);
   const det = document.createElement("div"); det.className = "aqd"; row.after(det);
-  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio");
+  const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio"), bT = row.querySelector("#mTv");
+
+  /* TV-Ton: Lautsprecher mit TV-Eingang (z. B. Sonos Beam) auf den Fernseher umschalten – nochmal tippen = zurück zur Musik */
+  const tvSrc = p => p && Array.isArray(p.source_list) && p.source_list.find(s => s && !s.passive && (s.id === "tv" || String(s.name).toLowerCase() === "tv"));
+  const onTv = p => !!p && (p.active_source === "tv" || (p.current_media && (p.current_media.source_id === "tv" || p.current_media.uri === "homeTheater-input")));
+  bT.onclick = async () => {
+    const p = S.players[S.pid], src = tvSrc(p); if (!src) return;
+    try {
+      if (onTv(p)) { await cmd("player_queues/play", { queue_id: qid() }); toast("🎵 Zurück zur Musik"); }
+      else { await cmd("players/cmd/select_source", { player_id: S.pid, source: src.id }); toast("📺 Ton vom Fernseher"); }
+    } catch (e) { toast("TV-Ton: " + ((e && e.message) || e)); }
+    paint();
+  };
 
   /* Song-Radio: ab dem laufenden Titel endlos ähnliche Musik (ersetzt die kommenden Titel, 2× tippen) */
   const radioKey = id => "pj_radio_" + id;
@@ -353,7 +366,9 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     det.textContent = a && aqOpen ? a.long : ""; det.classList.toggle("on", !!(a && aqOpen));
     const id = qid(), dj = id && djStatus[id];
     bD.hidden = !djAvail; bD.classList.toggle("on", !!dj); bD.title = dj ? "AI DJ · " + hostName(dj) : "AI DJ";
-    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden);
+    const pl = S.players[S.pid];
+    bT.hidden = !tvSrc(pl); bT.classList.toggle("on", onTv(pl)); bT.title = onTv(pl) ? "Zurück zur Musik" : "TV-Ton";
+    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden && bT.hidden);
   }
   let lastQ = "", n = 0;
   setInterval(() => {

@@ -466,3 +466,12 @@ header .gstbtn{justify-self:end}
   background:var(--grad);color:#fff;font:600 15px/1 inherit;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:2}
 .qclear[hidden]{display:none}
 .qclear svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* TV-Ton-Knopf */
+.mbtn.tv svg{position:absolute;top:50%;left:50%;width:22px;height:22px;margin:-11px 0 0 -11px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mbtn.tv.on{color:#7cc4ff;background:rgba(124,196,255,.12);border-color:rgba(124,196,255,.45)}
+
+/* Schalter aus Home Assistant */
+.qsw.on .gsw{background:var(--grad)}
+.qsw.on .gsw i{transform:translateX(18px)}
+.qsw[hidden]{display:none}

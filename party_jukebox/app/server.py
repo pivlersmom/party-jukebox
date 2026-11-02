@@ -753,6 +753,43 @@ async def _ha_state(session, eid):
         return None
 
 
+SWITCH_RE = re.compile(r"^(switch|input_boolean)\.[a-z0-9_]+$")
+
+
+async def party_switches(request):
+    """Ausgewählte HA-Schalter mit Zustand (nur Gastgeber) – Jukebox-Einstellungen und Android Auto."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    out = []
+    for eid in SETTINGS.get("switches") or []:
+        st = await _ha_state(request.app["session"], eid)
+        out.append({"id": eid, "name": ((st or {}).get("attributes") or {}).get("friendly_name") or eid,
+                    "state": (st or {}).get("state") or "unavailable"})
+    return web.json_response({"switches": out}, headers={"Cache-Control": "no-store"})
+
+
+async def party_switch(request):
+    """Einen der ausgewählten Schalter ein-/ausschalten (nur Gastgeber, nur Schalter aus der Liste)."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    eid = str(data.get("entity_id") or "")
+    if eid not in (SETTINGS.get("switches") or []) or not SUP_TOKEN:
+        return web.json_response({"ok": False, "error": "unbekannter Schalter"}, status=404)
+    svc = "turn_on" if data.get("on") else "turn_off"
+    try:
+        async with request.app["session"].post(f"{HA_HTTP}/services/homeassistant/{svc}", json={"entity_id": eid},
+                                               headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=10) as r:
+            ok = r.status < 300
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=502)
+    log.info("Schalter %s: %s", eid, "an" if data.get("on") else "aus")
+    return web.json_response({"ok": ok})
+
+
 async def party_presence(request):
     """Wer ist zuhause? Personen aus Home Assistant (nur Gastgeber) – z. B. für die Android-App."""
     if not is_host(request):
@@ -1112,6 +1149,8 @@ async def party_settings_post(request):
         SETTINGS["tv_lite"] = data["tv_lite"]
     if isinstance(data.get("profiles"), list):
         SETTINGS["profiles"] = [str(x)[:64] for x in data["profiles"][:30] if x]
+    if isinstance(data.get("switches"), list):  # Schalter aus HA für Jukebox und Android Auto
+        SETTINGS["switches"] = [str(x)[:120] for x in data["switches"][:20] if SWITCH_RE.match(str(x))]
     if isinstance(data.get("rooms"), list):
         SETTINGS["rooms"] = [c for c in (clean_room(r) for r in data["rooms"][:20] if isinstance(r, dict)) if c]
         log.info("Räume gespeichert: %s", ", ".join(r["name"] for r in SETTINGS["rooms"]) or "keine")
@@ -1321,6 +1360,8 @@ def make_app():
     app.router.add_get("/party/host", host_get)
     app.router.add_get("/party/tvnow", party_tvnow)
     app.router.add_get("/party/presence", party_presence)
+    app.router.add_get("/party/switches", party_switches)
+    app.router.add_post("/party/switch", party_switch)
     app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)
     app.router.add_post("/party/host/pin", host_pin_post)

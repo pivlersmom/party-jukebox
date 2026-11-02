@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.62
+- Jukebox: Knopf „TV-Ton“ für Lautsprecher mit TV-Eingang (z. B. Sonos Beam) – nochmal tippen = zurück zur Musik
+- Jukebox-Einstellungen: „Schalter“ – ausgewählte Home-Assistant-Schalter direkt schalten (auch für die Android-Auto-App)
+
 ## 0.1.61
 - Jukebox-Einstellungen: Versionsnummer von App und Add-on
 
