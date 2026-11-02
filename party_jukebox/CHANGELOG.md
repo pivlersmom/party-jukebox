@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.88
+- Einstellungen in Reitern: Persönlich · Party · TV & Räume · Info (letzter Reiter bleibt gewählt)
+
 ## 0.1.87
 - Einstellungen → Startseite: Reihenfolge der Reihen pro Person festlegen (▲▼) und einzelne Reihen ausblenden
 

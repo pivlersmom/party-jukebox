@@ -543,3 +543,11 @@ body[data-tab="home"] #v-search{padding-top:6px}
 .hord .ho-sw{margin-left:4px}
 .hord.on .gsw{background:var(--grad)}
 .hord.on .gsw i{transform:translateX(18px)}
+/* Einstellungen: Reiter */
+.stabs{position:sticky;top:-1px;z-index:3;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -2px 6px;padding:6px 2px 8px;background:var(--card)}
+.stabs::-webkit-scrollbar{display:none}
+.stabs button{flex:none;height:34px;padding:0 14px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:14px;font-weight:700;color:var(--dim)}
+.stabs button.on{background:var(--grad);color:#fff;border-color:transparent}
+.stb[hidden]{display:none}
+.stb>.shh.gsh:first-child{margin-top:6px}
+.sh-card:has(.stabs){height:82vh}

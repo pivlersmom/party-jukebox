@@ -770,6 +770,41 @@ function numRow(key, title, val, unit, dis) {
   return '<div class="nrow' + (dis ? " dis" : "") + '" data-k="' + key + '"><span class="r1">' + esc(title) + '</span><span class="stp">' +
     '<button data-d="-1" aria-label="weniger">−</button><b>' + (val == null ? "–" : val) + '</b><button data-d="1" aria-label="mehr">+</button></span><span class="un">' + esc(unit) + "</span></div>";
 }
+/*
+ * Einstellungen in Reitern: Persönlich · Party · TV & Räume · Info.
+ * Die Abschnitte werden anhand ihrer Überschrift einem Reiter zugeordnet; der zuletzt gewählte Reiter bleibt.
+ */
+const SET_TABS = [["me", "Persönlich"], ["party", "Party"], ["tv", "TV & Räume"], ["info", "Info"]];
+function setTabOf(head) {
+  if (/^(TV-Anzeige|Räume)/.test(head)) return "tv";
+  if (/^(Profile|Handy|Startseite|Schalter)/.test(head)) return "me";
+  if (/^Projekt/.test(head)) return "info";
+  return "party";
+}
+function settingsTabs(html) {
+  const HEAD = '<div class="shh">Party-Einstellungen</div>';
+  html = html.replace(HEAD, "");
+  const parts = html.split('<div class="shh gsh">');
+  let out = '<div class="stb" data-t="party">' + parts[0] + "</div>";
+  const has = { party: true };
+  parts.slice(1).forEach(p => {
+    const t = setTabOf(p.replace(/<[^>]*>/g, "").trim()); has[t] = true;
+    out += '<div class="stb" data-t="' + t + '"><div class="shh gsh">' + p + "</div>";
+  });
+  let cur = ls.get("jb_settab") || (has.me ? "me" : "party"); if (!has[cur]) cur = "party";
+  S.setTab = cur;
+  return '<div class="shh">Einstellungen</div><div class="stabs">' + SET_TABS.filter(([t]) => has[t]).map(([t, n]) =>
+    '<button data-t="' + t + '"' + (t === cur ? ' class="on"' : "") + ">" + n + "</button>").join("") + "</div>" + out;
+}
+function bindSettingsTabs(c) {
+  const show = t => {
+    S.setTab = t; ls.set("jb_settab", t);
+    c.querySelectorAll(".stabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+    c.querySelectorAll(".stb").forEach(x => { x.hidden = x.dataset.t !== t; });
+  };
+  c.querySelectorAll(".stabs button").forEach(b => b.onclick = () => { show(b.dataset.t); c.scrollTop = 0; });
+  show(S.setTab || "party");
+}
 function renderSettings() {
   const d = setData || {}, L = d.limits;
   let html = '<div class="shh">Party-Einstellungen</div>' +
@@ -855,7 +890,9 @@ function renderSettings() {
     const av = String((window.PJ || {}).version || "");
     if (v || av) html += '<div class="rshint" style="text-align:center;margin-top:18px">' + [v ? "App " + esc(v) : "", av ? "Add-on " + esc(av) : ""].filter(Boolean).join(" · ") + '</div>';
   }
+  html = settingsTabs(html);
   openSheet("settings", html, c => {
+    bindSettingsTabs(c);
     loadQs(c); paintHomeOrder(c);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
