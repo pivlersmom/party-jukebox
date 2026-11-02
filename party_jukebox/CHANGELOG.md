@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.60
+- Neu: /party/presence – wer ist zuhause (Personen aus Home Assistant, nur Gastgeber)
+
 ## 0.1.59
 - Jukebox: schwebender Knopf „Liste leeren“ in der Warteschlange (nur kommende Titel oder alles)
 

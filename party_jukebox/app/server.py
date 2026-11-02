@@ -753,6 +753,22 @@ async def _ha_state(session, eid):
         return None
 
 
+async def party_presence(request):
+    """Wer ist zuhause? Personen aus Home Assistant (nur Gastgeber) – z. B. für die Android-App."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    if not SUP_TOKEN:
+        return web.json_response({"persons": []})
+    try:
+        async with request.app["session"].get(f"{HA_HTTP}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=10) as r:
+            allst = await r.json()
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=502)
+    out = [{"id": e["entity_id"], "name": (e.get("attributes") or {}).get("friendly_name") or e["entity_id"], "state": e.get("state")}
+           for e in allst if e.get("entity_id", "").startswith("person.") and e.get("state") not in ("unavailable", "unknown")]
+    return web.json_response({"persons": out}, headers={"Cache-Control": "no-store"})
+
+
 async def party_tvnow(request):
     if not is_host(request):
         return web.json_response({"ok": False}, status=403)
@@ -1287,6 +1303,7 @@ def make_app():
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)
     app.router.add_get("/party/tvnow", party_tvnow)
+    app.router.add_get("/party/presence", party_presence)
     app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)
     app.router.add_post("/party/host/pin", host_pin_post)
