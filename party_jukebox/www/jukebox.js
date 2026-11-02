@@ -995,6 +995,8 @@ const RKEY = { track: "tracks", artist: "artists", album: "albums", playlist: "p
 /* Direkt abspielbar (Antippen = Abspiel-Menü); alles andere wird geöffnet */
 const PLAYABLE = ["track", "radio", "audiobook", "podcast_episode"];
 const dateOf = it => { const d = it && it.metadata && it.metadata.release_date; return d ? new Date(d) : null; };
+/* Anbieter liefern manchmal "&amp;" statt "&" */
+const unent = t => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 function subOf(it) {
   const t = it.media_type;
   if (t === "track") return [artistsOf(it), it.album && it.album.name].filter(Boolean).join(" · ");
@@ -1002,7 +1004,7 @@ function subOf(it) {
   if (t === "artist") return "Künstler";
   if (t === "playlist") return it.owner ? "Playlist · " + it.owner : "Playlist";
   if (t === "radio") return "Radiosender";
-  if (t === "podcast") return ["Podcast", it.publisher].filter(Boolean).join(" · ");
+  if (t === "podcast") return ["Podcast", unent(it.publisher)].filter(Boolean).join(" · ");
   if (t === "audiobook") return ["Hörbuch", (it.authors || []).join(", ")].filter(Boolean).join(" · ");
   if (t === "podcast_episode") { const d = dateOf(it);
     return [d && !isNaN(d) ? d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }) : "", it.duration ? fmt(it.duration) : "",
@@ -1097,6 +1099,11 @@ async function renderFav() {
   if (!S.favData) box.innerHTML = '<div class="spin"></div>'; else paintFav();
   const done = () => { if (seq === favSeq) paintFav(); };
   const pv = profProv("provider");
+  /* Nicht bei jedem Antippen von „Start“ alles neu holen – schont Spotify (sonst bremst Spotify alle Anfragen aus) */
+  const age = Date.now() - (S.home.at || 0);
+  if (S.favData && age < 10 * 60e3) return;
+  const podsOld = Date.now() - (S.home.podsAt || 0) > 30 * 60e3;
+  S.home.at = Date.now();
   // Favoriten
   Promise.all(FAVCATS.map(([t]) =>
     cmdP("music/" + (t === "radio" ? "radios" : t + "s") + "/library_items", Object.assign({ favorite: true, limit: 500, order_by: "sort_name" }, pv), 25000).catch(() => [])))
@@ -1115,7 +1122,8 @@ async function renderFav() {
     S.home.rec = out.filter(r => r.items.length); done();
   }).catch(() => {});
   // Neue Podcast-Folgen (Favoriten-Podcasts, letzte 7 Tage)
-  cmdP("music/podcasts/library_items", Object.assign({ favorite: true, limit: 12 }, pv), 20000).then(async pods => {
+  if (podsOld) cmdP("music/podcasts/library_items", Object.assign({ favorite: true, limit: 12 }, pv), 20000).then(async pods => {
+    S.home.podsAt = Date.now();
     const week = Date.now() - 7 * 864e5;
     const lists = await Promise.all((pods || []).map(p => cmd("music/podcasts/podcast_episodes",
       { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])));

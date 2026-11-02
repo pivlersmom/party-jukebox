@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.77
+- Startseite lädt höchstens alle 10 Minuten neu (Podcast-Folgen alle 30) – weniger Anfragen an Spotify
+- „&amp;“ in Podcast-Namen korrigiert
+
 ## 0.1.76
 - Startseite: Personen-Auswahl oben; Favoriten und Podcasts nur aus den Musikquellen der gewählten Person
 
