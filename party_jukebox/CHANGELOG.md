@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.78
+- Startseite „Zuletzt gespielt“: nur von der gewählten Person gestartet (Playlist/Album statt einzelner Titel)
+
 ## 0.1.77
 - Startseite lädt höchstens alle 10 Minuten neu (Podcast-Folgen alle 30) – weniger Anfragen an Spotify
 - „&amp;“ in Podcast-Namen korrigiert
