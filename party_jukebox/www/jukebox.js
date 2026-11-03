@@ -1421,6 +1421,54 @@ function syncNavBack() {
   if (on) { const sb = document.querySelector("#v-search>.sbox"); b.style.top = ((sb && sb.offsetParent ? sb.offsetHeight : 0) + 8) + "px"; }
 }
 setInterval(syncNavBack, 400);
+/*
+ * Schnell-Scrollleiste rechts (Playlist, Album, Podcast-Folgen): erscheint nur beim Scrollen.
+ * Ziehen springt durch die GANZE Liste – auch zu Titeln, die noch nicht nachgeladen sind; die Blase zeigt Nummer und Titel.
+ */
+(function () {
+  const v = $("#v-search"), fs = document.createElement("div");
+  fs.id = "fastScroll"; fs.innerHTML = '<div class="fs-th"></div><div class="fs-bub" hidden></div>';
+  document.querySelector("main").appendChild(fs);
+  const th = fs.querySelector(".fs-th"), bub = fs.querySelector(".fs-bub");
+  let hideT = null, drag = false;
+  const nav = () => { const n = S.nav && S.nav[S.nav.length - 1]; return n && n.data && n.data.tracks && n.it.media_type !== "artist" ? n : null; };
+  const total = n => n.data.tracks.filter(x => x && x.uri).length;
+  const usable = () => { const n = nav(); return n && total(n) > 40 && !S.playerOpen ? n : null; };
+  function place() {
+    const n = usable(); if (!n) { fs.classList.remove("on"); return; }
+    const sb = document.querySelector("#v-search>.sbox"), top = (sb && sb.offsetParent ? sb.offsetHeight : 0) + 60;
+    fs.style.top = top + "px";
+    const H = fs.clientHeight - th.offsetHeight, max = v.scrollHeight - v.clientHeight;
+    const shown = Math.min(n.shown || 200, total(n)), fr = max > 0 ? (v.scrollTop / max) * (shown / total(n)) : 0;
+    th.style.transform = "translateY(" + Math.round(Math.max(0, Math.min(1, fr)) * H) + "px)";
+  }
+  function show() {
+    if (!usable()) return;
+    fs.classList.add("on"); place();
+    clearTimeout(hideT); hideT = setTimeout(() => { if (!drag) { fs.classList.remove("on"); bub.hidden = true; } }, 1400);
+  }
+  v.addEventListener("scroll", show, { passive: true });
+  function jump(y) {
+    const n = usable(); if (!n) return;
+    const r = fs.getBoundingClientRect(), H = r.height - th.offsetHeight;
+    const fr = Math.max(0, Math.min(1, (y - r.top - th.offsetHeight / 2) / H)), tot = total(n), idx = Math.round(fr * (tot - 1));
+    if (idx >= (n.shown || 200) - 20) { n.shown = Math.min(tot, idx + 120); renderNav(); }
+    const row = document.querySelector('#sRes .row[data-i="' + idx + '"]');
+    if (row) v.scrollTop = row.offsetTop - v.clientHeight / 3;
+    th.style.transform = "translateY(" + Math.round(fr * H) + "px)";
+    const t = n.data.tracks.filter(x => x && x.uri)[idx];
+    bub.hidden = false; bub.style.top = Math.round(fr * H) + "px";
+    bub.textContent = (idx + 1).toLocaleString("de-DE") + " / " + tot.toLocaleString("de-DE") + (t ? " · " + unent(t.name) : "");
+  }
+  fs.addEventListener("pointerdown", e => {
+    if (!fs.classList.contains("on")) return;
+    drag = true; fs.classList.add("drag"); fs.setPointerCapture(e.pointerId); jump(e.clientY); e.preventDefault();
+  });
+  fs.addEventListener("pointermove", e => { if (drag) jump(e.clientY); });
+  const end = () => { if (!drag) return; drag = false; fs.classList.remove("drag"); bub.hidden = true; show(); };
+  fs.addEventListener("pointerup", end); fs.addEventListener("pointercancel", end);
+  setInterval(() => { if (!usable()) fs.classList.remove("on"); }, 500);
+})();
 /* Lange drücken auf ein Cover in der Liste oder auf das große Cover */
 (function () {
   const box = $("#sRes"); let t = null, x0 = 0, y0 = 0, fired = false;

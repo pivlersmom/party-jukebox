@@ -558,3 +558,12 @@ body[data-tab="home"] #v-search{padding-top:6px}
 .fback[hidden]{display:none}
 .bhead .bback,.favhead .bback{visibility:hidden}
 .navmore{display:block;margin:10px auto 4px;padding:10px 16px}
+/* Schnell-Scrollleiste rechts: nur beim Scrollen sichtbar */
+#fastScroll{position:absolute;right:2px;bottom:10px;width:28px;z-index:6;opacity:0;pointer-events:none;transition:opacity .25s;touch-action:none}
+#fastScroll.on{opacity:1;pointer-events:auto}
+#fastScroll::before{content:"";position:absolute;right:10px;top:0;bottom:0;width:3px;border-radius:2px;background:rgba(255,255,255,.12)}
+#fastScroll .fs-th{position:absolute;right:4px;top:0;width:15px;height:52px;border-radius:8px;background:var(--grad);box-shadow:0 2px 10px rgba(0,0,0,.5)}
+#fastScroll.drag .fs-th{width:20px;right:2px}
+#fastScroll .fs-bub{position:absolute;right:34px;margin-top:6px;max-width:220px;padding:7px 12px;border-radius:12px;background:rgba(28,33,51,.96);
+  border:1px solid var(--line);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+#fastScroll .fs-bub[hidden]{display:none}

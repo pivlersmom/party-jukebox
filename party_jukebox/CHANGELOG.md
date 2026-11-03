@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.90
+- Schnell-Scrollleiste rechts bei Playlists, Alben und Podcast-Folgen (ab 40 Einträgen): erscheint nur beim Scrollen, Ziehen springt durch die ganze Liste, Blase zeigt Nummer und Titel
+
 ## 0.1.89
 - Schwebender Zurück-Knopf (bleibt beim Scrollen stehen) in Playlist, Album, Künstler, Podcast und Favoriten-Listen
 - Große Playlists: alle Titel, je 200 beim Runterscrollen nachgeladen (vorher max. 300); lange Ladezeiten brechen nicht mehr ab
