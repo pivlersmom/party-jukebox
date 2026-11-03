@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.91
+- Titel in Playlist/Album/Podcast antippen → „Playlist ab hier“: die ganze Liste startet bei diesem Titel
+- Suchfeld in langen Listen (ab 40 Einträgen), z. B. „Folge 12“ in einer Playlist mit allen Folgen
+
 ## 0.1.90
 - Schnell-Scrollleiste rechts bei Playlists, Alben und Podcast-Folgen (ab 40 Einträgen): erscheint nur beim Scrollen, Ziehen springt durch die ganze Liste, Blase zeigt Nummer und Titel
 

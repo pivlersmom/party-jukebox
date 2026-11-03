@@ -1396,9 +1396,20 @@ async function toggleFav(it) {
   delete favLocal[it.uri];
   if (S.nav && S.nav.length) renderNav(); else renderResults();
 }
+/* Suchfeld in einer geöffneten Liste: filtert beim Tippen, Fokus bleibt im Feld */
+$("#sRes").addEventListener("input", e => {
+  const f = e.target.closest(".navq"); if (!f) return;
+  const n = S.nav && S.nav[S.nav.length - 1]; if (!n) return;
+  n.q = f.value;
+  later(() => {
+    renderNav();
+    const g = document.querySelector("#sRes .navq");
+    if (g) { g.focus(); const l = g.value.length; try { g.setSelectionRange(l, l); } catch (err) {} }
+  }, 300, "navq");
+});
 /* Weitere Titel einer großen Playlist: Knopf oder automatisch kurz vor dem Ende */
 function navMore() {
-  const n = S.nav && S.nav[S.nav.length - 1]; if (!n || !n.data || !n.data.tracks) return;
+  const n = S.nav && S.nav[S.nav.length - 1]; if (!n || !n.data || !n.data.tracks || (n.q || "").trim()) return;
   const total = n.data.tracks.length, cur = n.shown || 200; if (cur >= total) return;
   const v = $("#v-search"), top = v.scrollTop;
   n.shown = cur + 200; renderNav(); v.scrollTop = top;
@@ -1433,7 +1444,7 @@ setInterval(syncNavBack, 400);
   let hideT = null, drag = false;
   const nav = () => { const n = S.nav && S.nav[S.nav.length - 1]; return n && n.data && n.data.tracks && n.it.media_type !== "artist" ? n : null; };
   const total = n => n.data.tracks.filter(x => x && x.uri).length;
-  const usable = () => { const n = nav(); return n && total(n) > 40 && !S.playerOpen ? n : null; };
+  const usable = () => { const n = nav(); return n && !(n.q || "").trim() && total(n) > 40 && !S.playerOpen ? n : null; };
   function place() {
     const n = usable(); if (!n) { fs.classList.remove("on"); return; }
     const sb = document.querySelector("#v-search>.sbox"), top = (sb && sb.offsetParent ? sb.offsetHeight : 0) + 60;
@@ -1636,7 +1647,12 @@ function renderNav() {
   else if (d.err) html += '<div class="empty">Nicht ladbar: ' + esc(d.err) + "</div>";
   else {
     // große Playlists: erst 200 Titel, beim Runterscrollen je 200 weitere
-    const tr = (d.tracks || []).filter(x => x && x.uri), max = art && !n.all ? 10 : (n.shown || 200);
+    const all = (d.tracks || []).filter(x => x && x.uri), q = (n.q || "").trim().toLowerCase();
+    // Suchfeld in langen Listen: findet z. B. „Folge 12“ in einer Playlist mit allen Folgen
+    if (!art && all.length > 40) html += '<input class="fi navq" type="search" placeholder="In der Liste suchen … (z. B. Folge 12)" autocomplete="off" value="' + esc(n.q || "") + '">';
+    const tr = q ? all.filter(t => (unent(t.name) + " " + artistsOf(t)).toLowerCase().includes(q)) : all;
+    const max = art && !n.all ? 10 : (q ? 300 : (n.shown || 200));
+    if (q && !tr.length) html += '<div class="empty">Nichts gefunden</div>';
     if (tr.length) {
       html += '<div class="sec"><div class="sech"><span>' + (art ? "Titel" : tr.length + (it.media_type === "podcast" ? " Folgen" : " Titel")) + "</span>" +
         (art && tr.length > 10 ? '<button class="bmore">' + (n.all ? "Weniger" : "Alle " + tr.length) + "</button>" : "") + "</div>";
@@ -1700,15 +1716,25 @@ async function fillArt(n) {
   await Promise.all([worker(), worker(), worker(), worker()]);
 }
 function openItem(it) {
+  // Titel aus einer geöffneten Playlist/Album/Podcast: ganze Liste ab diesem Titel abspielen
+  const n = S.nav && S.nav[S.nav.length - 1], box = n && ["playlist", "album", "podcast"].includes(n.it.media_type) &&
+    n.data && (n.data.tracks || []).some(x => x && x.uri === it.uri) ? n.it : null;
   const html = '<div class="ihead">' + thumb(imgUrl(it, 240), "lg" + (it.media_type === "artist" ? " round" : "")) +
     '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + "</span></span></div>" +
-    '<button class="act pri" data-o="play">' + ICON.play + "Jetzt spielen</button>" +
+    (box ? '<button class="act pri" data-o="from">' + ICON.play + (box.media_type === "podcast" ? "Podcast ab dieser Folge" : box.media_type === "album" ? "Album ab hier" : "Playlist ab hier") + "</button>" : "") +
+    '<button class="act' + (box ? "" : " pri") + '" data-o="play">' + ICON.play + (box ? "Nur diesen Titel spielen" : "Jetzt spielen") + "</button>" +
     '<button class="act" data-o="next">' + ICON.nextup + "Als Nächstes</button>" +
     '<button class="act" data-o="add">' + ICON.plus + "Hinten anstellen</button>" +
     '<button class="act ghost" data-o="">Abbrechen</button>';
   openSheet("item", html, c => c.querySelectorAll(".act").forEach(b => {
-    b.onclick = () => { closeSheet(); if (b.dataset.o) enqueue(it, b.dataset.o); };
+    b.onclick = () => { closeSheet(); if (b.dataset.o === "from") playFrom(box, it); else if (b.dataset.o) enqueue(it, b.dataset.o); };
   }));
+}
+/* Playlist/Album/Podcast ab einem bestimmten Titel – der Rest der Liste folgt */
+async function playFrom(list, it) {
+  const ok = await qc("play_media", Object.assign({ media: list.uri, option: "play", start_item: it.uri }, profUser()));
+  if (!ok) return;
+  toast("▶ " + unent(list.name) + " ab „" + unent(it.name) + "“"); skipFx();
 }
 async function enqueue(it, opt) {
   const ok = await qc("play_media", Object.assign({ media: it.uri, option: opt }, profUser()));

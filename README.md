@@ -22,6 +22,7 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - **Startseite** wie bei Spotify: Zuletzt gespielt, Favoriten (Kacheln je Art, antippen = Liste mit Suchfeld), Empfehlungen, Meine Playlists, neue Podcast-Folgen. Die Leiste unten hat Start · Suche · Warteschlange.
 - **Player zum Aufklappen**: Mini-Leiste antippen → großes Cover mit Steuerung; ⌄, nach unten wischen oder Zurück klappt ihn zu
 - **Favorit speichern**: ♥ oben rechts bei Playlist/Album/Künstler oder Cover lange drücken
+- **Ab hier abspielen**: in einer Playlist (z. B. mit allen Hörspiel-Folgen) per Suchfeld die Folge finden, antippen → „Playlist ab hier“ – der Rest der Liste folgt
 - Ein Podcast zeigt seine Folgen (neueste zuerst, mit Datum und „gehört“)
 - **Mehrere Personen**: oben auf der Startseite die Person wählen – Favoriten, Zuletzt gespielt, Empfehlungen und Playlists gehören dann zu ihr (eigene Musikquellen in Music Assistant)
 - Teilnehmer-Laufband: wer gerade auf der Party ist

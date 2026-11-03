@@ -567,3 +567,4 @@ body[data-tab="home"] #v-search{padding-top:6px}
 #fastScroll .fs-bub{position:absolute;right:34px;margin-top:6px;max-width:220px;padding:7px 12px;border-radius:12px;background:rgba(28,33,51,.96);
   border:1px solid var(--line);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 #fastScroll .fs-bub[hidden]{display:none}
+.navq{margin:2px 2px 8px;width:calc(100% - 4px)}
