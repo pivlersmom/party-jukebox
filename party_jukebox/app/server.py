@@ -259,7 +259,7 @@ async def pod_check(session, uid, force=False):
         data = {"tag": "pjpod_" + str(p.get("item_id")), "car_ui": True, "priority": "high", "importance": "high", "channel": "Podcasts",
                 "push": {"interruption-level": "time-sensitive"},
                 # Android: kleines Symbol (Statusleiste) + großes Symbol = Party-Jukebox-Logo
-                "notification_icon": "mdi:podcast", "icon_url": POD_ICON}
+                "notification_icon": "mdi:equalizer", "color": "#E040FB", "icon_url": POD_ICON}
         if cfg.get("player"):
             data["actions"] = [{"action": key, "title": "Jetzt abspielen"}]
         if img:

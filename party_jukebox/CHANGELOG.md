@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.99
+- Podcast-Push: Equalizer-Symbol in Logo-Farbe (Pink)
+
 ## 0.1.98
 - Podcast-Push: Party-Jukebox-Logo als großes Symbol, Podcast-Symbol in der Statusleiste (Android)
 
