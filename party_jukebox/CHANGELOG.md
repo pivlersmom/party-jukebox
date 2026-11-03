@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.94
+- Push bei neuen Podcast-Folgen pro Person: einmal prüfen, wenn Android Auto/CarPlay aktiv wird; Benachrichtigung mit Cover und „Jetzt abspielen“
+- Anleitung: Auslöser für Android Auto, Bluetooth und CarPlay
+
 ## 0.1.93
 - „Neue Podcast-Folgen“: schon gehörte Folgen werden ausgeblendet
 

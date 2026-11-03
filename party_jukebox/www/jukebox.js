@@ -782,7 +782,7 @@ function numRow(key, title, val, unit, dis) {
 const SET_TABS = [["me", "Persönlich"], ["party", "Party"], ["tv", "TV & Räume"], ["info", "Info"]];
 function setTabOf(head) {
   if (/^(TV-Anzeige|Räume)/.test(head)) return "tv";
-  if (/^(Profile|Handy|Startseite|Schalter)/.test(head)) return "me";
+  if (/^(Profile|Handy|Startseite|Schalter|Push)/.test(head)) return "me";
   if (/^Projekt/.test(head)) return "info";
   return "party";
 }
@@ -865,6 +865,7 @@ function renderSettings() {
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
   }
   html += '<div class="shh gsh">Startseite' + (prof() ? " von " + esc(profName(prof())) : "") + '</div><div id="hoBox"></div>';
+  html += '<div class="shh gsh">Push bei neuen Podcast-Folgen' + (prof() ? " · " + esc(profName(prof())) : "") + '</div><div id="ppBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
@@ -898,7 +899,7 @@ function renderSettings() {
   html = settingsTabs(html);
   openSheet("settings", html, c => {
     bindSettingsTabs(c);
-    loadQs(c); paintHomeOrder(c);
+    loadQs(c); paintHomeOrder(c); loadPodPush(c);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
       const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);
@@ -1323,6 +1324,42 @@ async function paintHomeOrder(c) {
     r.querySelector(".ho-dn").onclick = () => { const o = order.slice(), i = o.indexOf(id); if (i < o.length - 1) { [o[i + 1], o[i]] = [o[i], o[i + 1]]; saveHomePrefs({ order: o }); paintHomeOrder(c); } };
     r.querySelector(".ho-sw").onclick = () => { const h = hidden.includes(id) ? hidden.filter(x => x !== id) : hidden.concat(id); saveHomePrefs({ hidden: h, order }); paintHomeOrder(c); };
   });
+}
+/*
+ * Einstellungen → Push bei neuen Podcast-Folgen (pro Person):
+ * Sobald Android Auto / CarPlay aktiv wird, prüft das Add-on einmal die ♥-Podcasts dieser Person
+ * und schickt bei einer neuen, ungehörten Folge eine Benachrichtigung (Cover + „Jetzt abspielen“).
+ */
+async function loadPodPush(c) {
+  const box = c.querySelector("#ppBox"); if (!box) return;
+  let d = null;
+  try { const r = await fetch("party/podpush?user=" + encodeURIComponent(favUid()), { cache: "no-store" }); if (r.ok) d = await r.json(); } catch (e) {}
+  if (!d) { box.innerHTML = '<div class="rshint">Nur mit Home Assistant (Add-on) möglich</div>'; return; }
+  const cfg = d.cfg || {};
+  const opt = (list, cur, empty) => '<option value="">' + empty + "</option>" + list.map(x => {
+    const v = typeof x === "string" ? x : x.id, n = typeof x === "string" ? x.replace("notify.mobile_app_", "") : x.name;
+    return '<option value="' + esc(v) + '"' + (v === cur ? " selected" : "") + ">" + esc(n) + "</option>"; }).join("");
+  const players = playerList().map(p => ({ id: p.player_id, name: pname(p) }));
+  box.innerHTML =
+    '<label class="fl">Benachrichtigung an</label><select class="fi" id="ppN">' + opt(d.notify || [], cfg.notify || "", "– aus –") + "</select>" +
+    '<label class="fl">Auslöser <small>(Android Auto / CarPlay / Bluetooth des Handys)</small></label><select class="fi" id="ppE">' +
+      opt(d.entities || [], cfg.entity || "", "– wählen –") + "</select>" +
+    '<label class="fl">Suchtext <small>(nur bei Bluetooth/Audio-Ausgabe, z. B. „Ford Kuga“ oder „CarPlay“)</small></label>' +
+      '<input class="fi" id="ppM" maxlength="80" placeholder="leer = Sensor ist „an“" value="' + esc(cfg.match || "") + '">' +
+    '<label class="fl">„Jetzt abspielen“ auf</label><select class="fi" id="ppP">' + opt(players, cfg.player || "", "– kein Knopf –") + "</select>" +
+    '<button class="act" id="ppT" style="margin-top:10px">Jetzt prüfen (neueste Folge testweise pushen)</button>' +
+    '<div class="rshint">Geprüft wird einmal, wenn der Auslöser aktiv wird – z. B. beim Einsteigen. Gepusht werden neue, noch nicht gehörte Folgen der ♥-Podcasts (letzte 7 Tage), jede nur einmal.</div>';
+  const save = () => fetch("party/podpush", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user: favUid(), cfg: { notify: box.querySelector("#ppN").value, entity: box.querySelector("#ppE").value,
+      match: box.querySelector("#ppM").value.trim(), player: box.querySelector("#ppP").value } }) })
+    .then(() => toast("Podcast-Push gespeichert")).catch(e => toast("Fehler: " + errText(e)));
+  ["#ppN", "#ppE", "#ppP"].forEach(k => box.querySelector(k).onchange = save);
+  box.querySelector("#ppM").onchange = save;
+  box.querySelector("#ppT").onclick = async () => {
+    try { const r = await fetch("party/podpush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: favUid(), test: true }) });
+      const j = await r.json(); toast(j.sent ? "📲 " + j.sent + " Benachrichtigung(en) gesendet" : "Keine ungehörte Folge gefunden (oder keine Benachrichtigung gewählt)"); }
+    catch (e) { toast("Fehler: " + errText(e)); }
+  };
 }
 /* waagerechte Reihe mit Covern */
 function hrow(title, arr, opt) {

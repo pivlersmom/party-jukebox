@@ -50,6 +50,16 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
   - Läuft an der Soundbar gerade TV-Ton, wird nichts verbunden oder getrennt.
 - **Party-Plugin** – in Music Assistant installieren, ein-/ausschalten, Link zu allen Plugin-Einstellungen.
 - **Startseite** – pro Person: Reihenfolge der Reihen (Zuletzt gespielt, Favoriten, Empfehlungen, Meine Playlists, Neue Podcast-Folgen) mit ▲▼ ändern, einzelne Reihen ausblenden. Ohne eigene Wahl stehen die Podcast-Folgen oben, wenn jemand mind. 3 Lieblings-Podcasts hat.
+- **Push bei neuen Podcast-Folgen** – Einstellungen → Persönlich, für die oben gewählte Person:
+  - **Benachrichtigung an**: die HA-App des Handys (`notify.mobile_app_…`).
+  - **Auslöser**: ein Sensor der Home-Assistant-App auf dem Handy:
+    - Android: *Android Auto* (`binary_sensor.<handy>_android_auto`). In der HA-App unter *Einstellungen → Companion-App → Sensoren verwalten → Android Auto* einschalten.
+    - Android ohne diesen Sensor: *Bluetooth-Verbindung* (`sensor.<handy>_bluetooth_connection`) und als Suchtext den Namen des Autos, z. B. `Ford Kuga` (mehrere mit `|` trennen).
+    - iPhone: *Audio-Ausgabe* (`sensor.<iphone>_audio_output`) mit Suchtext `CarPlay`.
+  - **„Jetzt abspielen“ auf**: Player, auf dem die Folge startet (z. B. der Handy-Player der Android-App). Leer = Benachrichtigung ohne Knopf.
+  - Geprüft wird **einmal beim Einsteigen** (wenn der Auslöser aktiv wird), nicht ständig. Gepusht werden neue, ungehörte Folgen der ♥-Podcasts aus den letzten 7 Tagen – jede Folge nur einmal.
+  - „Jetzt prüfen“ schickt die neueste ungehörte Folge sofort als Test.
+  - Android Auto zeigt Benachrichtigungen meist nur mit Text und einem Knopf; das Cover erscheint am Handy und auf der Uhr.
 - **Schalter** – ausgewählte Home-Assistant-Schalter direkt in der Jukebox ein-/ausschalten:
   - „Schalter auswählen“ zeigt zuerst die **Helfer** (`input_boolean`). Einen Helfer legst du in HA unter *Einstellungen → Geräte & Dienste → Helfer → Helfer erstellen → Schalter* an und fragst ihn in deiner Automation als Bedingung ab (z. B. „Musik beim Heimkommen nur wenn Helfer an“).
   - Über das **Suchfeld** findest du auch alle anderen Schalter (`switch.*`, z. B. Steckdosen).

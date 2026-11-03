@@ -179,6 +179,190 @@ async def party_favs_post(request):
     return web.json_response({"ok": True, "others": others})
 
 
+# ---------------------------------------------------------------- Push bei neuen Podcast-Folgen
+# Pro Person: sobald Android Auto / CarPlay aktiv wird (HA-Sensor des Handys), einmal nachsehen, ob es von den
+# eigenen ♥-Podcasts eine neue, ungehörte Folge gibt – dann eine Benachrichtigung über die HA-App
+# (Handy, Uhr, Autodisplay) mit Cover und Knopf „Jetzt abspielen“.
+#   SETTINGS["podpush"][uid] = {"notify": "notify.mobile_app_x", "entity": "binary_sensor.x_android_auto",
+#                               "match": "", "player": "<MA-Player-ID>"}
+POD_ACT = {}     # Aktions-Schlüssel → (Folge-URI, Player)
+POD_STATE = {}   # uid → war zuletzt aktiv?
+
+
+def podpush_cfg():
+    d = SETTINGS.get("podpush")
+    return d if isinstance(d, dict) else {}
+
+
+def _pod_active(st, match):
+    """Aktiv = Schalter-Sensor 'on' bzw. der Suchtext steckt im Zustand/den Attributen (z. B. 'CarPlay', 'Ford Kuga')."""
+    if not st:
+        return False
+    state = str(st.get("state") or "")
+    if match:
+        hay = (state + " " + json.dumps(st.get("attributes") or {}, ensure_ascii=False)).lower()
+        return any(m.strip().lower() in hay for m in match.split("|") if m.strip())
+    return state == "on"
+
+
+def _ep_date(e):
+    return str(((e.get("metadata") or {}).get("release_date")) or "")[:19]
+
+
+def _ep_image(e, pod):
+    for x in (e, pod or {}):
+        im = x.get("image") or next(iter(((x.get("metadata") or {}).get("images")) or []), None)
+        if isinstance(im, dict):
+            p = im.get("path") or ""
+            if p.startswith("https://"):
+                return p
+        elif isinstance(im, str) and im.startswith("https://"):
+            return im
+    return ""
+
+
+async def pod_check(session, uid, force=False):
+    """Neue ungehörte Folgen (letzte 7 Tage) der ♥-Podcasts dieser Person pushen. Gibt die Anzahl zurück."""
+    cfg = podpush_cfg().get(uid) or {}
+    svc = cfg.get("notify") or ""
+    if not svc.startswith("notify.") or not OPT.get("ma_token"):
+        return 0
+    pods = [x for x in FAVS.get(uid, []) if x.get("media_type") == "podcast"][:12]
+    pushed = FAVS.setdefault("_podpushed", {}).setdefault(uid, [])
+    week = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 7 * 86400))
+    found = []
+    for p in pods:
+        try:
+            eps = await MAC.cmd(session, "music/podcasts/podcast_episodes",
+                                {"item_id": str(p.get("item_id")), "provider_instance_id_or_domain": p.get("provider") or "library"}) or []
+        except Exception as e:
+            log.info("Podcast %s: %s", p.get("name"), e)
+            continue
+        eps = sorted([e for e in eps if isinstance(e, dict) and e.get("uri") and not e.get("fully_played")], key=_ep_date, reverse=True)
+        if eps and (force or (_ep_date(eps[0]) >= week and eps[0]["uri"] not in pushed)):
+            found.append((p, eps[0]))
+    n = 0
+    for p, e in found[:3]:
+        key = "PJPOD_" + hashlib.md5((uid + e["uri"]).encode()).hexdigest()[:10]
+        POD_ACT[key] = (e["uri"], cfg.get("player") or "")
+        img = _ep_image(e, p)
+        data = {"tag": "pjpod_" + str(p.get("item_id")), "car_ui": True, "priority": "high", "importance": "high", "channel": "Podcasts",
+                "push": {"interruption-level": "time-sensitive"}}
+        if cfg.get("player"):
+            data["actions"] = [{"action": key, "title": "Jetzt abspielen"}]
+        if img:
+            data["image"] = img                    # Android
+            data["attachment"] = {"url": img}      # iPhone
+        await ha_call(session, "notify", svc.split(".", 1)[1], {
+            "title": "🎙️ Neue Folge: " + str(p.get("name") or "Podcast"), "message": str(e.get("name") or ""), "data": data})
+        if e["uri"] not in pushed:
+            pushed.append(e["uri"])
+        n += 1
+    FAVS["_podpushed"][uid] = pushed[-200:]
+    _save_favs()
+    if n:
+        log.info("Podcast-Push für %s: %d neue Folge(n)", uid, n)
+    return n
+
+
+async def podpush_loop(app):
+    session = app["session"]
+    while True:
+        await asyncio.sleep(20)
+        cfgs = podpush_cfg()
+        if not cfgs or not SUP_TOKEN:
+            continue
+        for uid, cfg in list(cfgs.items()):
+            if not cfg.get("entity"):
+                continue
+            try:
+                on = _pod_active(await _ha_state(session, cfg["entity"]), cfg.get("match") or "")
+                if on and not POD_STATE.get(uid):
+                    await pod_check(session, uid)   # gerade ins Auto gestiegen → einmal nachsehen
+                POD_STATE[uid] = on
+            except Exception as e:
+                log.info("Podcast-Push %s: %s", uid, e)
+
+
+async def ha_events_loop(app):
+    """Knopf „Jetzt abspielen“ in der Benachrichtigung: HA meldet das als Ereignis → Folge auf dem gewählten Player starten."""
+    session = app["session"]
+    while True:
+        if not SUP_TOKEN:
+            await asyncio.sleep(300)
+            continue
+        try:
+            async with session.ws_connect("http://supervisor/core/websocket", heartbeat=55) as ws:
+                await ws.receive_json(timeout=10)
+                await ws.send_json({"type": "auth", "access_token": SUP_TOKEN})
+                await ws.receive_json(timeout=10)
+                await ws.send_json({"id": 1, "type": "subscribe_events", "event_type": "mobile_app_notification_action"})
+                async for msg in ws:
+                    if msg.type != WSMsgType.TEXT:
+                        break
+                    d = json.loads(msg.data)
+                    act = (((d.get("event") or {}).get("data")) or {}).get("action") or ""
+                    if act in POD_ACT:
+                        uri, player = POD_ACT[act]
+                        if player:
+                            try:
+                                await MAC.cmd(session, "player_queues/play_media", {"queue_id": player, "media": uri, "option": "play"})
+                                log.info("Podcast-Folge gestartet auf %s", player)
+                            except Exception as e:
+                                log.warning("Podcast-Folge starten: %s", e)
+        except Exception as e:
+            log.info("HA-Ereignisse: %s", e)
+        await asyncio.sleep(15)
+
+
+async def party_podpush_get(request):
+    """Einstellungen + Auswahllisten (Benachrichtigungen, mögliche Auslöser-Sensoren) für die Jukebox."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    uid = str(request.query.get("user") or "default")[:80]
+    notif, ents = [], []
+    if SUP_TOKEN:
+        hdr = {"Authorization": f"Bearer {SUP_TOKEN}"}
+        try:
+            async with request.app["session"].get(f"{HA_HTTP}/services", headers=hdr, timeout=15) as r:
+                for d in await r.json():
+                    if d.get("domain") == "notify":
+                        notif = sorted("notify." + k for k in (d.get("services") or {}) if k.startswith("mobile_app_"))
+            async with request.app["session"].get(f"{HA_HTTP}/states", headers=hdr, timeout=15) as r:
+                for e in await r.json():
+                    eid = e.get("entity_id", "")
+                    if eid.endswith("_android_auto") or eid.endswith("_bluetooth_connection") or eid.endswith("_audio_output") or "carplay" in eid:
+                        ents.append({"id": eid, "name": (e.get("attributes") or {}).get("friendly_name") or eid})
+        except Exception as e:
+            log.info("Podcast-Push-Auswahl: %s", e)
+    ents.sort(key=lambda x: x["name"].lower())
+    return web.json_response({"cfg": podpush_cfg().get(uid) or {}, "notify": notif, "entities": ents}, headers={"Cache-Control": "no-store"})
+
+
+async def party_podpush_post(request):
+    """{user, cfg:{notify, entity, match, player}} speichern · {user, test:true} = sofort prüfen und die neueste Folge pushen."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    uid = str(data.get("user") or "default")[:80]
+    if data.get("test"):
+        n = await pod_check(request.app["session"], uid, force=True)
+        return web.json_response({"ok": True, "sent": n})
+    c = data.get("cfg") if isinstance(data.get("cfg"), dict) else {}
+    cfg = {k: str(c.get(k) or "")[:200] for k in ("notify", "entity", "match", "player")}
+    allc = podpush_cfg()
+    if cfg["notify"]:
+        allc[uid] = cfg
+    else:
+        allc.pop(uid, None)
+    SETTINGS["podpush"] = allc
+    save_settings()
+    return web.json_response({"ok": True, "cfg": cfg})
+
+
 # ---------------------------------------------------------------- Gastgeber-PIN
 # Ist eine PIN gesetzt, sind Jukebox, Einstellungen und Vollzugriff auf Music Assistant nur für
 # angemeldete Geräte (Cookie) erlaubt. Gäste-Seite und TV-Anzeige bleiben frei.
@@ -1010,6 +1194,7 @@ class MA:
             await ws.receive_json(timeout=10)  # server_info
             await ws.send_json({"message_id": "a", "command": "auth", "args": {"token": token}})
             await ws.send_json({"message_id": "c", "command": command, "args": args or {}})
+            acc = None
             while True:
                 m = await ws.receive_json(timeout=15)
                 if m.get("message_id") == "a" and m.get("error_code"):
@@ -1017,7 +1202,11 @@ class MA:
                 if m.get("message_id") == "c":
                     if m.get("error_code"):
                         raise RuntimeError(m.get("details") or m.get("error_code"))
-                    return m.get("result")
+                    if m.get("partial"):   # lange Listen kommen in Teilen
+                        acc = (acc or []) + (m.get("result") or [])
+                        continue
+                    res = m.get("result")
+                    return (acc + (res or [])) if acc is not None else res
 
 
 MAC = MA()
@@ -1428,6 +1617,8 @@ async def on_startup(app):
             log.info("Party-Player: %s → %s", OPT.get("party_player"), pid)
     app["tick"] = asyncio.create_task(tick(app))
     app["rooms"] = asyncio.create_task(rooms_loop(app))
+    app["podpush"] = asyncio.create_task(podpush_loop(app))
+    app["haev"] = asyncio.create_task(ha_events_loop(app))
 
 
 async def on_cleanup(app):
@@ -1455,6 +1646,8 @@ def make_app():
     app.router.add_get("/party/switches", party_switches)
     app.router.add_post("/party/switch", party_switch)
     app.router.add_get("/party/favs", party_favs_get)
+    app.router.add_get("/party/podpush", party_podpush_get)
+    app.router.add_post("/party/podpush", party_podpush_post)
     app.router.add_post("/party/favs", party_favs_post)
     app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)
