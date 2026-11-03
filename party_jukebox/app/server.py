@@ -238,9 +238,17 @@ async def pod_check(session, uid, force=False):
         except Exception as e:
             log.info("Podcast %s: %s", p.get("name"), e)
             continue
-        eps = sorted([e for e in eps if isinstance(e, dict) and e.get("uri") and not e.get("fully_played")], key=_ep_date, reverse=True)
-        if eps and (force or (_ep_date(eps[0]) >= week and eps[0]["uri"] not in pushed)):
+        # neueste zuerst: nach Erscheinungsdatum, sonst nach Folgennummer (position)
+        eps = sorted([e for e in eps if isinstance(e, dict) and e.get("uri")],
+                     key=lambda e: (_ep_date(e), int(e.get("position") or 0)), reverse=True)
+        if not eps:
+            continue
+        if force:   # „Jetzt prüfen“: immer die aktuellste Folge – auch wenn schon gehört
             found.append((p, eps[0]))
+            continue
+        new = eps[0]   # nur die wirklich neueste Folge zählt – und nur, wenn sie noch nicht gehört wurde
+        if not new.get("fully_played") and _ep_date(new) >= week and new["uri"] not in pushed:
+            found.append((p, new))
     n = 0
     for p, e in found[:3]:
         key = "PJPOD_" + hashlib.md5((uid + e["uri"]).encode()).hexdigest()[:10]
@@ -257,6 +265,7 @@ async def pod_check(session, uid, force=False):
             "title": "🎙️ Neue Folge: " + str(p.get("name") or "Podcast"), "message": str(e.get("name") or ""), "data": data})
         if e["uri"] not in pushed:
             pushed.append(e["uri"])
+        log.info("Podcast-Push: %s – %s (%s)", p.get("name"), e.get("name"), _ep_date(e)[:10])
         n += 1
     FAVS["_podpushed"][uid] = pushed[-200:]
     _save_favs()

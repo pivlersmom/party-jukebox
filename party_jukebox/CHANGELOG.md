@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.95
+- Podcast-Push: immer die wirklich neueste Folge (nach Datum, sonst Folgennummer); „Jetzt prüfen“ schickt die aktuellste Folge auch wenn schon gehört
+
 ## 0.1.94
 - Push bei neuen Podcast-Folgen pro Person: einmal prüfen, wenn Android Auto/CarPlay aktiv wird; Benachrichtigung mit Cover und „Jetzt abspielen“
 - Anleitung: Auslöser für Android Auto, Bluetooth und CarPlay
