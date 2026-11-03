@@ -1352,7 +1352,7 @@ async function loadPodPush(c) {
       '<input class="fi" id="ppM" maxlength="80" placeholder="leer = Sensor ist „an“" value="' + esc(cfg.match || "") + '">' +
     '<label class="fl">„Jetzt abspielen“ auf</label><select class="fi" id="ppP">' + opt(players, cfg.player || "", "– kein Knopf –") + "</select>" +
     '<button class="act" id="ppT" style="margin-top:10px">Jetzt prüfen (neueste Folge testweise pushen)</button>' +
-    '<div class="rshint">Geprüft wird einmal, wenn der Auslöser aktiv wird – z. B. beim Einsteigen. Gepusht werden neue, noch nicht gehörte Folgen der ♥-Podcasts (letzte 7 Tage), jede nur einmal.</div>';
+    '<div class="rshint">Geprüft wird beim Einsteigen (Auslöser wird aktiv) und während der Fahrt jede Stunde. Gepusht werden neue, noch nicht gehörte Folgen der ♥-Podcasts (letzte 7 Tage), jede nur einmal.</div>';
   const save = () => fetch("party/podpush", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user: favUid(), cfg: { notify: box.querySelector("#ppN").value, entity: box.querySelector("#ppE").value,
       match: box.querySelector("#ppM").value.trim(), player: box.querySelector("#ppP").value } }) })

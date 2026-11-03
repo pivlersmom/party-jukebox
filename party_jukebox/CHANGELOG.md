@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.97
+- Podcast-Push: solange Android Auto/CarPlay aktiv ist, zusätzlich jede Stunde prüfen
+
 ## 0.1.96
 - „Podcasts für dich“ wird 12 Stunden gemerkt (weniger Suchanfragen an Spotify)
 

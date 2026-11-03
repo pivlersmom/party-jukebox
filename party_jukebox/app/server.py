@@ -187,6 +187,7 @@ async def party_favs_post(request):
 #                               "match": "", "player": "<MA-Player-ID>"}
 POD_ACT = {}     # Aktions-Schlüssel → (Folge-URI, Player)
 POD_STATE = {}   # uid → war zuletzt aktiv?
+POD_LAST = {}    # uid → Zeit der letzten Prüfung
 
 
 def podpush_cfg():
@@ -286,8 +287,10 @@ async def podpush_loop(app):
                 continue
             try:
                 on = _pod_active(await _ha_state(session, cfg["entity"]), cfg.get("match") or "")
-                if on and not POD_STATE.get(uid):
-                    await pod_check(session, uid)   # gerade ins Auto gestiegen → einmal nachsehen
+                # beim Einsteigen sofort nachsehen, während der Fahrt (Auslöser bleibt aktiv) dann jede Stunde
+                if on and (not POD_STATE.get(uid) or time.time() - POD_LAST.get(uid, 0) >= 3600):
+                    POD_LAST[uid] = time.time()
+                    await pod_check(session, uid)
                 POD_STATE[uid] = on
             except Exception as e:
                 log.info("Podcast-Push %s: %s", uid, e)

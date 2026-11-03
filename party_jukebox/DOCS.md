@@ -57,7 +57,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
     - Android ohne diesen Sensor: *Bluetooth-Verbindung* (`sensor.<handy>_bluetooth_connection`) und als Suchtext den Namen des Autos, z. B. `Ford Kuga` (mehrere mit `|` trennen).
     - iPhone: *Audio-Ausgabe* (`sensor.<iphone>_audio_output`) mit Suchtext `CarPlay`.
   - **„Jetzt abspielen“ auf**: Player, auf dem die Folge startet (z. B. der Handy-Player der Android-App). Leer = Benachrichtigung ohne Knopf.
-  - Geprüft wird **einmal beim Einsteigen** (wenn der Auslöser aktiv wird), nicht ständig. Gepusht werden neue, ungehörte Folgen der ♥-Podcasts aus den letzten 7 Tagen – jede Folge nur einmal.
+  - Geprüft wird **beim Einsteigen** (wenn der Auslöser aktiv wird) und danach **jede Stunde, solange er aktiv bleibt** – sonst nie. Gepusht werden neue, ungehörte Folgen der ♥-Podcasts aus den letzten 7 Tagen – jede Folge nur einmal.
   - „Jetzt prüfen“ schickt die neueste ungehörte Folge sofort als Test.
   - Android Auto zeigt Benachrichtigungen meist nur mit Text und einem Knopf; das Cover erscheint am Handy und auf der Uhr.
 - **Schalter** – ausgewählte Home-Assistant-Schalter direkt in der Jukebox ein-/ausschalten:
