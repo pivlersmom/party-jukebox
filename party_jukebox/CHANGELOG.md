@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.96
+- „Podcasts für dich“ wird 12 Stunden gemerkt (weniger Suchanfragen an Spotify)
+
 ## 0.1.95
 - Podcast-Push: immer die wirklich neueste Folge (nach Datum, sonst Folgennummer); „Jetzt prüfen“ schickt die aktuellste Folge auch wenn schon gehört
 

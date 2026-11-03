@@ -1264,6 +1264,9 @@ function loadPods(force) {
 /* Podcast-Empfehlungen: Podcasts derselben Macher/ähnlicher Namen wie die eigenen Lieblinge (ohne die, die man schon hat) */
 function loadPodRec(pods) {
   if (!pods.length) { S.home.podrec = []; return; }
+  // Suchen belasten Spotify (Drosselung!) → Ergebnis 12 Stunden auf dem Gerät merken
+  const ck = "jb_podrec_" + favUid() + "_" + pods.map(p => p.uri).join("|").length;
+  try { const c = JSON.parse(localStorage.getItem(ck) || "null"); if (c && Date.now() - c.t < 12 * 3600e3) { S.home.podrec = c.l; return; } } catch (e) {}
   const have = new Set(pods.map(p => unent(p.name).toLowerCase()));
   const terms = [...new Set(pods.slice(0, 4).map(p => unent(p.publisher || p.name)).filter(Boolean))];
   const pv = profProv("providers");
@@ -1273,6 +1276,7 @@ function loadPodRec(pods) {
     S.home.podrec = [].concat(...lists).filter(x => {
       const k = unent(x && x.name).toLowerCase(); if (!x || !x.uri || !k || have.has(k) || seen.has(k)) return false; seen.add(k); return true;
     }).slice(0, 20);
+    try { localStorage.setItem(ck, JSON.stringify({ t: Date.now(), l: S.home.podrec })); } catch (e) {}
     if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
   });
 }
