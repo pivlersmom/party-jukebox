@@ -86,6 +86,13 @@ function imgUrl(item, size) {
   return MA_HTTP + "/imageproxy?path=" + encodeURIComponent(encodeURIComponent(im.path)) +
     "&provider=" + encodeURIComponent(im.provider || "") + "&size=" + size;
 }
+/* Bild-URL vom Player (zeigt auf MA im Heimnetz) → über das Add-on laden, damit es auch unterwegs geht */
+function maImg(u) {
+  if (!u) return "";
+  const m = /^https?:\/\/[^/]+(\/imageproxy.*)$/.exec(u);
+  if (m) return MA_HTTP + m[1];
+  return /^https:|^data:/.test(u) || location.protocol === "http:" ? u : "";
+}
 const artistsOf = m => (m && ((m.artists || []).map(a => a && a.name).filter(Boolean).join(", ") || m.artist_str)) || "";
 
 /* ---------- Zustand ---------- */
@@ -358,12 +365,12 @@ function nowInfo() {
         dur: 0, key: ci.queue_item_id + "|" + t, radio: true };
       return { title: station, artist: "Radio", img: imgUrl(ci, 600), small: imgUrl(ci, 120), dur: 0, key: ci.queue_item_id, radio: true };
     }
-    return { title: (mi && mi.name) || ci.name || "", artist: artistsOf(mi), img: imgUrl(ci, 600), small: imgUrl(ci, 120),
+    return { title: (mi && mi.name) || ci.name || "", artist: artistsOf(mi) || (mi && ((mi.podcast && mi.podcast.name) || (mi.audiobook && mi.audiobook.name))) || "", img: imgUrl(ci, 600), small: imgUrl(ci, 120),
       dur: +ci.duration || +(mi && mi.duration) || 0, key: ci.queue_item_id };
   }
   const cm = p && p.current_media;
-  if (cm && (cm.title || cm.uri)) return { title: cm.title || cm.uri, artist: cm.artist || "", img: cm.image_url || "",
-    small: cm.image_url || "", dur: +cm.duration || 0, key: cm.uri };
+  if (cm && (cm.title || cm.uri)) { const u = maImg(cm.image_url);
+    return { title: cm.title || cm.uri, artist: cm.artist || cm.album || "", img: u, small: u, dur: +cm.duration || 0, key: cm.uri }; }
   return null;
 }
 

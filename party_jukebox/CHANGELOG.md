@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.101
+- Mini-Player: Cover auch unterwegs (Bild-Adresse des Players wird über das Add-on geladen); bei Podcasts/Hörbüchern steht der Name darunter
+
 ## 0.1.100
 - Sendspin-Weiterleitung (/sendspin): Handy-Player der Android-App funktioniert auch unterwegs über Nabu Casa, ohne VPN
 
