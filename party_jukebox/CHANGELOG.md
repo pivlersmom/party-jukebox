@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.98
+- Podcast-Push: Party-Jukebox-Logo als großes Symbol, Podcast-Symbol in der Statusleiste (Android)
+
 ## 0.1.97
 - Podcast-Push: solange Android Auto/CarPlay aktiv ist, zusätzlich jede Stunde prüfen
 

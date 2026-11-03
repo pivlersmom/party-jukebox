@@ -188,6 +188,7 @@ async def party_favs_post(request):
 POD_ACT = {}     # Aktions-Schlüssel → (Folge-URI, Player)
 POD_STATE = {}   # uid → war zuletzt aktiv?
 POD_LAST = {}    # uid → Zeit der letzten Prüfung
+POD_ICON = "https://raw.githubusercontent.com/pivlersmom/party-jukebox/main/party_jukebox/www/icons/party-192.png"
 
 
 def podpush_cfg():
@@ -256,7 +257,9 @@ async def pod_check(session, uid, force=False):
         POD_ACT[key] = (e["uri"], cfg.get("player") or "")
         img = _ep_image(e, p)
         data = {"tag": "pjpod_" + str(p.get("item_id")), "car_ui": True, "priority": "high", "importance": "high", "channel": "Podcasts",
-                "push": {"interruption-level": "time-sensitive"}}
+                "push": {"interruption-level": "time-sensitive"},
+                # Android: kleines Symbol (Statusleiste) + großes Symbol = Party-Jukebox-Logo
+                "notification_icon": "mdi:podcast", "icon_url": POD_ICON}
         if cfg.get("player"):
             data["actions"] = [{"action": key, "title": "Jetzt abspielen"}]
         if img:
