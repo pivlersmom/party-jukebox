@@ -1094,7 +1094,9 @@ async function doSearch() {
   if (!S.ready) { box.innerHTML = '<div class="empty">Keine Verbindung zu Music Assistant</div>'; return; }
   box.innerHTML = '<div class="spin"></div>';
   try {
-    const r = await cmdP("music/search", Object.assign({ search_query: term, media_types: TYPES[S.filter], limit: S.filter === "all" ? 10 : 40 }, profProv("providers")), 25000);
+    // Quellen des Profils + Bibliothek: was schon in der Bibliothek liegt, liefert MA nur als Bibliotheks-Eintrag
+    const pv = profProv("providers"); if (pv.providers) pv.providers = pv.providers.concat("library");
+    const r = await cmdP("music/search", Object.assign({ search_query: term, media_types: TYPES[S.filter], limit: S.filter === "all" ? 10 : 40 }, pv), 25000);
     if (seq !== S.sSeq) return;
     S.sRes = r || {}; renderResults();
   } catch (e) {
@@ -1255,6 +1257,9 @@ function loadPods(force) {
   if (!force && sig === S.home.podsSig && Date.now() - (S.home.podsAt || 0) < 30 * 60e3) return;
   S.home.podsSig = sig; S.home.podsAt = Date.now();
   if (!pods.length) { S.home.pods = []; return; }
+  // Folgenlisten belasten Spotify (Drosselung!) → 2 Stunden auf dem Gerät merken, auch über einen App-Neustart
+  const pk = "jb_pods_" + favUid();
+  if (!force) try { const c = JSON.parse(localStorage.getItem(pk) || "null"); if (c && c.sig === sig && Date.now() - c.t < 2 * 3600e3) { S.home.pods = c.l; loadPodRec(pods); return; } } catch (e) {}
   const week = Date.now() - 7 * 864e5;
   Promise.all(pods.map(p => cmd("music/podcasts/podcast_episodes",
     { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider || "library" }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])))
@@ -1265,6 +1270,7 @@ function loadPods(force) {
       // keine Folge aus den letzten 7 Tagen: dann die neueste Folge je Podcast
       const seen = new Set();
       S.home.pods = (fresh.length ? fresh : all.filter(x => { const k = (x.podcast && x.podcast.name) || ""; return !seen.has(k) && seen.add(k); })).slice(0, 20);
+      if (S.home.pods.length) try { localStorage.setItem(pk, JSON.stringify({ sig, t: Date.now(), l: S.home.pods })); } catch (e) {}
       if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
     });
   loadPodRec(pods);

@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.105
+- Suche mit Profil: Bibliothek wird mit durchsucht (Treffer auch, wenn Spotify gerade gedrosselt ist)
+- Neue Podcast-Folgen 2 Stunden auf dem Gerät gemerkt (weniger Spotify-Anfragen)
+
 ## 0.1.104
 - Logo oben links bewegt sich, solange Musik läuft (drehender Farbschein, leichtes Pochen)
 
