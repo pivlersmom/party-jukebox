@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.104
+- Logo oben links bewegt sich, solange Musik läuft (drehender Farbschein, leichtes Pochen)
+
 ## 0.1.103
 - Startseite: Favoriten als waagerechte Reihe wie die anderen Bereiche
 - Überschriften der Bereiche größer und mit Farbbalken hervorgehoben

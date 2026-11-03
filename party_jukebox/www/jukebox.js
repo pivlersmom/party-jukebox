@@ -489,6 +489,7 @@ function renderMini() {
   setText($("#miniT"), n.title); setText($("#miniA"), n.artist);
   if (n.small !== miniUrl) { miniUrl = n.small; const im = $("#miniImg"); if (n.small) im.src = n.small; else im.removeAttribute("src"); }
   $("#miniPp").classList.toggle("playing", isPlaying());
+  { const lg = document.querySelector(".brand .logo"); if (lg) lg.classList.toggle("live", isPlaying()); }
 }
 function tick() {
   if (document.hidden) return;
