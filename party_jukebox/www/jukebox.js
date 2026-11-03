@@ -1404,7 +1404,7 @@ function paintFav() {
         imgs.map(u => '<img loading="lazy" alt="" src="' + esc(u) + '">').join("") + '</span><span class="fl">' + label +
         '</span><span class="fn">' + arr.length + "</span></button>";
     });
-    sec.fav = tiles ? '<div class="sec"><div class="sech"><span>Favoriten</span></div><div class="favgrid">' + tiles + "</div></div>" : "";
+    sec.fav = tiles ? '<div class="sec"><div class="sech"><span>Favoriten</span></div><div class="hs favrow">' + tiles + "</div></div>" : "";
     sec.rec = (H.rec || []).map(r => hrow(r.name, r.items)).join("");
     sec.pl = hrow("Meine Playlists", H.pl);
     const { order, hidden } = homeOrder();

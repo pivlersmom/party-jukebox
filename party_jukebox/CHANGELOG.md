@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.103
+- Startseite: Favoriten als waagerechte Reihe wie die anderen Bereiche
+- Überschriften der Bereiche größer und mit Farbbalken hervorgehoben
+
 ## 0.1.102
 - Einstellungen → Handy als Lautsprecher: Format und Verbindungsweg (direkt / WebRTC / Nabu Casa) gut lesbar; „Name des Players“ statt veraltetem „Einrichten / anmelden“
 
