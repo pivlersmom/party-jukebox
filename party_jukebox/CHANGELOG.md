@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.102
+- Einstellungen → Handy als Lautsprecher: Format und Verbindungsweg (direkt / WebRTC / Nabu Casa) gut lesbar; „Name des Players“ statt veraltetem „Einrichten / anmelden“
+
 ## 0.1.101
 - Mini-Player: Cover auch unterwegs (Bild-Adresse des Players wird über das Add-on geladen); bei Podcasts/Hörbüchern steht der Name darunter
 

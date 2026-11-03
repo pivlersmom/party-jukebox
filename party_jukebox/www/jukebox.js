@@ -867,9 +867,9 @@ function renderSettings() {
     let ps = {}; try { ps = JSON.parse(AMS.phonePlayerState()); } catch (e) {}
     html += '<div class="shh gsh">Handy als Lautsprecher</div>' +
       '<button class="row srow php' + (ps.on ? " on" : "") + '"><span class="rm"><span class="r1">Dieses Handy als Player</span><span class="r2">' +
-      (ps.on ? (ps.pid ? "aktiv – in Android Auto unter Lautsprecher" + (ps.fmt ? " · Übertragung " + esc(ps.fmt) : "") : "startet … (einmal einrichten, falls nötig)") : "für Musik im Auto (Android Auto)") +
+      (ps.on ? (ps.pid ? (ps.fmt ? "aktiv · " + esc(ps.fmt) : "aktiv – in Android Auto unter Lautsprecher") : "startet …") : "für Musik im Auto (Android Auto)") +
       '</span></span><span class="gsw"><i></i></span></button>' +
-      '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Einrichten / anmelden</span><span class="r2">einmalig bei Music Assistant anmelden</span></span><span class="lic">›</span></button>';
+      '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Name des Players</span><span class="r2">so heißt das Handy in Music Assistant</span></span><span class="lic">›</span></button>';
   }
   html += '<div class="shh gsh">Startseite' + (prof() ? " von " + esc(profName(prof())) : "") + '</div><div id="hoBox"></div>';
   html += '<div class="shh gsh">Push bei neuen Podcast-Folgen' + (prof() ? " · " + esc(profName(prof())) : "") + '</div><div id="ppBox"><div class="rshint">lädt …</div></div>';
