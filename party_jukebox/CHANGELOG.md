@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.92
+- Startseite: „Neue Podcast-Folgen“ zeigt ohne Folge der letzten 7 Tage die neueste Folge je Podcast
+- Neue Reihe „Podcasts für dich“ (ähnlich wie die eigenen Lieblings-Podcasts), in der Reihenfolge einstellbar
+- Android-App: Reihenfolge der Startseite gilt auch für den Start-Reiter in Android Auto
+
 ## 0.1.91
 - Titel in Playlist/Album/Podcast antippen → „Playlist ab hier“: die ganze Liste startet bei diesem Titel
 - Suchfeld in langen Listen (ab 40 Einträgen), z. B. „Folge 12“ in einer Playlist mit allen Folgen

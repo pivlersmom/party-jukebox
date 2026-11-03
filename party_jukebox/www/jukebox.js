@@ -1250,9 +1250,29 @@ function loadPods(force) {
   Promise.all(pods.map(p => cmd("music/podcasts/podcast_episodes",
     { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider || "library" }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])))
     .then(lists => {
-      S.home.pods = [].concat(...lists).filter(x => x && x.uri && (dateOf(x) || 0) >= week).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0)).slice(0, 20);
+      const all = [].concat(...lists).filter(x => x && x.uri).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0));
+      const fresh = all.filter(x => (dateOf(x) || 0) >= week);
+      // keine Folge aus den letzten 7 Tagen: dann die neueste Folge je Podcast
+      const seen = new Set();
+      S.home.pods = (fresh.length ? fresh : all.filter(x => { const k = (x.podcast && x.podcast.name) || ""; return !seen.has(k) && seen.add(k); })).slice(0, 20);
       if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
     });
+  loadPodRec(pods);
+}
+/* Podcast-Empfehlungen: Podcasts derselben Macher/ähnlicher Namen wie die eigenen Lieblinge (ohne die, die man schon hat) */
+function loadPodRec(pods) {
+  if (!pods.length) { S.home.podrec = []; return; }
+  const have = new Set(pods.map(p => unent(p.name).toLowerCase()));
+  const terms = [...new Set(pods.slice(0, 4).map(p => unent(p.publisher || p.name)).filter(Boolean))];
+  const pv = profProv("providers");
+  Promise.all(terms.map(t => cmdP("music/search", Object.assign({ search_query: t, media_types: ["podcast"], limit: 10 }, pv), 25000)
+    .then(r => (r && r.podcasts) || []).catch(() => []))).then(lists => {
+    const seen = new Set();
+    S.home.podrec = [].concat(...lists).filter(x => {
+      const k = unent(x && x.name).toLowerCase(); if (!x || !x.uri || !k || have.has(k) || seen.has(k)) return false; seen.add(k); return true;
+    }).slice(0, 20);
+    if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
+  });
 }
 /* Zuletzt gespielt: nur was DIESE Person gestartet hat (Playlist/Album statt jedes einzelnen Titels) */
 function loadRecent() {
@@ -1270,14 +1290,14 @@ setInterval(() => { if (S.favMode && !S.favCat && !(S.nav && S.nav.length) && !d
  * Reihenfolge der Startseite pro Person (Einstellungen → Startseite): ▲▼ verschieben, Schalter = ein/aus.
  * Ohne eigene Wahl: Podcast-Folgen oben, wenn jemand mind. 3 Lieblings-Podcasts hat.
  */
-const HOME_SECS = [["recent", "Zuletzt gespielt"], ["fav", "Favoriten"], ["rec", "Empfehlungen"], ["pl", "Meine Playlists"], ["pods", "Neue Podcast-Folgen"]];
+const HOME_SECS = [["recent", "Zuletzt gespielt"], ["fav", "Favoriten"], ["rec", "Empfehlungen"], ["pl", "Meine Playlists"], ["pods", "Neue Podcast-Folgen"], ["podrec", "Podcasts für dich"]];
 function homeOrder() {
   const pr = (S.myFav && S.myFav.prefs) || {}, ids = HOME_SECS.map(x => x[0]);
   let order = Array.isArray(pr.order) ? pr.order.filter(x => ids.includes(x)) : null;
   if (!order) {
     order = ids.slice();
     const podTop = pr.podtop != null ? !!pr.podtop : ((S.favData || {}).podcast || []).length >= 3;
-    if (podTop) order = ["pods"].concat(order.filter(x => x !== "pods"));
+    if (podTop) order = ["pods", "podrec"].concat(order.filter(x => x !== "pods" && x !== "podrec"));
   }
   ids.forEach(x => { if (!order.includes(x)) order.push(x); });
   return { order, hidden: Array.isArray(pr.hidden) ? pr.hidden : [] };
@@ -1326,6 +1346,7 @@ function paintFav() {
     const sec = {};
     sec.pods = hrow("Neue Podcast-Folgen", H.pods, { sub: it => [it.podcast && it.podcast.name, subOf(it)].filter(Boolean).join(" · ") });
     sec.recent = hrow("Zuletzt gespielt", H.recent);
+    sec.podrec = hrow("Podcasts für dich", H.podrec);
     let n = 0, tiles = "";
     FAVCATS.forEach(([t, label]) => {
       const arr = (S.favData || {})[t] || []; if (!arr.length) return; n += arr.length;
@@ -1936,7 +1957,7 @@ function setConn(c, wait) {
 /* ---------- Start ---------- */
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
 window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet,
-  selectPlayer, profUser, profProv };
+  selectPlayer, profUser, profProv, favUid: () => favUid() };
 renderAll();
 try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();

@@ -438,7 +438,8 @@ let aaKey = "";
 function syncAa() {
   if (typeof A.setAaContext !== "function" || !S.pid) return;
   const u = JB.profUser ? JB.profUser() : {}, pv = JB.profProv ? JB.profProv("p") : {};
-  const ctx = { pid: S.pid, user: u.user || "", providers: pv.p || [] }, k = JSON.stringify(ctx);
+  // uid: MA-Benutzer der gewählten Person – die App holt damit die Startseiten-Reihenfolge fürs Auto
+  const ctx = { pid: S.pid, user: u.user || "", providers: pv.p || [], uid: JB.favUid ? JB.favUid() : "" }, k = JSON.stringify(ctx);
   if (k !== aaKey) { aaKey = k; call("setAaContext", k); }
 }
 
