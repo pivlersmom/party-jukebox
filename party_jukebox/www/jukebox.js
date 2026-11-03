@@ -1250,7 +1250,8 @@ function loadPods(force) {
   Promise.all(pods.map(p => cmd("music/podcasts/podcast_episodes",
     { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider || "library" }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])))
     .then(lists => {
-      const all = [].concat(...lists).filter(x => x && x.uri).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0));
+      // schon gehörte Folgen gehören nicht zu „neu“
+      const all = [].concat(...lists).filter(x => x && x.uri && !x.fully_played).sort((x, y) => (dateOf(y) || 0) - (dateOf(x) || 0));
       const fresh = all.filter(x => (dateOf(x) || 0) >= week);
       // keine Folge aus den letzten 7 Tagen: dann die neueste Folge je Podcast
       const seen = new Set();

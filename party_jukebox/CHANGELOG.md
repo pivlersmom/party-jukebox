@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.93
+- „Neue Podcast-Folgen“: schon gehörte Folgen werden ausgeblendet
+
 ## 0.1.92
 - Startseite: „Neue Podcast-Folgen“ zeigt ohne Folge der letzten 7 Tage die neueste Folge je Podcast
 - Neue Reihe „Podcasts für dich“ (ähnlich wie die eigenen Lieblings-Podcasts), in der Reihenfolge einstellbar
