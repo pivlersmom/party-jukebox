@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.100
+- Sendspin-Weiterleitung (/sendspin): Handy-Player der Android-App funktioniert auch unterwegs über Nabu Casa, ohne VPN
+
 ## 0.1.99
 - Podcast-Push: Equalizer-Symbol in Logo-Farbe (Pink)
 

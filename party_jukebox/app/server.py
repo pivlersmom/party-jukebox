@@ -1531,6 +1531,26 @@ async def pump(src, dst, transform=None):
             break
 
 
+async def sendspin_proxy(request):
+    """Sendspin-Weiterleitung für den Handy-Player unterwegs: Die Android-App erreicht MA (Port 8927) von außen nicht,
+    das Add-on aber schon – über Home Assistant (Nabu Casa / Ingress) läuft die Verbindung dann durch das Add-on.
+    Nur für den Gastgeber (Ingress zählt als Gastgeber)."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    client = web.WebSocketResponse(heartbeat=30, max_msg_size=0)
+    await client.prepare(request)
+    host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+    try:
+        async with request.app["session"].ws_connect(f"ws://{host}:8927/sendspin", max_msg_size=0, heartbeat=30) as up:
+            log.info("Sendspin-Weiterleitung geöffnet")
+            await asyncio.wait([asyncio.create_task(pump(client, up)), asyncio.create_task(pump(up, client))],
+                               return_when=asyncio.FIRST_COMPLETED)
+    except Exception as e:
+        log.info("Sendspin-Weiterleitung beendet: %s", e)
+    await client.close()
+    return client
+
+
 # Kein HA-API-Proxy für den Browser: Gäste im Heimnetz dürfen Home Assistant nicht steuern.
 # HA wird nur serverseitig genutzt (Skripte für Lichteffekte, Benachrichtigungen).
 
@@ -1668,6 +1688,7 @@ def make_app():
     app.router.add_post("/party/host/login", host_login)
     app.router.add_post("/party/host/pin", host_pin_post)
     app.router.add_get("/ma/ws", ma_websocket)
+    app.router.add_get("/sendspin", sendspin_proxy)
     app.router.add_get("/ma/{path:.*}", ma_http)
     app.router.add_static("/", WWW, show_index=False)
     app.on_startup.append(on_startup)
