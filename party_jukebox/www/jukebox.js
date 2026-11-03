@@ -102,8 +102,9 @@ function cmd(command, args, timeout) {
   return new Promise((res, rej) => {
     if (!S.ready || !S.ws) return rej(new Error("Nicht verbunden"));
     const id = String(S.id++);
-    const t = setTimeout(() => { if (S.pend[id]) { delete S.pend[id]; rej(new Error("Zeitüberschreitung")); } }, timeout || 15000);
-    S.pend[id] = { res, rej, t, acc: null };
+    const ms = timeout || 15000, out = () => { if (S.pend[id]) { delete S.pend[id]; rej(new Error("Zeitüberschreitung")); } };
+    const t = setTimeout(out, ms);
+    S.pend[id] = { res, rej, t, acc: null, ms, out };
     try { S.ws.send(JSON.stringify({ message_id: id, command, args: args || {} })); }
     catch (e) { clearTimeout(t); delete S.pend[id]; rej(e); }
   });
@@ -142,7 +143,11 @@ function connect() {
     if (m.message_id != null && S.pend[m.message_id]) {
       const p = S.pend[m.message_id];
       if (m.error_code) { clearTimeout(p.t); delete S.pend[m.message_id]; p.rej(new Error(m.details || ("Fehler " + m.error_code))); return; }
-      if (m.partial) { p.acc = (p.acc || []).concat(m.result || []); return; }
+      if (m.partial) {   // Teil-Antwort (z. B. große Playlist): sammeln und die Wartezeit neu starten
+        p.acc = (p.acc || []).concat(m.result || []);
+        if (p.out) { clearTimeout(p.t); p.t = setTimeout(p.out, p.ms); }
+        return;
+      }
       clearTimeout(p.t); delete S.pend[m.message_id];
       p.res(p.acc ? p.acc.concat(m.result || []) : m.result);
       return;
@@ -1391,6 +1396,31 @@ async function toggleFav(it) {
   delete favLocal[it.uri];
   if (S.nav && S.nav.length) renderNav(); else renderResults();
 }
+/* Weitere Titel einer großen Playlist: Knopf oder automatisch kurz vor dem Ende */
+function navMore() {
+  const n = S.nav && S.nav[S.nav.length - 1]; if (!n || !n.data || !n.data.tracks) return;
+  const total = n.data.tracks.length, cur = n.shown || 200; if (cur >= total) return;
+  const v = $("#v-search"), top = v.scrollTop;
+  n.shown = cur + 200; renderNav(); v.scrollTop = top;
+}
+$("#sRes").addEventListener("click", e => { if (e.target.closest(".navmore")) { e.stopImmediatePropagation(); navMore(); } }, true);
+$("#v-search").addEventListener("scroll", () => {
+  const v = $("#v-search");
+  if (S.nav && S.nav.length && v.scrollTop + v.clientHeight > v.scrollHeight - 600) later(navMore, 120, "navmore");
+}, { passive: true });
+/* Schwebender Zurück-Knopf (Playlist/Album/Künstler/Podcast geöffnet, Favoriten-Liste): bleibt beim Scrollen stehen */
+(function () {
+  const b = document.createElement("button"); b.id = "navBack"; b.className = "fback"; b.setAttribute("aria-label", "Zurück");
+  b.innerHTML = ICON.back; b.hidden = true; document.querySelector("main").appendChild(b);
+  b.onclick = () => history.back();
+})();
+function syncNavBack() {
+  const b = $("#navBack"); if (!b) return;
+  const on = !S.playerOpen && (S.tab === "search" || S.tab === "home") && ((S.nav && S.nav.length) || (S.favMode && S.favCat));
+  b.hidden = !on;
+  if (on) { const sb = document.querySelector("#v-search>.sbox"); b.style.top = ((sb && sb.offsetParent ? sb.offsetHeight : 0) + 8) + "px"; }
+}
+setInterval(syncNavBack, 400);
 /* Lange drücken auf ein Cover in der Liste oder auf das große Cover */
 (function () {
   const box = $("#sRes"); let t = null, x0 = 0, y0 = 0, fired = false;
@@ -1557,7 +1587,8 @@ function renderNav() {
   if (!d) html += '<div class="spin"></div>';
   else if (d.err) html += '<div class="empty">Nicht ladbar: ' + esc(d.err) + "</div>";
   else {
-    const tr = (d.tracks || []).filter(x => x && x.uri), max = art && !n.all ? 10 : 300;
+    // große Playlists: erst 200 Titel, beim Runterscrollen je 200 weitere
+    const tr = (d.tracks || []).filter(x => x && x.uri), max = art && !n.all ? 10 : (n.shown || 200);
     if (tr.length) {
       html += '<div class="sec"><div class="sech"><span>' + (art ? "Titel" : tr.length + (it.media_type === "podcast" ? " Folgen" : " Titel")) + "</span>" +
         (art && tr.length > 10 ? '<button class="bmore">' + (n.all ? "Weniger" : "Alle " + tr.length) + "</button>" : "") + "</div>";
@@ -1567,6 +1598,7 @@ function renderNav() {
           '<span class="rm"><span class="r1">' + esc(t.name) + '</span><span class="r2">' + esc(it.media_type === "album" ? (artistsOf(t) || fmt(t.duration)) : subOf(t)) +
           '</span></span><span class="go">' + ICON.dots + "</span></button>";
       });
+      if (!art && tr.length > max) html += '<button class="more navmore">Weitere laden (' + max + " von " + tr.length + ")</button>";
       html += "</div>";
     }
     const al = (d.albums || []).filter(x => x && x.uri);

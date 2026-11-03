@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.89
+- Schwebender Zurück-Knopf (bleibt beim Scrollen stehen) in Playlist, Album, Künstler, Podcast und Favoriten-Listen
+- Große Playlists: alle Titel, je 200 beim Runterscrollen nachgeladen (vorher max. 300); lange Ladezeiten brechen nicht mehr ab
+
 ## 0.1.88
 - Einstellungen in Reitern: Persönlich · Party · TV & Räume · Info (letzter Reiter bleibt gewählt)
 

@@ -551,3 +551,10 @@ body[data-tab="home"] #v-search{padding-top:6px}
 .stb[hidden]{display:none}
 .stb>.shh.gsh:first-child{margin-top:6px}
 .sh-card:has(.stabs){height:82vh}
+/* schwebender Zurück-Knopf über der Liste */
+.fback{position:absolute;left:16px;z-index:5;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+  background:rgba(28,33,51,.92);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.fback svg{width:24px;height:24px;color:var(--tx)}
+.fback[hidden]{display:none}
+.bhead .bback,.favhead .bback{visibility:hidden}
+.navmore{display:block;margin:10px auto 4px;padding:10px 16px}
