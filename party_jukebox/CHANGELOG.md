@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.108
+- Podcast-Push mit Bluetooth-Sensor als Auslöser: nur noch verbundene Geräte zählen (gekoppelte, aber ausgeschaltete Autos lösten fälschlich aus)
+
 ## 0.1.107
 - Handy-Player-Status bricht um (zeigt auch die Aussetzer-Zähler der App)
 

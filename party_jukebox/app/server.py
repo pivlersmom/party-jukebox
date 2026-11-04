@@ -202,7 +202,10 @@ def _pod_active(st, match):
         return False
     state = str(st.get("state") or "")
     if match:
-        hay = (state + " " + json.dumps(st.get("attributes") or {}, ensure_ascii=False)).lower()
+        # Bluetooth-Sensor der HA-App: "paired_devices" listet ALLE gekoppelten Geräte (auch das Auto, wenn es aus ist)
+        # → nur verbundene zählen, sonst wäre der Auslöser dauerhaft aktiv
+        attrs = {k: v for k, v in (st.get("attributes") or {}).items() if k != "paired_devices"}
+        hay = (state + " " + json.dumps(attrs, ensure_ascii=False)).lower()
         return any(m.strip().lower() in hay for m in match.split("|") if m.strip())
     return state == "on"
 
