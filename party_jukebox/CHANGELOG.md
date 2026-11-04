@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.109
+- Jukebox auf dem Echo Show (Silk-Browser): erster Tipp schaltet Vollbild ein
+
 ## 0.1.108
 - Podcast-Push mit Bluetooth-Sensor als Auslöser: nur noch verbundene Geräte zählen (gekoppelte, aber ausgeschaltete Autos lösten fälschlich aus)
 

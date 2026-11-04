@@ -463,3 +463,20 @@ function sync() {
 setInterval(sync, 1000);
 setTimeout(sync, 1500);
 })();
+
+/* ---------- Echo Show (Silk-Browser): Vollbild erzwingen ----------
+   Browser erlauben Vollbild nur nach einer Berührung. Darum: erster Tipp irgendwo → Vollbild
+   (der Tipp wirkt trotzdem ganz normal). Verlässt man das Vollbild, schaltet der nächste Tipp wieder ein.
+   Nur auf Amazon-Geräten (Silk), Handy und PC bleiben wie sie sind. */
+(function () {
+  if (!/Silk/i.test(navigator.userAgent || "") || window.top !== window) return;
+  var d = document, el = d.documentElement;
+  var req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) return;
+  var isFs = function () { return !!(d.fullscreenElement || d.webkitFullscreenElement); };
+  function go() {
+    if (isFs()) return;
+    try { var r = req.call(el); if (r && r.catch) r.catch(function () {}); } catch (e) {}
+  }
+  ["touchend", "click", "keydown"].forEach(function (n) { d.addEventListener(n, go, true); });
+})();
