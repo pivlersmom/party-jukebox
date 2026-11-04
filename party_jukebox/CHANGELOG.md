@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.107
+- Handy-Player-Status bricht um (zeigt auch die Aussetzer-Zähler der App)
+
 ## 0.1.106
 - Einstellungen: neuer Reiter „Klang“ für den gewählten Lautsprecher – Klangregelung an/aus, Bass, Mitten, Höhen, Balance, Voreinstellungen aus Music Assistant
 

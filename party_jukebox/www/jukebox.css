@@ -592,3 +592,6 @@ body[data-tab="home"] #v-search{padding-top:6px}
 .dsl b{text-align:right;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
 .dsl input[type=range]{width:100%;accent-color:var(--a1);height:28px}
 .dpre{display:flex;flex-wrap:wrap;gap:8px;margin:6px 4px 4px}
+
+/* Handy-Player-Status darf umbrechen (Format, Weg, Aussetzer) */
+.srow.php .r2{white-space:normal}
