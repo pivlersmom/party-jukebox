@@ -585,3 +585,10 @@ body[data-tab="home"] #v-search{padding-top:6px}
   border:1px solid var(--line);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 #fastScroll .fs-bub[hidden]{display:none}
 .navq{margin:2px 2px 8px;width:calc(100% - 4px)}
+
+/* Klang-Regler */
+.dsl{display:grid;grid-template-columns:70px 1fr 64px;align-items:center;gap:10px;padding:10px 6px}
+.dsl .r1{font-weight:700}
+.dsl b{text-align:right;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
+.dsl input[type=range]{width:100%;accent-color:var(--a1);height:28px}
+.dpre{display:flex;flex-wrap:wrap;gap:8px;margin:6px 4px 4px}

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.106
+- Einstellungen: neuer Reiter „Klang“ für den gewählten Lautsprecher – Klangregelung an/aus, Bass, Mitten, Höhen, Balance, Voreinstellungen aus Music Assistant
+
 ## 0.1.105
 - Suche mit Profil: Bibliothek wird mit durchsucht (Treffer auch, wenn Spotify gerade gedrosselt ist)
 - Neue Podcast-Folgen 2 Stunden auf dem Gerät gemerkt (weniger Spotify-Anfragen)

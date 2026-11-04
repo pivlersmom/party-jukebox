@@ -787,8 +787,9 @@ function numRow(key, title, val, unit, dis) {
  * Einstellungen in Reitern: Persönlich · Party · TV & Räume · Info.
  * Die Abschnitte werden anhand ihrer Überschrift einem Reiter zugeordnet; der zuletzt gewählte Reiter bleibt.
  */
-const SET_TABS = [["me", "Persönlich"], ["party", "Party"], ["tv", "TV & Räume"], ["info", "Info"]];
+const SET_TABS = [["me", "Persönlich"], ["klang", "Klang"], ["party", "Party"], ["tv", "TV & Räume"], ["info", "Info"]];
 function setTabOf(head) {
+  if (/^Klang/.test(head)) return "klang";
   if (/^(TV-Anzeige|Räume)/.test(head)) return "tv";
   if (/^(Profile|Handy|Startseite|Schalter|Push)/.test(head)) return "me";
   if (/^Projekt/.test(head)) return "info";
@@ -881,6 +882,7 @@ function renderSettings() {
     '<div class="rshint">' + (d.host_pin ? "🔒 Aktiv: Jukebox und Einstellungen nur nach PIN. Gäste-Seite → Logo lange drücken → PIN. "
       : "Ohne PIN kann jeder im WLAN die Jukebox öffnen. ") + "Gäste-Seite und TV-Anzeige bleiben frei.</div>" +
     (d.host_pin ? '<button class="act rsb2" id="pinDel">PIN entfernen</button>' : "");
+  html += '<div class="shh gsh">Klang · ' + esc(pname(S.players[S.pid]) || "Lautsprecher") + '</div><div id="dspBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Gäste</div>';
   html += '<a class="row lrow" href="party.html"><span class="rm"><span class="r1">Gäste-Seite öffnen</span>' +
     '<span class="r2">zurück über das Jukebox-Logo oben rechts</span></span><span class="lic">›</span></a>';
@@ -907,7 +909,7 @@ function renderSettings() {
   html = settingsTabs(html);
   openSheet("settings", html, c => {
     bindSettingsTabs(c);
-    loadQs(c); paintHomeOrder(c); loadPodPush(c);
+    loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
       const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);
@@ -919,7 +921,7 @@ function renderSettings() {
       try { window.AndroidMediaSession.setPhonePlayer(on); } catch (e) {} toast(on ? "Handy-Player startet" : "Handy-Player aus"); };
     const phs = c.querySelector("#phpSetup");
     if (phs) phs.onclick = () => { try { window.AndroidMediaSession.openPhonePlayerSetup(); } catch (e) {} };
-    c.querySelectorAll(".srow:not(.pfr):not(.php)").forEach(b => b.onclick = () => {
+    c.querySelectorAll(".srow:not(.pfr):not(.php):not(.dspon)").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
       if (k === "effects" || k === "skip_votes") setSave({ [k]: on });
@@ -1348,6 +1350,62 @@ async function paintHomeOrder(c) {
  * Sobald Android Auto / CarPlay aktiv wird, prüft das Add-on einmal die ♥-Podcasts dieser Person
  * und schickt bei einer neuen, ungehörten Folge eine Benachrichtigung (Cover + „Jetzt abspielen“).
  */
+/*
+ * Klang (DSP von Music Assistant) für den gerade gewählten Lautsprecher:
+ * Bass / Mitten / Höhen und Balance. Andere Filter, die in MA eingestellt sind (z. B. Equalizer), bleiben erhalten.
+ */
+async function loadDsp(c) {
+  const box = c.querySelector("#dspBox"); if (!box) return;
+  const pid = S.pid;
+  if (!pid) { box.innerHTML = '<div class="rshint">Erst oben einen Lautsprecher wählen</div>'; return; }
+  let cfg, presets = [];
+  try {
+    [cfg, presets] = await Promise.all([cmd("config/players/dsp/get", { player_id: pid }), cmd("config/dsp_presets/get").catch(() => [])]);
+  } catch (e) { box.innerHTML = '<div class="rshint">Klang nicht verfügbar: ' + esc(errText(e)) + "</div>"; return; }
+  cfg = Object.assign({ enabled: false, input_gain: 0, output_gain: 0, filters: [] }, cfg || {});
+  cfg.filters = cfg.filters || [];
+  const flt = (type, def) => { let f = cfg.filters.find(x => x.type === type); if (!f && def) { f = Object.assign({ type, enabled: true }, def); cfg.filters.push(f); } return f; };
+  const tone = flt("tone_control") || {}, bal = flt("balance") || {};
+  const other = cfg.filters.filter(x => x.type !== "tone_control" && x.type !== "balance").length;
+  const sl = (k, label, v, min, max, step, unit) =>
+    '<div class="dsl"><span class="r1">' + label + '</span><input type="range" data-k="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + (+v || 0) + '">' +
+    '<b data-v="' + k + '"></b></div>';
+  box.innerHTML =
+    '<button class="row srow dspon' + (cfg.enabled ? " on" : "") + '"><span class="rm"><span class="r1">Klangregelung</span><span class="r2">' +
+      (cfg.enabled ? "an" : "aus – Lautsprecher spielt unverändert") + '</span></span><span class="gsw"><i></i></span></button>' +
+    (presets && presets.length ? '<div class="dpre">' + presets.map(pr => '<button class="chip' + (cfg.preset_id === pr.preset_id ? " on" : "") + '" data-p="' + esc(pr.preset_id) + '">' + esc(pr.name) + "</button>").join("") + "</div>" : "") +
+    sl("bass_level", "Bass", tone.bass_level, -12, 12, 1) + sl("mid_level", "Mitten", tone.mid_level, -12, 12, 1) +
+    sl("treble_level", "Höhen", tone.treble_level, -12, 12, 1) + sl("balance", "Balance", bal.balance, -100, 100, 5) +
+    '<button class="act rsb2" id="dspReset">Zurücksetzen</button>' +
+    '<div class="rshint">Gilt für diesen Lautsprecher in Music Assistant' + (other ? " · " + other + " weitere Filter aus MA bleiben erhalten" : "") + ".</div>";
+  const label = (k, v) => k === "balance" ? (v == 0 ? "Mitte" : (v < 0 ? "L " + -v : "R " + v)) : (v > 0 ? "+" : "") + v + " dB";
+  const paint = () => box.querySelectorAll("input[type=range]").forEach(i => { box.querySelector('[data-v="' + i.dataset.k + '"]').textContent = label(i.dataset.k, +i.value); });
+  paint();
+  let t = 0;
+  const save = () => { clearTimeout(t); t = setTimeout(() => {
+    cmd("config/players/dsp/save", { player_id: pid, config: cfg }).then(n => { if (n) cfg.preset_id = n.preset_id; }).catch(e => toast("Klang nicht gespeichert: " + errText(e)));
+  }, 400); };
+  const on = box.querySelector(".dspon");
+  const setOn = v => { cfg.enabled = v; on.classList.toggle("on", v); on.querySelector(".r2").textContent = v ? "an" : "aus – Lautsprecher spielt unverändert"; };
+  on.onclick = () => { setOn(!cfg.enabled); save(); };
+  box.querySelectorAll("input[type=range]").forEach(i => i.oninput = () => {
+    const k = i.dataset.k, v = +i.value;
+    if (k === "balance") flt("balance", { balance: 0 }).balance = v;
+    else flt("tone_control", { bass_level: 0, mid_level: 0, treble_level: 0 })[k] = v;
+    if (!cfg.enabled) setOn(true);   // Regler bewegt → Klangregelung einschalten
+    box.querySelectorAll(".dpre .chip").forEach(b => b.classList.remove("on"));
+    paint(); save();
+  });
+  box.querySelector("#dspReset").onclick = () => {
+    cfg.filters = cfg.filters.filter(x => x.type !== "tone_control" && x.type !== "balance");
+    box.querySelectorAll("input[type=range]").forEach(i => { i.value = 0; });
+    paint(); save(); toast("Klang zurückgesetzt");
+  };
+  box.querySelectorAll(".dpre .chip").forEach(b => b.onclick = () => {
+    cmd("config/players/dsp/apply_preset", { player_id: pid, preset_id: b.dataset.p }).then(() => { toast("Voreinstellung " + b.textContent); loadDsp(c); })
+      .catch(e => toast("Nicht möglich: " + errText(e)));
+  });
+}
 async function loadPodPush(c) {
   const box = c.querySelector("#ppBox"); if (!box) return;
   let d = null;
