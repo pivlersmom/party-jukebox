@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.112
+- Einstellungen → Persönlich: neuer Bereich „Handy im Auto“ (wer bin ich, Podcast-Vorschlag, Adressen der App) für die Android-App
+
 ## 0.1.111
 - App-Updates: Die Android-App kann neue Versionen aus einem (auch privaten) GitHub-Repository über das Add-on laden (Optionen „App-Updates“)
 

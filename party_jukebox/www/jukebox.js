@@ -873,6 +873,9 @@ function renderSettings() {
       '</span></span><span class="gsw"><i></i></span></button>' +
       '<button class="row lrow" id="phpSetup"><span class="rm"><span class="r1">Name des Players</span><span class="r2">so heißt das Handy in Music Assistant</span></span><span class="lic">›</span></button>';
   }
+  if (AMS && typeof AMS.getCarPrefs === "function") {  // Auto-Einstellungen dieses Handys (nur Android-App)
+    html += '<div class="shh gsh">Handy im Auto</div><div id="carBox"><div class="rshint">lädt …</div></div>';
+  }
   html += '<div class="shh gsh">Startseite' + (prof() ? " von " + esc(profName(prof())) : "") + '</div><div id="hoBox"></div>';
   html += '<div class="shh gsh">Push bei neuen Podcast-Folgen' + (prof() ? " · " + esc(profName(prof())) : "") + '</div><div id="ppBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
@@ -912,7 +915,7 @@ function renderSettings() {
   html = settingsTabs(html);
   openSheet("settings", html, c => {
     bindSettingsTabs(c);
-    loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c);
+    loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c); loadCarPrefs(c);
     const upd = c.querySelector("#appUpd");
     if (upd) upd.onclick = () => { try { window.AndroidMediaSession.checkUpdate(); } catch (e) {} };
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
@@ -926,7 +929,7 @@ function renderSettings() {
       try { window.AndroidMediaSession.setPhonePlayer(on); } catch (e) {} toast(on ? "Handy-Player startet" : "Handy-Player aus"); };
     const phs = c.querySelector("#phpSetup");
     if (phs) phs.onclick = () => { try { window.AndroidMediaSession.openPhonePlayerSetup(); } catch (e) {} };
-    c.querySelectorAll(".srow:not(.pfr):not(.php):not(.dspon)").forEach(b => b.onclick = () => {
+    c.querySelectorAll(".srow:not(.pfr):not(.php):not(.dspon):not(.carPod)").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
       if (k === "effects" || k === "skip_votes") setSave({ [k]: on });
@@ -1411,6 +1414,27 @@ async function loadDsp(c) {
       .catch(e => toast("Nicht möglich: " + errText(e)));
   });
 }
+/* Handy im Auto: wer bin ich (für "Ist noch jemand zuhause?"), Podcast-Vorschlag, Adressen der App */
+async function loadCarPrefs(c) {
+  const box = c.querySelector("#carBox"), A = window.AndroidMediaSession; if (!box || !A) return;
+  let cp = {}; try { cp = JSON.parse(A.getCarPrefs()); } catch (e) {}
+  let persons = [];
+  try { const r = await fetch("party/presence", { cache: "no-store" }); if (r.ok) persons = (await r.json()).persons || []; } catch (e) {}
+  const opts = '<option value="">– nicht festgelegt –</option>' + persons.map(p =>
+    '<option value="' + esc(p.id) + '"' + (p.id === cp.me ? " selected" : "") + ">" + esc(p.name || p.id) + "</option>").join("");
+  box.innerHTML =
+    '<label class="fl">Ich bin <small>(beim Aussteigen läuft die Musik zuhause weiter, wenn noch jemand anderes da ist)</small></label>' +
+    '<select class="fi" id="carMe">' + opts + "</select>" +
+    '<button class="row srow carPod' + (cp.podSuggest ? " on" : "") + '" style="margin-top:8px"><span class="rm"><span class="r1">Neue Podcast-Folge vorschlagen</span>' +
+    '<span class="r2">im Auto, wenn gerade nichts läuft</span></span><span class="gsw"><i></i></span></button>' +
+    '<button class="row lrow" id="carSetup"><span class="rm"><span class="r1">Adressen der App</span><span class="r2">zuhause / unterwegs / Token</span></span><span class="lic">›</span></button>';
+  const save = o => { try { A.setCarPrefs(JSON.stringify(o)); toast("Gespeichert"); } catch (e) {} };
+  box.querySelector("#carMe").onchange = e => save({ me: e.target.value });
+  const pod = box.querySelector(".carPod");
+  pod.onclick = () => { const on = !pod.classList.contains("on"); pod.classList.toggle("on", on); save({ podSuggest: on }); };
+  box.querySelector("#carSetup").onclick = () => { try { A.openSetup(); } catch (e) {} };
+}
+
 async function loadPodPush(c) {
   const box = c.querySelector("#ppBox"); if (!box) return;
   let d = null;
