@@ -26,6 +26,7 @@ def updatePrefix = (findProperty('updatePrefix') ?: 'PartyJukeboxPlayer-').toStr
 // Signierschlüssel: eigene Variante (JUKEBOX_KEYSTORE), öffentliche Version (PJ_KEYSTORE), sonst Debug-Schlüssel
 def ownKs = System.getenv('JUKEBOX_KEYSTORE')
 def pjKs = System.getenv('PJ_KEYSTORE')
+def useReleaseKey = ownKs || (pjKs && new File(pjKs).exists())
 
 android {
     namespace 'de.partyjukebox.player'
@@ -67,7 +68,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig (ownKs || (pjKs && new File(pjKs).exists())) ? signingConfigs.release : signingConfigs.debug
+            signingConfig useReleaseKey ? signingConfigs.release : signingConfigs.debug
         }
     }
 
