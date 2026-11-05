@@ -40,6 +40,7 @@ class JukeboxService : MediaLibraryService() {
         super.onCreate()
         CrashLog.install(this)
         Library.app = applicationContext
+        AppLog.add("Medien-Dienst gestartet")
         // Jukebox-Logo statt Play-Zeichen (Benachrichtigung, Android-Auto-Karte)
         setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat_jukebox) })
         val player = MaPlayer(this)

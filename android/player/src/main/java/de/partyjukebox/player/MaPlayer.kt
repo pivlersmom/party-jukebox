@@ -431,7 +431,9 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
                 entries = listOf(Entry("tv", "TV-Ton", speakerName.ifEmpty { "Fernseher" }, "", "", 0, true))
                 invalidateState(); return@send
             }
+            val was = playing
             playing = qu.optString("state") == "playing"
+            if (was != playing) AppLog.add("Medienkarte: " + q + (if (playing) " spielt" else " pausiert/aus") + (if (carMode) " (Auto)" else ""))
             positionMs = (qu.optDouble("elapsed_time", 0.0) * 1000).toLong()
             val cur = qu.optJSONObject("current_item")?.let { toEntry(it) }
             if (carMode) {

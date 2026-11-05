@@ -34,6 +34,8 @@ final class CrashLog {
                 String when = new SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMANY).format(new Date());
                 app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                         .putString(KEY, when + " [" + t.getName() + "] " + st).commit();
+                    // auch ins Fern-Log (wird beim nächsten Start mitgeschickt)
+                    try { AppLog.INSTANCE.add("⚠ Absturz [" + t.getName() + "] " + st.substring(0, Math.min(600, st.length())).replace('\n', ' ')); } catch (Throwable ignored) { }
             } catch (Throwable ignored) { }
             if (prev != null) prev.uncaughtException(t, e);
         });
