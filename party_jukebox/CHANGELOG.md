@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.110
+- Fern-Log der Jukebox-App: Ereignisse des Handy-Players erscheinen im Add-on-Protokoll (Fehlersuche)
+
 ## 0.1.109
 - Jukebox auf dem Echo Show (Silk-Browser): erster Tipp schaltet Vollbild ein
 

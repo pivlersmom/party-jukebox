@@ -333,6 +333,20 @@ async def ha_events_loop(app):
         await asyncio.sleep(15)
 
 
+async def party_applog_post(request):
+    """Fern-Log der Jukebox-App (Handy-Player): Zeilen ins Add-on-Protokoll schreiben (Fehlersuche unterwegs)."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        d = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    dev = str(d.get("dev") or "?")[:60]
+    for line in (d.get("lines") or [])[:1000]:
+        log.info("APP %s | %s", dev, str(line)[:300])
+    return web.json_response({"ok": True})
+
+
 async def party_podpush_get(request):
     """Einstellungen + Auswahllisten (Benachrichtigungen, mögliche Auslöser-Sensoren) für die Jukebox."""
     if not is_host(request):
@@ -1686,6 +1700,7 @@ def make_app():
     app.router.add_get("/party/favs", party_favs_get)
     app.router.add_get("/party/podpush", party_podpush_get)
     app.router.add_post("/party/podpush", party_podpush_post)
+    app.router.add_post("/party/applog", party_applog_post)
     app.router.add_post("/party/favs", party_favs_post)
     app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)
