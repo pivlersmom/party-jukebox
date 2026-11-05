@@ -66,6 +66,18 @@ class JukeboxService : MediaLibraryService() {
     /** Android fragt: "Mit welcher Session soll ich mich verbinden?" */
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
+    /** Fehlersuche: wann Media3 die Benachrichtigung (Medienkarte im Schnellzugriff) aktualisiert */
+    private var lastNotifLog = 0L
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        if (System.currentTimeMillis() - lastNotifLog > 60_000) {
+            lastNotifLog = System.currentTimeMillis()
+            val p = session.player
+            AppLog.add("Benachrichtigung: Vordergrund=$startInForegroundRequired · Zustand=${p.playbackState} · spielt=${p.playWhenReady} · Titel=${p.mediaItemCount}")
+        }
+        try { super.onUpdateNotification(session, startInForegroundRequired) }
+        catch (e: Exception) { AppLog.add("⚠ Benachrichtigung: $e") }
+    }
+
     /** App aus der Liste der letzten Apps gewischt: Musik auf der Box läuft einfach weiter */
     override fun onTaskRemoved(rootIntent: Intent?) { }
 

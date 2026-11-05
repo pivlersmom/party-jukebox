@@ -42,8 +42,41 @@ public class MainActivity extends Activity {
     }
 
     /** WebView anlegen (auch neu, wenn Android den Browser-Prozess im Hintergrund beendet hat). */
+    /*
+     * Lernkarte: Startbild
+     * Beim Öffnen liegt kurz das große Jukebox-Logo über der Seite (dunkler Hintergrund, Logo wächst sanft),
+     * bis die Jukebox-Seite geladen ist (mindestens 1 s, höchstens 4 s) – dann blendet es weich aus.
+     */
+    private android.widget.FrameLayout root;
+    private View splash;
+    private long splashAt = 0;
+
+    private void showSplash(){
+        android.widget.FrameLayout sp = new android.widget.FrameLayout(this);
+        sp.setBackgroundColor(0xFF0B0D14);
+        android.widget.ImageView logo = new android.widget.ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher_foreground);
+        int size = (int) (Math.min(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels) * 0.75f);
+        sp.addView(logo, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
+        root.addView(sp, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        logo.setScaleX(0.8f); logo.setScaleY(0.8f); logo.setAlpha(0f);
+        logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).start();
+        splash = sp; splashAt = System.currentTimeMillis();
+        sp.postDelayed(this::hideSplash, 4000);   // spätestens nach 4 s weg
+    }
+
+    private void hideSplash(){
+        final View sp = splash; if (sp == null) return;
+        long wait = 1000 - (System.currentTimeMillis() - splashAt);
+        if (wait > 0) { sp.postDelayed(this::hideSplash, wait); return; }
+        splash = null;
+        sp.animate().alpha(0f).setDuration(400).withEndAction(() -> { if (root != null) root.removeView(sp); }).start();
+    }
+
     private void buildWebView(){
-        webView=new WebView(this); setContentView(webView);
+        webView=new WebView(this);
+        if (root == null) { root = new android.widget.FrameLayout(this); setContentView(root); showSplash(); }
+        root.addView(webView, 0, new android.widget.FrameLayout.LayoutParams(-1, -1));
         WebSettings s=webView.getSettings();
         s.setJavaScriptEnabled(true); s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
@@ -51,6 +84,7 @@ public class MainActivity extends Activity {
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         webView.addJavascriptInterface(new JukeboxBridge(),"AndroidMediaSession");
         webView.setWebViewClient(new WebViewClient(){
+            @Override public void onPageFinished(WebView v, String url){ hideSplash(); }
             /* Android beendet im Hintergrund (z. B. beim Wechsel zu WhatsApp) gern den Browser-Prozess der WebView,
                um Speicher zu sparen. Ohne diese Behandlung stürzt dann die ganze App ab ("wird wiederholt beendet").
                Jetzt: alte WebView wegwerfen und die Seite neu laden. */
