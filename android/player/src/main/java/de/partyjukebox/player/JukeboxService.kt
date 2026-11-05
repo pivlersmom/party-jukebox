@@ -40,7 +40,10 @@ class JukeboxService : MediaLibraryService() {
         super.onCreate()
         CrashLog.install(this)
         Library.app = applicationContext
-        AppLog.add("Medien-Dienst gestartet")
+        AppLog.add("Medien-Dienst gestartet · Benachrichtigungen " +
+            (if (androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled()) "erlaubt" else "AUS") +
+            (if (android.os.Build.VERSION.SDK_INT >= 26) " · Kanäle: " + (getSystemService(android.app.NotificationManager::class.java)
+                ?.notificationChannels?.joinToString { it.id + "=" + it.importance } ?: "?") else ""))
         // Jukebox-Logo statt Play-Zeichen (Benachrichtigung, Android-Auto-Karte)
         setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat_jukebox) })
         val player = MaPlayer(this)

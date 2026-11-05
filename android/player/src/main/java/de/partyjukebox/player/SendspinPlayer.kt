@@ -187,6 +187,8 @@ object SendspinPlayer {
     private var netCb: android.net.ConnectivityManager.NetworkCallback? = null
     /** Netz, über das die aktuelle Verbindung läuft (WLAN oder Mobilfunk) */
     @Volatile private var linkNet: android.net.Network? = null
+    /** Verbindung abgerissen und noch nicht neu aufgebaut */
+    @Volatile private var linkDown = false
 
     /*
      * Nur reagieren, wenn genau das Netz WEGFÄLLT, über das wir verbunden sind.
@@ -202,7 +204,8 @@ object SendspinPlayer {
             }
             override fun onAvailable(n: android.net.Network) {
                 // gerade ohne Verbindung (Funkloch) → nicht auf den nächsten Versuch warten
-                if (running && !connected) h?.post { if (!connected) { AppLog.add("Netz wieder da – verbinde"); retryMs = 3000; retry(300) } }
+                // nur nach einem Abbruch (Android meldet beim Anmelden auch die schon vorhandenen Netze → sonst doppelte Verbindung)
+                if (running && linkDown) h?.post { if (linkDown && !connected) { AppLog.add("Netz wieder da – verbinde"); retryMs = 3000; retry(300) } }
             }
         }
         val req = android.net.NetworkRequest.Builder().addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
@@ -243,6 +246,7 @@ object SendspinPlayer {
 
     private fun connect() {
         if (!running) return
+        linkDown = false
         if (Build.VERSION.SDK_INT >= 23) linkNet = try { app.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork } catch (e: Exception) { null }
         val host = Endpoint.LOCAL.substringAfter("://").substringBefore(":").substringBefore("/")
         if (onWifi() && Endpoint.reachable(Endpoint.LOCAL + "config.js", 2000)) {
@@ -301,6 +305,7 @@ object SendspinPlayer {
 
         override fun onDown(l: Link, reason: String) {
             if (l !== ws) return
+            linkDown = true
             val wasRtc = l is RtcLink
             if (wasRtc && !connected && reason != "rtc-timeout" && reason != "rename") {
                 // WebRTC scheitert sofort (z. B. MA-Fernzugriff aus) → nach 2 Versuchen Pause, Nabu Casa nehmen
