@@ -56,6 +56,9 @@ class JukeboxService : MediaLibraryService() {
             .setCommandButtonsForMediaItems(ImmutableList.of(swButton))   // Knopf neben den Schaltern
             .build()
         Library.session = session
+        // Sitzung gleich beim Dienst anmelden: dann zeigt Android die Medienkarte (Schnellzugriff, Sperrbildschirm)
+        // auch, wenn sich noch kein Gerät (Auto, Uhr) verbunden hat
+        session?.let { addSession(it) }
         MaPlayer.onPlayerChanged = { showLayout(); refreshKlang() }
         player.startPolling()
         refreshHome()
