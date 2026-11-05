@@ -1,0 +1,108 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'   // neuere Teile der App sind in Kotlin geschrieben
+}
+
+/*
+ * Party-Jukebox Player – Handy als Lautsprecher (Music Assistant / Sendspin), Android Auto, Jukebox-Oberfläche.
+ * Keine persönlichen Daten im Code: Adressen und Token richtet man in der App ein.
+ * Eine eigene Variante (anderer App-Name, andere App-ID, eigener Schlüssel) baut man mit Gradle-Eigenschaften:
+ *   -PappId=de.example.jukebox -PappName="Meine Jukebox" -PupdatePrefix=MeineJukebox-
+ * Vorgaben für Adressen/Token kommen – wenn überhaupt – aus Umgebungsvariablen (GitHub-Secrets) oder
+ * local.properties, nie aus dem Quellcode.
+ */
+def localProps = new Properties()
+def lpFile = rootProject.file('local.properties')
+if (lpFile.exists()) lpFile.withInputStream { localProps.load(it) }
+def secret = { String prop, String env, String dflt -> (System.getenv(env) ?: localProps.getProperty(prop) ?: dflt) }
+def esc = { String s -> s.replace('\\', '\\\\').replace('"', '\\"') }
+def ver = new Properties()
+file('version.properties').withInputStream { ver.load(it) }
+
+def appId = (findProperty('appId') ?: 'de.partyjukebox.player').toString()
+def appName = (findProperty('appName') ?: 'Party-Jukebox Player').toString()
+def updatePrefix = (findProperty('updatePrefix') ?: 'PartyJukeboxPlayer-').toString()
+
+// Signierschlüssel: eigene Variante (JUKEBOX_KEYSTORE), öffentliche Version (PJ_KEYSTORE), sonst Debug-Schlüssel
+def ownKs = System.getenv('JUKEBOX_KEYSTORE')
+def pjKs = System.getenv('PJ_KEYSTORE')
+
+android {
+    namespace 'de.partyjukebox.player'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId appId
+        minSdk 23
+        targetSdk 36
+        versionCode Integer.parseInt(ver.getProperty('playerVersionCode'))
+        versionName ver.getProperty('playerVersionName')
+        resValue 'string', 'app_name', appName
+        buildConfigField 'String', 'UPDATE_PREFIX', "\"${esc(updatePrefix)}\""
+        buildConfigField 'String', 'HA_TOKEN', "\"${esc(secret('ha.token', 'HA_TOKEN', ''))}\""
+        buildConfigField 'String', 'DEFAULT_HOME_URL', "\"${esc(secret('home.url', 'JB_HOME_URL', ''))}\""
+        buildConfigField 'String', 'DEFAULT_REMOTE_URL', "\"${esc(secret('remote.url', 'JB_REMOTE_URL', ''))}\""
+        // WebRTC-Bibliothek ist groß → nur Handy-Prozessoren (ARM) einpacken
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+    }
+
+    signingConfigs {
+        if (ownKs) {
+            release {
+                storeFile file(ownKs)
+                storePassword System.getenv('JUKEBOX_KEYSTORE_PASSWORD') ?: 'android'
+                keyAlias System.getenv('JUKEBOX_KEY_ALIAS') ?: 'androiddebugkey'
+                keyPassword System.getenv('JUKEBOX_KEY_PASSWORD') ?: 'android'
+            }
+        } else if (pjKs && new File(pjKs).exists()) {
+            release {
+                storeFile new File(pjKs)
+                storePassword System.getenv('PJ_KEYSTORE_PASS')
+                keyAlias System.getenv('PJ_KEY_ALIAS')
+                keyPassword System.getenv('PJ_KEY_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig (ownKs || (pjKs && new File(pjKs).exists())) ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+    lint { checkReleaseBuilds false }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'org.json:json:20231013'
+    // Media3: Android Auto, Media-Session, Benachrichtigung
+    implementation 'androidx.media3:media3-session:1.5.1'
+    implementation 'androidx.media3:media3-common:1.5.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    // WebRTC für den Handy-Player unterwegs (direkte Verbindung wie die MA-App)
+    implementation 'io.getstream:stream-webrtc-android:1.3.10'
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jukebox-Logo einfarbig (Ring + Equalizer-Balken): Android Auto, Benachrichtigung -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:fillColor="#00000000"
+        android:pathData="M12,2.2a9.8,9.8 0,1 1,0 19.6a9.8,9.8 0,1 1,0 -19.6"/>
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.7" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M7.4,10.6v2.8M9.7,8.6v6.8M12,6.6v10.8M14.3,8.6v6.8M16.6,10.6v2.8"/>
+</vector>

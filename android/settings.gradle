@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 rootProject.name = 'PartyJukeboxApps'
 include ':tv-kiosk'   // TV-Anzeige für Android-TV-Boxen / Fire TV
 include ':jukebox'    // Handy-Fernbedienung
+include ':player'     // Handy als Lautsprecher + Android Auto (Party-Jukebox Player)
