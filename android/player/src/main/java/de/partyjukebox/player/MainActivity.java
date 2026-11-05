@@ -45,7 +45,7 @@ public class MainActivity extends Activity {
     /*
      * Lernkarte: Startbild
      * Beim Öffnen liegt kurz das große Jukebox-Logo über der Seite (dunkler Hintergrund, Logo wächst sanft),
-     * bis die Jukebox-Seite geladen ist (mindestens 1 s, höchstens 4 s) – dann blendet es weich aus.
+     * bis die Jukebox-Seite geladen ist (mindestens 3,5 s, höchstens 6 s) – dann blendet es weich aus.
      */
     private android.widget.FrameLayout root;
     private View splash;
@@ -62,15 +62,15 @@ public class MainActivity extends Activity {
         logo.setScaleX(0.8f); logo.setScaleY(0.8f); logo.setAlpha(0f);
         logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).start();
         splash = sp; splashAt = System.currentTimeMillis();
-        sp.postDelayed(this::hideSplash, 4000);   // spätestens nach 4 s weg
+        sp.postDelayed(this::hideSplash, 6000);   // spätestens nach 6 s weg
     }
 
     private void hideSplash(){
         final View sp = splash; if (sp == null) return;
-        long wait = 1000 - (System.currentTimeMillis() - splashAt);
+        long wait = 3500 - (System.currentTimeMillis() - splashAt);   // mindestens 3,5 s zeigen
         if (wait > 0) { sp.postDelayed(this::hideSplash, wait); return; }
         splash = null;
-        sp.animate().alpha(0f).setDuration(400).withEndAction(() -> { if (root != null) root.removeView(sp); }).start();
+        sp.animate().alpha(0f).setDuration(600).withEndAction(() -> { if (root != null) root.removeView(sp); }).start();
     }
 
     private void buildWebView(){
