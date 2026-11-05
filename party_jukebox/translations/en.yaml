@@ -41,5 +41,11 @@ configuration:
   drinks:
     name: Drinks
     description: One line per drink in the format Name|Emoji|Phrase, e.g. Beer|🍺|a beer
+  app_update_repo:
+    name: App updates – GitHub repository
+    description: "Optional. Repository of the Android app with releases, e.g. user/my-app. The app then fetches new versions itself through the add-on."
+  app_update_token:
+    name: App updates – GitHub token
+    description: "Optional, only for private repositories: fine-grained token with read access to this repository's contents. Stays in Home Assistant only."
 network:
   8099/tcp: Web pages (jukebox, party page, TV display) on your home network

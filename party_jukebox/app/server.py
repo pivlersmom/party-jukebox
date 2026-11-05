@@ -333,6 +333,84 @@ async def ha_events_loop(app):
         await asyncio.sleep(15)
 
 
+# ---------------------------------------------------------------- App-Updates (Android-App)
+# Die App fragt hier nach der neuesten Version (GitHub-Release) und lädt die APK über das Add-on.
+# So braucht das Handy keinen GitHub-Zugang und nichts landet im Download-Ordner.
+APPUPD = {"at": 0.0, "data": None}
+
+
+async def _app_release(session):
+    repo = str(OPT.get("app_update_repo") or "").strip().strip("/")
+    tok = str(OPT.get("app_update_token") or "").strip()
+    if not repo or "/" not in repo:
+        return None
+    if APPUPD["data"] and time.time() - APPUPD["at"] < 600:
+        return APPUPD["data"]
+    hdr = {"Accept": "application/vnd.github+json", "User-Agent": "party-jukebox"}
+    if tok:
+        hdr["Authorization"] = "Bearer " + tok
+    async with session.get(f"https://api.github.com/repos/{repo}/releases/latest", headers=hdr, timeout=20) as r:
+        if r.status != 200:
+            log.info("App-Update: GitHub antwortet %s", r.status)
+            return None
+        j = await r.json()
+    data = {"version": str(j.get("tag_name") or "").lstrip("v"),
+            "assets": [{"name": a.get("name"), "id": a.get("id"), "size": a.get("size")} for a in (j.get("assets") or [])
+                       if str(a.get("name") or "").endswith(".apk")]}
+    APPUPD.update(at=time.time(), data=data)
+    return data
+
+
+async def party_appupdate(request):
+    """Neueste App-Version: {"ok", "version", "assets": [{name, size}]}"""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        d = await _app_release(request.app["session"])
+    except Exception as e:
+        log.info("App-Update: %s", e)
+        d = None
+    if not d:
+        return web.json_response({"ok": False}, headers={"Cache-Control": "no-store"})
+    return web.json_response({"ok": True, "version": d["version"],
+                              "assets": [{"name": a["name"], "size": a["size"]} for a in d["assets"]]},
+                             headers={"Cache-Control": "no-store"})
+
+
+async def party_appupdate_apk(request):
+    """APK des neuesten Releases durchreichen (?name=Datei.apk)."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    name = request.query.get("name") or ""
+    d = await _app_release(request.app["session"])
+    a = next((x for x in (d or {}).get("assets", []) if x["name"] == name), None)
+    if not a:
+        return web.json_response({"ok": False}, status=404)
+    repo = str(OPT.get("app_update_repo") or "").strip().strip("/")
+    hdr = {"Accept": "application/octet-stream", "User-Agent": "party-jukebox"}
+    tok = str(OPT.get("app_update_token") or "").strip()
+    if tok:
+        hdr["Authorization"] = "Bearer " + tok
+    sess = request.app["session"]
+    url = f"https://api.github.com/repos/{repo}/releases/assets/{a['id']}"
+    # GitHub leitet auf einen Download-Server um – dorthin OHNE Token (der lehnt doppelte Anmeldung ab)
+    async with sess.get(url, headers=hdr, timeout=30, allow_redirects=False) as r0:
+        loc = r0.headers.get("Location") if r0.status in (301, 302, 303, 307, 308) else None
+    get = sess.get(loc, headers={"User-Agent": "party-jukebox"}, timeout=300) if loc else sess.get(url, headers=hdr, timeout=300)
+    async with get as r:
+        if r.status != 200:
+            return web.json_response({"ok": False, "status": r.status}, status=502)
+        resp = web.StreamResponse(headers={"Content-Type": "application/vnd.android.package-archive",
+                                           **({"Content-Length": str(a["size"])} if a.get("size") else {}),
+                                           "Cache-Control": "no-store"})
+        await resp.prepare(request)
+        async for chunk in r.content.iter_chunked(65536):
+            await resp.write(chunk)
+        await resp.write_eof()
+        log.info("App-Update: %s ausgeliefert", name)
+        return resp
+
+
 async def party_applog_post(request):
     """Fern-Log der Jukebox-App (Handy-Player): Zeilen ins Add-on-Protokoll schreiben (Fehlersuche unterwegs)."""
     if not is_host(request):
@@ -1701,6 +1779,8 @@ def make_app():
     app.router.add_get("/party/podpush", party_podpush_get)
     app.router.add_post("/party/podpush", party_podpush_post)
     app.router.add_post("/party/applog", party_applog_post)
+    app.router.add_get("/party/appupdate", party_appupdate)
+    app.router.add_get("/party/appupdate/apk", party_appupdate_apk)
     app.router.add_post("/party/favs", party_favs_post)
     app.router.add_get("/party/tvimg", party_tvimg)
     app.router.add_post("/party/host/login", host_login)

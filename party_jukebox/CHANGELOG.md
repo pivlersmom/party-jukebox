@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.111
+- App-Updates: Die Android-App kann neue Versionen aus einem (auch privaten) GitHub-Repository über das Add-on laden (Optionen „App-Updates“)
+
 ## 0.1.110
 - Fern-Log der Jukebox-App: Ereignisse des Handy-Players erscheinen im Add-on-Protokoll (Fehlersuche)
 
