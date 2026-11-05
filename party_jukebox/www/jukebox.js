@@ -904,12 +904,17 @@ function renderSettings() {
     const AMS2 = window.AndroidMediaSession; let v = "";
     try { if (AMS2 && typeof AMS2.getAppVersion === "function") v = AMS2.getAppVersion(); } catch (e) {}
     const av = String((window.PJ || {}).version || "");
+    if (AMS2 && typeof AMS2.checkUpdate === "function")
+      html += '<a class="row lrow" id="appUpd"><span class="rm"><span class="r1">⬇ Nach App-Update suchen</span>' +
+        '<span class="r2">lädt die neue Version direkt in die App (nichts in „Downloads“)</span></span></a>';
     if (v || av) html += '<div class="rshint" style="text-align:center;margin-top:18px">' + [v ? "App " + esc(v) : "", av ? "Add-on " + esc(av) : ""].filter(Boolean).join(" · ") + '</div>';
   }
   html = settingsTabs(html);
   openSheet("settings", html, c => {
     bindSettingsTabs(c);
     loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c);
+    const upd = c.querySelector("#appUpd");
+    if (upd) upd.onclick = () => { try { window.AndroidMediaSession.checkUpdate(); } catch (e) {} };
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
       const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);
