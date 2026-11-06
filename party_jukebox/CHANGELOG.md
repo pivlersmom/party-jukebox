@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.120
+- Startseite: Reihen rasten mit Abstand zum linken Rand ein
+
 ## 0.1.119
 - Einstellungen → Persönlich → Lautsprecher: nicht genutzte Lautsprecher pro Profil ausblenden
 

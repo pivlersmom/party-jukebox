@@ -499,7 +499,7 @@ header .gstbtn{justify-self:end}
 body[data-tab="home"] #v-search>.sbox{display:none}
 body[data-tab="home"] #v-search{padding-top:6px}
 /* Startseite: waagerechte Reihen */
-.hs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 6px;scroll-snap-type:x proximity}
+.hs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 6px;scroll-snap-type:x proximity;scroll-padding-inline:16px}
 .hs::-webkit-scrollbar{display:none}
 .hs .row{flex:none;width:124px;touch-action:manipulation;flex-direction:column;align-items:flex-start;gap:6px;padding:0;scroll-snap-align:start}
 .hs .row:active{background:none;transform:scale(.97)}
