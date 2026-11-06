@@ -57,12 +57,44 @@ public class MainActivity extends Activity {
         android.widget.ImageView logo = new android.widget.ImageView(this);
         logo.setImageResource(R.mipmap.ic_launcher_foreground);
         int size = (int) (Math.min(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels) * 0.75f);
+        // wie das Logo oben links in der Jukebox: leuchtender Schein dreht sich (4 s), das Logo "pocht" (1,3 s)
+        View glow = new GlowView(this);
+        sp.addView(glow, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
         sp.addView(logo, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
         root.addView(sp, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        glow.setAlpha(0f);
+        glow.animate().alpha(0.9f).setDuration(600).start();
+        android.animation.ObjectAnimator spin = android.animation.ObjectAnimator.ofFloat(glow, "rotation", 0f, 360f);
+        spin.setDuration(4000); spin.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        spin.setInterpolator(new android.view.animation.LinearInterpolator()); spin.start();
         logo.setScaleX(0.8f); logo.setScaleY(0.8f); logo.setAlpha(0f);
-        logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).start();
+        logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).withEndAction(() -> {
+            android.animation.PropertyValuesHolder sx = android.animation.PropertyValuesHolder.ofFloat("scaleX", 1f, 1.07f);
+            android.animation.PropertyValuesHolder sy = android.animation.PropertyValuesHolder.ofFloat("scaleY", 1f, 1.07f);
+            android.animation.ObjectAnimator beat = android.animation.ObjectAnimator.ofPropertyValuesHolder(logo, sx, sy);
+            beat.setDuration(650); beat.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+            beat.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+            beat.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator()); beat.start();
+        }).start();
         splash = sp; splashAt = System.currentTimeMillis();
         sp.postDelayed(this::hideSplash, 6000);   // spätestens nach 6 s weg
+    }
+
+    /** Farbiger Schein hinter dem Logo: Farbkreis (lila → blau), zur Mitte hin sichtbar, nach außen ausgeblendet */
+    private static final class GlowView extends View {
+        private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        GlowView(android.content.Context c) { super(c); setLayerType(LAYER_TYPE_SOFTWARE, null); }
+        @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
+            float cx = w / 2f, cy = h / 2f, r = Math.min(w, h) / 2f;
+            android.graphics.Shader sweep = new android.graphics.SweepGradient(cx, cy,
+                new int[]{0x00E040FB, 0x8CE040FB, 0x8C29B6F6, 0x00E040FB}, null);
+            android.graphics.Shader mask = new android.graphics.RadialGradient(cx, cy, r,
+                new int[]{0xFF000000, 0xFF000000, 0x00000000}, new float[]{0f, 0.35f, 0.7f}, android.graphics.Shader.TileMode.CLAMP);
+            paint.setShader(new android.graphics.ComposeShader(sweep, mask, android.graphics.PorterDuff.Mode.DST_IN));
+        }
+        @Override protected void onDraw(android.graphics.Canvas c) {
+            c.drawCircle(getWidth() / 2f, getHeight() / 2f, Math.min(getWidth(), getHeight()) / 2f, paint);
+        }
     }
 
     private void hideSplash(){
