@@ -41,20 +41,30 @@ public class ArtProvider extends ContentProvider {
         File dir = new File(getContext().getCacheDir(), "art");
         if (!dir.exists()) dir.mkdirs();
         File f = new File(dir, hash(u.replaceFirst("^https?://[^/]+(/api/hassio_ingress/[^/]+)?/", "")) + ".img");
+        if (f.exists() && !complete(f)) f.delete();   // halb geladenes Cover von früher wegwerfen
         if (!f.exists() || f.length() == 0) {
-            try {
-                HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
-                c.setConnectTimeout(6000); c.setReadTimeout(8000);
-                if (u.startsWith(Endpoint.base)) { String ck = Endpoint.cookie(); if (!ck.isEmpty()) c.setRequestProperty("Cookie", ck); }
-                InputStream in = c.getInputStream();
+            Exception last = null;
+            for (int tries = 0; tries < 2 && !f.exists(); tries++) {   // ein zweiter Versuch bei Abbruch (Funkloch)
                 File tmp = new File(dir, f.getName() + ".tmp");
-                FileOutputStream os = new FileOutputStream(tmp);
-                byte[] b = new byte[16384]; int n;
-                while ((n = in.read(b)) > 0) os.write(b, 0, n);
-                os.close(); in.close(); c.disconnect();
-                if (!tmp.renameTo(f)) throw new FileNotFoundException();
-            } catch (FileNotFoundException e) { throw e; }
-            catch (Exception e) { throw new FileNotFoundException(e.toString()); }
+                try {
+                    HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+                    c.setConnectTimeout(6000); c.setReadTimeout(8000);
+                    if (u.startsWith(Endpoint.base)) { String ck = Endpoint.cookie(); if (!ck.isEmpty()) c.setRequestProperty("Cookie", ck); }
+                    if (c.getResponseCode() != 200) { c.disconnect(); throw new FileNotFoundException("HTTP " + c.getResponseCode()); }
+                    long want = c.getContentLengthLong();
+                    InputStream in = c.getInputStream();
+                    FileOutputStream os = new FileOutputStream(tmp);
+                    byte[] b = new byte[16384]; int n;
+                    while ((n = in.read(b)) > 0) os.write(b, 0, n);
+                    os.close(); in.close(); c.disconnect();
+                    // Lernkarte: bricht die Verbindung mitten im Bild ab, endet read() manchmal ohne Fehler.
+                    // Dann wäre nur die obere Hälfte gespeichert – darum Länge und Bild-Ende prüfen.
+                    if ((want > 0 && tmp.length() != want) || !complete(tmp)) throw new java.io.IOException("Cover unvollständig");
+                    if (!tmp.renameTo(f)) throw new FileNotFoundException();
+                } catch (FileNotFoundException e) { tmp.delete(); throw e; }
+                catch (Exception e) { tmp.delete(); last = e; }
+            }
+            if (!f.exists()) throw new FileNotFoundException(String.valueOf(last));
         }
         return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
     }
@@ -70,6 +80,23 @@ public class ArtProvider extends ContentProvider {
             } catch (Exception e) { throw new FileNotFoundException(e.toString()); }
         }
         return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
+    }
+
+    /** Ist das Bild vollständig? JPEG endet mit FF D9, PNG mit dem IEND-Block; andere Formate gelten als gut. */
+    private static boolean complete(File f) {
+        long len = f.length();
+        if (len < 16) return false;
+        try (java.io.RandomAccessFile r = new java.io.RandomAccessFile(f, "r")) {
+            byte[] head = new byte[4]; r.readFully(head);
+            byte[] tail = new byte[(int) Math.min(32, len)]; r.seek(len - tail.length); r.readFully(tail);
+            if ((head[0] & 0xff) == 0xFF && (head[1] & 0xff) == 0xD8) {
+                for (int i = tail.length - 2; i >= 0; i--) if ((tail[i] & 0xff) == 0xFF && (tail[i + 1] & 0xff) == 0xD9) return true;
+                return false;
+            }
+            if ((head[0] & 0xff) == 0x89 && head[1] == 'P' && head[2] == 'N' && head[3] == 'G')
+                return new String(tail, "ISO-8859-1").contains("IEND");
+            return true;
+        } catch (Exception e) { return false; }
     }
 
     private static String hash(String s) {
