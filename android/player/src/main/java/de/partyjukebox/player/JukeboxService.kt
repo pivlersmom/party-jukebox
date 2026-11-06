@@ -237,10 +237,12 @@ class JukeboxService : MediaLibraryService() {
     }
 
     /** Zustand des Schalters holen und die Knopfreihe erneuern */
-    private fun refreshHome() = Library.firstSwitch { sw ->
+    /** Haus-Knopf + Klang holen; klappt es gleich nach dem Start nicht (noch keine Verbindung), nochmal versuchen */
+    private fun refreshHome(n: Int = 0): Unit = Library.firstSwitch { sw ->
         homeSw = sw
         showLayout()
         refreshKlang()
+        if (sw == null && n < 3) main.postDelayed({ refreshHome(n + 1) }, 5000)
     }
 
     private inner class Callback : MediaLibrarySession.Callback {

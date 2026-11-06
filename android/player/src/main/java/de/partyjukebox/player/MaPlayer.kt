@@ -304,6 +304,9 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     private fun setFav(v: Boolean) { if (favOn != v) { favOn = v; onFavChanged?.invoke() } }
 
     private fun favCheck(e: Entry?) {
+        val typeChanged = (curEntry?.mi?.optString("media_type") != e?.mi?.optString("media_type")) || ((curEntry?.durationMs ?: 0L) <= 0L) != ((e?.durationMs ?: 0L) <= 0L)
+        curEntry = e
+        if (typeChanged) onFavChanged?.invoke()   // Podcast ↔ Musik: ±15-s-Knöpfe ein/aus
         val key = when {
             e == null -> ""
             e.song -> "r|" + e.artist + "|" + e.title
@@ -346,8 +349,9 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         .replace(Regex("[^a-z0-9äöüß]+"), " ").trim()
 
     /** Podcast oder Hörbuch? Dann zeigt Android Auto ±15-s-Knöpfe */
+    private var curEntry: Entry? = null
     fun spokenWord(): Boolean {
-        val e = entries.firstOrNull() ?: return false
+        val e = curEntry ?: return false
         val t = e.mi?.optString("media_type").orEmpty()
         return !e.live && e.durationMs > 0 && (t == "podcast_episode" || t == "audiobook")
     }

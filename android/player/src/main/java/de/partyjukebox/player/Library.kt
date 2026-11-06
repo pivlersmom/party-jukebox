@@ -109,9 +109,18 @@ object Library {
             if (cacheable(parent) && items.isNotEmpty() && !fresh) { cache[k] = items; cacheSig[k] = sig; cacheAt[k] = now() }
             out(items)
             if (had && old != null && old != sig) changed(parent)
+            // Lernkarte: leer = meist "noch keine Verbindung" (z. B. gleich nach dem App-Start im Auto).
+            // Android Auto merkt sich die leere Liste – darum nachladen und Bescheid geben, sobald etwas da ist.
+            if (items.isEmpty() && (emptyTries[k] ?: 0) < 3) {
+                emptyTries[k] = (emptyTries[k] ?: 0) + 1
+                main.postDelayed({ fetch(parent) { if (it.isNotEmpty()) changed(parent) } }, 4000)
+            } else if (items.isNotEmpty()) emptyTries.remove(k)
             warmArt(items)
         }
     }
+
+    private val emptyTries = HashMap<String, Int>()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     private fun changed(parent: String) { try { session?.notifyChildrenChanged(parent, 0, null) } catch (e: Exception) { } }
 
@@ -189,7 +198,8 @@ object Library {
     }
 
     /** Lautsprecher-Liste: das eigene Handy zuerst, dann alle anderen (ohne Gruppen-Mitglieder) */
-    private fun speakers(out: (List<MediaItem>) -> Unit) = ma().send("players/all", null) { r, _ ->
+    private fun speakers(out: (List<MediaItem>) -> Unit) = ma().send("players/all", null) { r, err ->
+        if (err != null) AppLog.add("Lautsprecher-Liste: $err")
         val a = r as? JSONArray ?: JSONArray()
         val cur = pid()
         val phone = PhonePlayer.playerId(app)
