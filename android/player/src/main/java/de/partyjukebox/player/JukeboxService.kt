@@ -220,6 +220,21 @@ class JukeboxService : MediaLibraryService() {
 
     private inner class Callback : MediaLibrarySession.Callback {
 
+        /*
+         * Lernkarte: "Weiterspielen" von außen (Mini-Player im Schnellzugriff, Kopfhörer-/Lenkradtaste)
+         * Ist gerade keine Wiedergabe aktiv, fragt Android die zuletzt benutzte Medien-App, was sie weiterspielen
+         * kann. Ohne Antwort springt Android zu einer anderen App (z. B. Spotify). Jetzt: die Jukebox setzt die
+         * Warteschlange in Music Assistant fort.
+         */
+        override fun onPlaybackResumption(session: MediaSession, controller: MediaSession.ControllerInfo):
+                ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            AppLog.add("Weiterspielen angefragt (" + controller.packageName + ")")
+            MaPlayer.instance?.queueCmd("play")
+            val p = session.player
+            val items = (0 until p.mediaItemCount).map { p.getMediaItemAt(it) }
+            return Futures.immediateFuture(MediaSession.MediaItemsWithStartPosition(items, 0, p.currentPosition))
+        }
+
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             if (isCar(controller)) { cars++; MaPlayer.instance?.carMode = true; refreshHome() }

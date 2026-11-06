@@ -52,6 +52,10 @@
             android:name=".PermissionReceiver"
             android:exported="false"/>
         <!-- Media3: Android Auto, Sperrbildschirm, Uhr, Benachrichtigung -->
+        <!-- Medientasten/„Weiterspielen“ aus dem Schnellzugriff an die Jukebox (sonst übernimmt z. B. Spotify) -->
+        <receiver android:name="androidx.media3.session.MediaButtonReceiver" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MEDIA_BUTTON"/></intent-filter>
+        </receiver>
         <service
             android:name=".JukeboxService"
             android:exported="true"
