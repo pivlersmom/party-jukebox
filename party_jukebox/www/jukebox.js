@@ -1166,6 +1166,7 @@ $("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) setFilt
 $("#sRes").onclick = e => {
   if (e.target.closest(".bback")) { history.back(); return; }
   if (e.target.closest(".bfav")) { const n = S.nav[S.nav.length - 1]; if (n) toggleFav(n.it); return; }
+  const tch = e.target.closest(".ptarget .chip"); if (tch) { pickTarget(tch); return; }
   const ba = e.target.closest(".bact"); if (ba) { const n = S.nav[S.nav.length - 1]; if (n) enqueue(n.it, ba.dataset.o); return; }
   const tg = e.target.closest(".bmore"); if (tg) { const n = S.nav[S.nav.length - 1]; if (n) { n.all = !n.all; renderNav(); } return; }
   const more = e.target.closest(".more"); if (more) { setFilter(more.dataset.f); return; }
@@ -1823,7 +1824,7 @@ function renderNav() {
     '<button class="bfav' + (isFavIt(it) ? " on" : "") + '" aria-label="Favorit">' + ICON.heart + "</button>" + thumb(imgUrl(it, 480), "lg favable" + (art ? " round" : "")) +
     '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span></div>' +
     '<div class="bacts"><button class="bact pri" data-o="play">' + ICON.play + 'Abspielen</button><button class="bact" data-o="next">' + ICON.nextup +
-    'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>';
+    'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>' + targetRow();
   if (!d) html += '<div class="spin"></div>';
   else if (d.err) html += '<div class="empty">Nicht ladbar: ' + esc(d.err) + "</div>";
   else {
@@ -1896,19 +1897,27 @@ async function fillArt(n) {
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
 }
+/* Wo soll es laufen? Gewählter Lautsprecher vorn und hervorgehoben, dann die spielenden, dann alle anderen –
+   antippen wechselt das Ziel direkt (nicht mehr aus Versehen auf dem falschen Gerät starten) */
+function targetRow() {
+  const cur = S.pid, pl = playerList();
+  const order = [cur].concat(pl.filter(p => p.player_id !== cur && pstate(p) === "playing").map(p => p.player_id),
+                             pl.filter(p => p.player_id !== cur && pstate(p) !== "playing").map(p => p.player_id)).filter(Boolean);
+  return '<div class="ptl">Abspielen auf</div><div class="chips ptarget">' + order.map(id => {
+    const p = S.players[id]; if (!p) return "";
+    return '<button class="chip' + (id === cur ? " on" : "") + '" data-p="' + esc(id) + '">' + (pstate(p) === "playing" ? "▶ " : "") + esc(pname(p)) + "</button>";
+  }).join("") + "</div>";
+}
+/** Klick auf einen Ziel-Knopf (in Menü oder Detailseite) */
+function pickTarget(ch) {
+  ch.parentNode.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === ch));
+  selectPlayer(ch.dataset.p);
+}
 function openItem(it) {
   // Titel aus einer geöffneten Playlist/Album/Podcast: ganze Liste ab diesem Titel abspielen
   const n = S.nav && S.nav[S.nav.length - 1], box = n && ["playlist", "album", "podcast"].includes(n.it.media_type) &&
     n.data && (n.data.tracks || []).some(x => x && x.uri === it.uri) ? n.it : null;
-  /* Wo soll es laufen? Gewählter Lautsprecher vorn und hervorgehoben, dann die spielenden, dann alle anderen –
-     antippen wechselt das Ziel direkt hier (nicht mehr aus Versehen auf dem falschen Gerät starten) */
-  const cur = S.pid, pl = playerList();
-  const order = [cur].concat(pl.filter(p => p.player_id !== cur && pstate(p) === "playing").map(p => p.player_id),
-                             pl.filter(p => p.player_id !== cur && pstate(p) !== "playing").map(p => p.player_id)).filter(Boolean);
-  const target = '<div class="ptl">Abspielen auf</div><div class="chips ptarget">' + order.map(id => {
-    const p = S.players[id]; if (!p) return "";
-    return '<button class="chip' + (id === cur ? " on" : "") + '" data-p="' + esc(id) + '">' + (pstate(p) === "playing" ? "▶ " : "") + esc(pname(p)) + "</button>";
-  }).join("") + "</div>";
+  const target = targetRow();
   const html = '<div class="ihead">' + thumb(imgUrl(it, 240), "lg" + (it.media_type === "artist" ? " round" : "")) +
     '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + "</span></span></div>" + target +
     (box ? '<button class="act pri" data-o="from">' + ICON.play + (box.media_type === "podcast" ? "Podcast ab dieser Folge" : box.media_type === "album" ? "Album ab hier" : "Playlist ab hier") + "</button>" : "") +
@@ -1917,10 +1926,7 @@ function openItem(it) {
     '<button class="act" data-o="add">' + ICON.plus + "Hinten anstellen</button>" +
     '<button class="act ghost" data-o="">Abbrechen</button>';
   openSheet("item", html, c => {
-    c.querySelectorAll(".ptarget .chip").forEach(ch => ch.onclick = () => {
-      c.querySelectorAll(".ptarget .chip").forEach(x => x.classList.toggle("on", x === ch));
-      selectPlayer(ch.dataset.p);
-    });
+    c.querySelectorAll(".ptarget .chip").forEach(ch => ch.onclick = () => pickTarget(ch));
     c.querySelectorAll(".act").forEach(b => {
       b.onclick = () => { closeSheet(); if (b.dataset.o === "from") playFrom(box, it); else if (b.dataset.o) enqueue(it, b.dataset.o); };
     });

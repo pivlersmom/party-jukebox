@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.115
+- „Abspielen auf“ auch auf der Seite einer Playlist, eines Albums, Podcasts oder Künstlers
+
 ## 0.1.114
 - Lautsprecher-Auswahl: ⇄ übergibt die laufende Musik samt Warteschlange an einen anderen Lautsprecher
 
