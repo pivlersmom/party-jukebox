@@ -599,3 +599,7 @@ body[data-tab="home"] #v-search{padding-top:6px}
 .ptl{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--a1);margin:14px 2px 0}
 .ptarget{margin:6px 0 10px!important}
 .ptarget .chip{height:38px;padding:0 14px;font-size:14px}
+/* Musik an einen anderen Lautsprecher übergeben */
+.prow .xfer{flex:none;width:40px;height:40px;margin-right:6px;border-radius:12px;display:grid;place-items:center;font-size:20px;font-weight:800;
+  background:var(--card2);border:1px solid var(--line);color:var(--a1)}
+.prow .xfer:active{background:var(--grad);color:#fff}

@@ -677,14 +677,20 @@ document.addEventListener("error", e => { const t = e.target; if (t && t.tagName
 
 function openPlayers() {
   const list = playerList();
-  let html = '<div class="shh">Lautsprecher</div>';
+  /* Läuft gerade etwas (auf dem gewählten oder einem anderen Lautsprecher)? Dann kann jede Zeile die Musik übernehmen */
+  const srcP = [S.players[S.pid]].concat(list).find(p => p && ["playing", "paused"].includes(pstate(p)));
+  const src = srcP ? srcP.player_id : null;
+  let html = '<div class="shh">Lautsprecher</div>' +
+    (src ? '<div class="rshint" style="margin:-4px 2px 8px">⇄ holt die Musik von ' + esc(pname(srcP)) + ' samt Warteschlange auf diesen Lautsprecher</div>' : "");
   if (!S.ready) html += '<div class="empty">Keine Verbindung zu Music Assistant</div>';
   else if (!list.length) html += '<div class="empty">Keine Lautsprecher verfügbar</div>';
   html += list.map(p => {
     const g = groupInfo(p), st = pstate(p);
     const sub = [st === "playing" ? "spielt" : st === "paused" ? "pausiert" : "bereit", g.isGroup ? "Gruppe · " + g.n + " Lautsprecher" : ""].filter(Boolean).join(" · ");
     return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic">' + ICON.speaker +
-      '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span><span class="chk">' + ICON.check + "</span></button>";
+      '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +
+      (src && p.player_id !== src ? '<span class="xfer" data-id="' + esc(p.player_id) + '" title="Musik hierher übergeben">⇄</span>' : "") +
+      '<span class="chk">' + ICON.check + "</span></button>";
   }).join("");
   /* Gruppieren: weitere Lautsprecher mit dem gewählten mitspielen lassen */
   const lead = S.players[S.pid];
@@ -708,6 +714,17 @@ function openPlayers() {
   openSheet("players", html, c => {
     c.querySelectorAll(".prow").forEach(b => {
       b.onclick = () => { const id = b.dataset.id; closeSheet(); selectPlayer(id); toast("Lautsprecher: " + pname(S.players[id])); };
+    });
+    /* Musik samt Warteschlange übergeben (MA: player_queues/transfer), danach den neuen Lautsprecher wählen */
+    c.querySelectorAll(".xfer").forEach(x => {
+      x.onclick = async ev => {
+        ev.stopPropagation();
+        const to = x.dataset.id; closeSheet();
+        try {
+          await cmd("player_queues/transfer", { source_queue_id: src, target_queue_id: to, auto_play: true }, 20000);
+          selectPlayer(to); toast("⇄ Musik läuft jetzt auf " + pname(S.players[to]));
+        } catch (e) { toast("Übergeben: " + errText(e)); }
+      };
     });
     c.querySelectorAll(".grow").forEach(b => {
       b.onclick = () => {

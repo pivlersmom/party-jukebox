@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.114
+- Lautsprecher-Auswahl: ⇄ übergibt die laufende Musik samt Warteschlange an einen anderen Lautsprecher
+
 ## 0.1.113
 - Abspiel-Menü zeigt „Abspielen auf“ mit allen Lautsprechern (gewählter hervorgehoben, spielende mit ▶) – Ziel direkt dort ändern; Bestätigung nennt den Lautsprecher
 
