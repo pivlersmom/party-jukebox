@@ -310,7 +310,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             else -> e.mi?.optString("uri").orEmpty()
         }
         if (key == favKey && ++favTick % 20 != 0) return   // neuer Titel sofort, sonst ab und zu nachsehen
-        if (key != favKey) { favKey = key; favItem = null; favLib = null; setFav(false) }
+        if (key != favKey) { favKey = key; favItem = null; favLib = null; setFav(false); onFavChanged?.invoke() }   // neuer Titel → Knopfreihe neu (±15 s)
         if (e == null || key.isEmpty()) return
         if (e.song) {
             if (songCache.containsKey(key)) { favUse(key, songCache[key]); return }
@@ -344,6 +344,24 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
 
     private fun norm(x: String) = x.lowercase().replace(Regex("\\(.*?\\)|\\[.*?\\]|feat\\..*$"), "")
         .replace(Regex("[^a-z0-9äöüß]+"), " ").trim()
+
+    /** Podcast oder Hörbuch? Dann zeigt Android Auto ±15-s-Knöpfe */
+    fun spokenWord(): Boolean {
+        val e = entries.firstOrNull() ?: return false
+        val t = e.mi?.optString("media_type").orEmpty()
+        return !e.live && e.durationMs > 0 && (t == "podcast_episode" || t == "audiobook")
+    }
+
+    /** 15 s vor/zurück im laufenden Titel */
+    fun seekBy(deltaMs: Long) {
+        val q = playerId(); val e = entries.firstOrNull()
+        if (q.isEmpty() || e == null || e.live) return
+        val max = if (e.durationMs > 0) e.durationMs - 1000 else Long.MAX_VALUE
+        val target = (currentPosition + deltaMs).coerceIn(0L, maxOf(0L, max))
+        positionMs = target; invalidateState()
+        showNote(if (deltaMs < 0) "⏪ 15 s zurück" else "15 s vor ⏩")
+        ma.send("player_queues/seek", o("queue_id" to q, "position" to (target / 1000).toInt())) { _, _ -> refreshSoon() }
+    }
 
     /** Herz gedrückt: Favorit an/aus */
     fun toggleFav() {

@@ -158,6 +158,17 @@ class JukeboxService : MediaLibraryService() {
         .setSessionCommand(klangCmd)
         .build()
 
+    /* ±15 s: nur bei Podcast/Hörbuch (bei Musik bleibt es bei Titel vor/zurück) */
+    private val backCmd = SessionCommand("jukebox.BACK15", Bundle.EMPTY)
+    private val fwdCmd = SessionCommand("jukebox.FWD15", Bundle.EMPTY)
+
+    @Suppress("DEPRECATION")
+    private fun seekButton(back: Boolean) = CommandButton.Builder()
+        .setDisplayName(if (back) "15 s zurück" else "15 s vor")
+        .setIconResId(if (back) R.drawable.ic_back15 else R.drawable.ic_fwd15)
+        .setSessionCommand(if (back) backCmd else fwdCmd)
+        .build()
+
     /* Herz: laufender Titel als Favorit (gefüllt = schon Favorit) */
     private val favCmd = SessionCommand("jukebox.FAV", Bundle.EMPTY)
 
@@ -173,6 +184,7 @@ class JukeboxService : MediaLibraryService() {
         val onPhone = MaPlayer.instance?.playerId().let { it != null && it.isNotEmpty() && it == PhonePlayer.playerId(this) }
         val l = mutableListOf<CommandButton>()
         homeSw?.let { l.add(homeButton(it)) }
+        if (MaPlayer.instance?.spokenWord() == true) { l.add(0, seekButton(false)); l.add(0, seekButton(true)) }
         l.add(klangButton())
         l.add(favButton(MaPlayer.instance?.favOn == true))
         if (!onPhone) l.add(toCarButton)
@@ -251,7 +263,7 @@ class JukeboxService : MediaLibraryService() {
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = true; refreshHome() }
-            val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).build()
+            val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).add(backCmd).add(fwdCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(cmds)
                 .setCustomLayout(layout())
@@ -275,6 +287,10 @@ class JukeboxService : MediaLibraryService() {
                 homeSw = sw.copy(third = !sw.third); session.setCustomLayout(layout())
                 MaPlayer.instance?.showNote("🏠 " + sw.second + (if (!sw.third) ": AN" else ": AUS"))
                 Library.toggleLive(sw.first) { refreshHome() }
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+            if (customCommand.customAction == backCmd.customAction || customCommand.customAction == fwdCmd.customAction) {
+                MaPlayer.instance?.seekBy(if (customCommand.customAction == backCmd.customAction) -15_000L else 15_000L)
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
             if (customCommand.customAction == favCmd.customAction) {
