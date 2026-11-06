@@ -140,10 +140,46 @@ object SendspinPlayer {
         volume = prefs().getInt("ss_vol", 60)
         muted = prefs().getBoolean("ss_muted", false)
         running = true
+        asleep = false
+        busyAt = System.currentTimeMillis()
         thread = HandlerThread("sendspin").also { it.start(); h = Handler(it.looper) }
         h?.post { connect() }
         watchNetwork()
         AppLog.i(TAG, "gestartet als ${name(app)} (${clientId(app)})")
+    }
+
+    /*
+     * Lernkarte: Schlafen und Aufwecken
+     * Auch ohne Musik hält die App sonst die Verbindung zu MA offen und meldet sich ständig – das kostet Akku.
+     * Nach 10 min Leerlauf trennt sie sich (in MA dann "nicht verfügbar"). Aufgeweckt wird sie durch
+     * Android Auto, das Öffnen der App oder eine Taste in der Medienkarte.
+     */
+    @Volatile private var busyAt = 0L
+    @Volatile var asleep = false; private set
+
+    private fun sleep() {
+        if (!running) return
+        AppLog.add("Leerlauf 10 min – Handy-Lautsprecher schläft (Akku)")
+        AppLog.flush()
+        stop()
+        asleep = true
+    }
+
+    /** aufwecken (falls eingeschaltet und gerade schlafend) bzw. Leerlauf-Uhr neu starten */
+    @JvmStatic fun wake(c: Context, why: String) {
+        if (!PhonePlayer.enabled(c)) return
+        busyAt = System.currentTimeMillis()
+        if (running) return
+        AppLog.add("Aufgeweckt: $why")
+        start(c)
+    }
+
+    /** cb (Haupt-Thread), sobald MA den Player angenommen hat – höchstens 20 s warten */
+    @JvmStatic fun whenReady(cb: () -> Unit) {
+        val m = android.os.Handler(android.os.Looper.getMainLooper())
+        val until = System.currentTimeMillis() + 20_000
+        fun check() { if (connected || System.currentTimeMillis() > until) cb() else m.postDelayed({ check() }, 400) }
+        check()
     }
 
     @JvmStatic fun stop() {
@@ -431,8 +467,12 @@ object SendspinPlayer {
             if (!running) { watchdogOn = false; return }
             h?.postDelayed({ tick() }, 5000)
             audio.focusCheck()
-            // alle 30 s ein Zustandsbericht ins Fern-Log
-            if (++logTick % 6 == 0) AppLog.add("Status: " + (if (connected) "verbunden" else "GETRENNT") + " · " + format() +
+            // Leerlauf: 10 min keine Musik, kein Auto, App zu → schlafen legen (Akku)
+            val now = System.currentTimeMillis()
+            if (audio.active() || resumeWanted || MaPlayer.instance?.carMode == true || MaPlayer.uiVisible) busyAt = now
+            else if (now - busyAt > 600_000L) { h?.post { sleep() }; return }
+            // alle 30 s ein Zustandsbericht ins Fern-Log – nur während Musik läuft
+            if (++logTick % 6 == 0 && audio.active()) AppLog.add("Status: " + (if (connected) "verbunden" else "GETRENNT") + " · " + format() +
                 " · Puffer " + audio.bufferedMs() + " ms · Uhr " + clock.offset + " µs")
             if (connected && !audio.streaming()) { checkNoStream(); return }
             if (!connected || audio.silentUs() < 10_000_000 || checkedSilence == audio.lastDataUs()) return
@@ -526,7 +566,7 @@ object SendspinPlayer {
     private fun syncTime(n: Int) {
         if (!connected) return
         ws?.send(msg("client/time", JSONObject().put("client_transmitted", nowUs())))
-        val next = when { n < 10 -> 200L; audio.active() -> 3000L; else -> 60000L }
+        val next = when { n < 10 -> 200L; audio.active() -> 3000L; else -> 300_000L }   // ohne Musik alle 5 min
         h?.postDelayed({ syncTime(n + 1) }, next)
     }
 

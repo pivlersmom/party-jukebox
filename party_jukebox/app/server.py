@@ -302,6 +302,20 @@ async def podpush_loop(app):
                 log.info("Podcast-Push %s: %s", uid, e)
 
 
+async def _pod_play(session, uri, player):
+    """Folge starten – mit Wiederholung: der Handy-Lautsprecher kann gerade erst aus dem Leerlauf aufwachen."""
+    for n in range(4):
+        try:
+            await MAC.cmd(session, "player_queues/play_media", {"queue_id": player, "media": uri, "option": "play"})
+            log.info("Podcast-Folge gestartet auf %s", player)
+            return
+        except Exception as e:
+            if n == 3:
+                log.warning("Podcast-Folge starten: %s", e)
+            else:
+                await asyncio.sleep(5)
+
+
 async def ha_events_loop(app):
     """Knopf „Jetzt abspielen“ in der Benachrichtigung: HA meldet das als Ereignis → Folge auf dem gewählten Player starten."""
     session = app["session"]
@@ -323,11 +337,7 @@ async def ha_events_loop(app):
                     if act in POD_ACT:
                         uri, player = POD_ACT[act]
                         if player:
-                            try:
-                                await MAC.cmd(session, "player_queues/play_media", {"queue_id": player, "media": uri, "option": "play"})
-                                log.info("Podcast-Folge gestartet auf %s", player)
-                            except Exception as e:
-                                log.warning("Podcast-Folge starten: %s", e)
+                            asyncio.ensure_future(_pod_play(session, uri, player))
         except Exception as e:
             log.info("HA-Ereignisse: %s", e)
         await asyncio.sleep(15)

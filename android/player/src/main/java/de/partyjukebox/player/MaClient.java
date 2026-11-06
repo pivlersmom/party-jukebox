@@ -128,8 +128,8 @@ final class MaClient {
                 Log.w(TAG, "Nachricht: " + e);
             }
         }
-        @Override public void onFailure(WebSocket w, Throwable t, Response r) { Log.w(TAG, "Verbindung: " + t); fail("Verbindung fehlgeschlagen"); }
-        @Override public void onClosed(WebSocket w, int code, String reason) { fail("Verbindung getrennt"); }
+        @Override public void onFailure(WebSocket w, Throwable t, Response r) { if (stale(w)) return; Log.w(TAG, "Verbindung: " + t); fail("Verbindung fehlgeschlagen"); }
+        @Override public void onClosed(WebSocket w, int code, String reason) { if (stale(w)) return; fail("Verbindung getrennt"); }
     };
 
     private void doSend(String command, JSONObject args, Cb cb, Cb onPartial, long timeoutMs) {
@@ -144,6 +144,22 @@ final class MaClient {
     }
 
     private void post(Cb cb, Object res, String err) { if (cb != null) h.post(() -> cb.done(res, err)); }
+
+    /** Meldung einer schon ersetzten/geschlossenen Verbindung? Dann nicht die neue kaputt machen. */
+    private WebSocket idleClosed;
+    private synchronized boolean stale(WebSocket w) { return w == idleClosed || (ws != null && w != ws); }
+
+    /*
+     * Lernkarte: Leerlauf = Verbindung zu
+     * Eine offene WebSocket-Verbindung schickt alle 25 s ein "Ping" – das weckt jedes Mal WLAN/Mobilfunk.
+     * Läuft lange nichts, schließen wir sie. Der nächste Befehl baut sie von selbst wieder auf (send → connect).
+     */
+    synchronized void closeIdle() {
+        if (ws == null || !pend.isEmpty() || !waiting.isEmpty()) return;
+        WebSocket w = ws; ws = null; ready = false; connecting = false; idleClosed = w;
+        try { w.close(1000, "idle"); } catch (Exception ignored) { }
+        Log.i(TAG, "Leerlauf – Verbindung zu Music Assistant geschlossen");
+    }
 
     /** Verbindung neu aufbauen (z. B. nach Wechsel zwischen WLAN und Mobilfunk). */
     synchronized void reset() {

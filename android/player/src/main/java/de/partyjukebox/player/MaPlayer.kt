@@ -435,6 +435,13 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
 
     fun queueCmd(c: String) {
         val q = playerId(); if (q.isEmpty()) return
+        busyAt = System.currentTimeMillis()
+        // Handy-Lautsprecher schläft (Leerlauf)? Erst aufwecken, dann den Befehl schicken
+        if (q == PhonePlayer.playerId(ctx) && !SendspinPlayer.isConnected()) {
+            SendspinPlayer.wake(ctx, "Taste $c")
+            SendspinPlayer.whenReady { ma.send("player_queues/$c", o("queue_id" to q)) { _, _ -> refreshSoon() } }
+            return
+        }
         ma.send("player_queues/$c", o("queue_id" to q)) { _, _ -> refreshSoon() }
     }
 
@@ -446,9 +453,11 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     private val pollTask = object : Runnable {
         override fun run() {
             if (!polling) return
-            h.postDelayed(this, pollMs())
+            val ms = pollMs()
+            h.postDelayed(this, ms)
             Endpoint.keepAliveAsync(ctx)
             poll()
+            if (ms >= DEEP_IDLE_MS) h.postDelayed({ MaClient.get(ctx).closeIdle() }, 8000)   // nach der Antwort Verbindung zu
         }
     }
 
@@ -458,10 +467,16 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
      * Läuft Musik und das Handy liegt in der Tasche: 15 s (reicht für die Benachrichtigung).
      * Nichts läuft: 60 s. Jede Anfrage weckt WLAN/Mobilfunk – weniger Anfragen = weniger Akku.
      */
-    private fun pollMs(): Long = when {
-        carMode || uiVisible -> 3_000L
-        playing -> 15_000L
-        else -> 60_000L
+    private var busyAt = System.currentTimeMillis()
+    private fun pollMs(): Long {
+        val now = System.currentTimeMillis()
+        if (carMode || uiVisible || playing) busyAt = now
+        return when {
+            carMode || uiVisible -> 3_000L
+            playing -> 15_000L
+            now - busyAt < 600_000L -> 60_000L
+            else -> DEEP_IDLE_MS   // 10 min nichts los: nur noch alle 15 min nachsehen, Verbindung dazwischen zu
+        }
     }
 
     /*
@@ -599,6 +614,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         @JvmField var onPlayerChanged: (() -> Unit)? = null
         /** Herz an/aus hat sich geändert → Knopfreihe neu (setzt JukeboxService) */
         @JvmField var onFavChanged: (() -> Unit)? = null
+        private const val DEEP_IDLE_MS = 900_000L
         private val main = Handler(Looper.getMainLooper())
 
         /** Seite meldet eine Änderung → gleich bei MA nachsehen */

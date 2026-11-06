@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.123
+- Podcast-Push: „Jetzt abspielen“ versucht es bis zu 20 s lang (Handy-Lautsprecher wacht evtl. gerade auf)
+
 ## 0.1.122
 - Radio: Cover lange drücken merkt den laufenden Song als Favorit (statt des Senders); Ring zeigt den Song
 

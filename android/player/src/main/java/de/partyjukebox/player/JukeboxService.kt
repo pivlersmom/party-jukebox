@@ -250,7 +250,7 @@ class JukeboxService : MediaLibraryService() {
 
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
-            if (isCar(controller)) { cars++; MaPlayer.instance?.carMode = true; refreshHome() }
+            if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = true; refreshHome() }
             val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(cmds)
