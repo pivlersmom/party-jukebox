@@ -595,3 +595,7 @@ body[data-tab="home"] #v-search{padding-top:6px}
 
 /* Handy-Player-Status darf umbrechen (Format, Weg, Aussetzer) */
 .srow.php .r2{white-space:normal}
+/* Ziel-Lautsprecher im Abspiel-Menü */
+.ptl{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--a1);margin:14px 2px 0}
+.ptarget{margin:6px 0 10px!important}
+.ptarget .chip{height:38px;padding:0 14px;font-size:14px}

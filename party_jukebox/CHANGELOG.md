@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.113
+- Abspiel-Menü zeigt „Abspielen auf“ mit allen Lautsprechern (gewählter hervorgehoben, spielende mit ▶) – Ziel direkt dort ändern; Bestätigung nennt den Lautsprecher
+
 ## 0.1.112
 - Einstellungen → Persönlich: neuer Bereich „Handy im Auto“ (wer bin ich, Podcast-Vorschlag, Adressen der App) für die Android-App
 
