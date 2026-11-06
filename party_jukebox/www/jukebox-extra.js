@@ -32,14 +32,42 @@ loadGuests();
 setInterval(() => { if (!document.hidden) loadGuests(); }, 10000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) loadGuests(); });
 
-/* ---------- Favorit: Cover lange drücken (0,6 s) = zu Favoriten hinzufügen / entfernen ----------
+/* ---------- Favorit: Cover lange drücken (0,6 s) = zu Favoriten hinzufügen / entfernen (bei Radio: der laufende Song) ----------
    Favoriten haben einen Rahmen im Farbverlauf. Geprüft wird nur der laufende Titel (bei Wechsel + alle 20 s).
    Titel direkt von Tidal & Co. werden in der MA-Bibliothek nachgeschlagen (nur so lässt sich ein Favorit entfernen). */
 (function () {
   const cv = $("#cover"); if (!cv) return;
   const fr = document.createElement("div"); fr.className = "favfr"; cv.appendChild(fr);
   let mi = null, lib = null, local = {}, busy = false, key = "";
-  const curMi = () => { const ci = S.q && S.q.current_item; return (ci && ci.media_item) || null; };
+  /* Radio: Favorit ist der laufende Song (über die Suche gefunden), nicht der Sender.
+     Ohne Song-Infos im Stream bleibt es beim Sender. */
+  const songs = {};   // "Interpret|Titel" → gefundener Titel (oder null = nicht gefunden)
+  const norm = x => String(x || "").toLowerCase().replace(/\(.*?\)|\[.*?\]|feat\..*$/g, "").replace(/[^a-z0-9äöüß]+/g, " ").trim();
+  function radioSong() {
+    const ci = S.q && S.q.current_item, m = ci && ci.media_item;
+    if (!m || m.media_type !== "radio") return null;
+    const n = nowInfo(); if (!n || !n.radio || !n.title || n.title === m.name) return null;
+    const a = String(n.artist || "").split(" · ")[0];
+    return { k: a + "|" + n.title, a, t: n.title };
+  }
+  async function findSong(r) {
+    if (r.k in songs) return songs[r.k];
+    songs[r.k] = null;
+    try {
+      const pv = profProv("providers"); if (pv.providers) pv.providers = pv.providers.concat("library");
+      const res = await cmd("music/search", Object.assign({ search_query: r.a + " " + r.t, media_types: ["track"], limit: 8 }, pv));
+      const list = (res && res.tracks) || [], nt = norm(r.t), na = norm(r.a);
+      const hit = list.find(x => norm(x.name) === nt && (!na || norm((x.artists || []).map(y => y.name).join(" ")).includes(na.split(" ")[0]))) ||
+        list.find(x => norm(x.name).startsWith(nt));
+      songs[r.k] = hit || null;
+    } catch (e) {}
+    return songs[r.k];
+  }
+  const curMi = () => {
+    const ci = S.q && S.q.current_item, m = (ci && ci.media_item) || null, r = radioSong();
+    return r ? (songs[r.k] || null) : m;
+  };
+  const curKey = () => { const r = radioSong(); return r ? "r|" + r.k + "|" + (songs[r.k] ? 1 : 0) : ((curMi() || {}).uri || ""); };
   const isFav = () => !mi ? false : local[mi.uri] != null ? local[mi.uri] : lib ? !!lib.favorite : !!mi.favorite;
   const paint = () => cv.classList.toggle("fav", isFav());
   async function libOf(m) {
@@ -50,12 +78,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   }
   async function load() {
     if (busy || !S.ready) return; busy = true;
-    try { const m = curMi(); if (!m) { mi = null; lib = null; } else { if (!mi || mi.uri !== m.uri) delete local[m.uri]; mi = m; lib = await libOf(m); } }
+    try { const r = radioSong(); if (r) await findSong(r);
+      const m = curMi(); if (!m) { mi = null; lib = null; } else { if (!mi || mi.uri !== m.uri) delete local[m.uri]; mi = m; lib = await libOf(m); } }
     catch (e) {}
     busy = false; paint();
   }
   async function toggle() {
-    const m = curMi(); if (!m) { toast("Gerade läuft kein Titel"); return; }
+    const r = radioSong(); if (r) await findSong(r);
+    const m = curMi(); if (!m) { toast(r ? "„" + r.t + "“ nicht gefunden" : "Gerade läuft kein Titel"); return; }
     if (!mi || mi.uri !== m.uri) { mi = m; lib = null; }
     const on = !isFav(); local[m.uri] = on; paint();
     if (window.pjCoverHint) window.pjCoverHint(on ? "❤️ Favorit" : "Kein Favorit mehr");
@@ -90,7 +120,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   document.addEventListener("click", e => { if (fired && e.target.closest && e.target.closest("#cover")) { e.stopPropagation(); e.preventDefault(); fired = false; } }, true);
   let n = 0;
   setInterval(() => {
-    const m = curMi(), k = m ? m.uri : "";
+    const k = curKey();
     if (k !== key) { key = k; load(); } else if (++n % 20 === 0 && !document.hidden) load();
   }, 1000);
 })();

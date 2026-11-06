@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.122
+- Radio: Cover lange drücken merkt den laufenden Song als Favorit (statt des Senders); Ring zeigt den Song
+
 ## 0.1.121
 - Lautsprecher ausblenden greift jetzt; Bereich liegt unter „Persönlich“
 
