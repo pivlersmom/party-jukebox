@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.121
+- Lautsprecher ausblenden greift jetzt; Bereich liegt unter „Persönlich“
+
 ## 0.1.120
 - Startseite: Reihen rasten mit Abstand zum linken Rand ein
 

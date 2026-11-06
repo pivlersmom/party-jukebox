@@ -251,7 +251,7 @@ function usable(p, all) {
     !HIDE_TYPES.includes(p.type) && !p.synced_to &&
     (all || p.player_id === S.pid || !hiddenPlayers().includes(p.player_id));   // gewählter bleibt immer sichtbar
 }
-function playerList() { return Object.values(S.players).filter(usable).sort((a, b) => pname(a).localeCompare(pname(b), "de")); }
+function playerList() { return Object.values(S.players).filter(p => usable(p)).sort((a, b) => pname(a).localeCompare(pname(b), "de")); }
 function leaderOf(id) { const p = S.players[id]; return p && p.synced_to && S.players[p.synced_to] ? p.synced_to : id; }
 const slug = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 function groupInfo(p) {
@@ -817,7 +817,7 @@ const SET_TABS = [["me", "Persönlich"], ["klang", "Klang"], ["party", "Party"],
 function setTabOf(head) {
   if (/^Klang/.test(head)) return "klang";
   if (/^(TV-Anzeige|Räume)/.test(head)) return "tv";
-  if (/^(Profile|Handy|Startseite|Schalter|Push)/.test(head)) return "me";
+  if (/^(Profile|Handy|Startseite|Lautsprecher|Schalter|Push)/.test(head)) return "me";
   if (/^Projekt/.test(head)) return "info";
   return "party";
 }
