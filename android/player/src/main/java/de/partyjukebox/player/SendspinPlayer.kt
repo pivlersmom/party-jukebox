@@ -547,9 +547,19 @@ object SendspinPlayer {
            bis neue da sind – so kann der Puffer nach einem Funkloch nahtlos weiterspielen */
         @Synchronized fun reset() { samples.clear() }
 
+        /*
+         * Lernkarte: Uhr nach Tiefschlaf
+         * Die Handy-Uhr (nanoTime) steht still, solange das Handy tief schläft. Danach stimmt der Unterschied
+         * zu MA um die Schlafdauer nicht mehr – alte Messungen mit kurzer Laufzeit würden aber weiter "gewinnen".
+         * Darum: weicht eine neue Messung um mehr als 0,5 s ab, gelten nur noch die neuen.
+         */
+        private var jumps = 0
         @Synchronized fun add(ct: Long, sr: Long, st: Long, cr: Long) {
             val rtt = (cr - ct) - (st - sr)
             val off = ((sr - ct) + (st - cr)) / 2
+            if (ready && abs(off - offset) > 500_000 && rtt < 2_000_000) {
+                if (++jumps >= 2) { samples.clear(); jumps = 0; AppLog.add("Uhr neu abgeglichen (Sprung " + ((off - offset) / 1000) + " ms)") }
+            } else jumps = 0
             samples.addLast(Sample(rtt, off))
             while (samples.size > 20) samples.removeFirst()
             offset = samples.minByOrNull { it.rtt }!!.offset
@@ -628,7 +638,34 @@ object SendspinPlayer {
             worker = Thread({ loop(t, g) }, "sendspin-audio").also { it.start() }
         }
 
+        /*
+         * Lernkarte: Handy wach halten, solange Musik läuft
+         * Mit Bildschirm aus schläft das Handy sonst tief ein: Netz und Prozessor pausieren, der Puffer läuft leer
+         * und die Uhr stimmt danach nicht mehr ("Wiedergabe stockt nachts"). Musik-Apps halten darum eine
+         * Wach-Sperre (Prozessor) und eine WLAN-Sperre, solange ein Stream läuft – genau so jetzt hier.
+         */
+        private var wake: android.os.PowerManager.WakeLock? = null
+        private var wifi: android.net.wifi.WifiManager.WifiLock? = null
+        @Synchronized fun locks(on: Boolean) {
+            try {
+                if (on) {
+                    if (wake == null) wake = (app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
+                        .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Jukebox:player").apply { setReferenceCounted(false) }
+                    if (wifi == null) wifi = (app.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager)
+                        .createWifiLock(if (Build.VERSION.SDK_INT >= 29) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                                        else @Suppress("DEPRECATION") android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Jukebox:player")
+                            .apply { setReferenceCounted(false) }
+                    if (wake?.isHeld != true) wake?.acquire(6 * 3600_000L)
+                    if (wifi?.isHeld != true) wifi?.acquire()
+                } else {
+                    if (wake?.isHeld == true) wake?.release()
+                    if (wifi?.isHeld == true) wifi?.release()
+                }
+            } catch (e: Exception) { AppLog.add("Wach-Sperre: $e") }
+        }
+
         fun start(sampleRate: Int, channels: Int, bits: Int, codec: String, header: String = "") {
+            locks(true)
             if ((codec != "pcm" && codec != "flac") || bits != 16) { AppLog.w(TAG, "Format nicht unterstützt: $codec/$bits"); return }
             if (track != null && rate == sampleRate && frameBytes == channels * 2 && codec == curCodec && header == curHeader) return   // Format gleich → weiterlaufen
             end()
@@ -725,6 +762,7 @@ object SendspinPlayer {
 
         fun end() {
             gen++
+            locks(false)
             queue.clear(); lastTs = Long.MIN_VALUE; slack = 0
             try { dec?.stop(); dec?.release() } catch (e: Exception) { }
             dec = null; curCodec = ""; curHeader = ""
@@ -804,8 +842,10 @@ object SendspinPlayer {
         }
 
         /** Pause: Audio-Fokus abgeben (Auto/andere Apps wissen dann: hier spielt nichts) */
-        private fun idle() { h?.post { abandonFocus() }; AppLog.i(TAG, "Pause – Ausgabe angehalten") }
-        private fun resume() { if (focus == null) h?.post { requestFocus(); applyVolume() } }
+        // Pause: nach 5 min ohne Musik die Wach-Sperre lösen (Akku); bei Funkloch kommt vorher wieder Musik
+        private val lockOff = Runnable { if (silentUs() > 290_000_000) { locks(false); AppLog.add("Lange Pause – Wach-Sperre gelöst") } }
+        private fun idle() { h?.post { abandonFocus(); h?.removeCallbacks(lockOff); h?.postDelayed(lockOff, 300_000) }; AppLog.i(TAG, "Pause – Ausgabe angehalten") }
+        private fun resume() { locks(true); if (focus == null) h?.post { requestFocus(); applyVolume() } }
 
         private fun abandonFocus() {
             val f = focus ?: return
