@@ -472,13 +472,15 @@ object SendspinPlayer {
             if (audio.active() || resumeWanted || MaPlayer.instance?.carMode == true || MaPlayer.uiVisible) busyAt = now
             else if (now - busyAt > 600_000L) { h?.post { sleep() }; return }
             // alle 30 s ein Zustandsbericht ins Fern-Log – nur während Musik läuft
-            if (++logTick % 6 == 0 && audio.active()) AppLog.add("Status: " + (if (connected) "verbunden" else "GETRENNT") + " · " + format() +
+            if (++logTick % 6 == 0 && (audio.active() || audio.streaming())) AppLog.add("Status: " + (if (connected) "verbunden" else "GETRENNT") + " · " + format() +
                 " · Puffer " + audio.bufferedMs() + " ms · Uhr " + clock.offset + " µs")
             if (connected && !audio.streaming()) { checkNoStream(); return }
             // Lernkarte: Kommt 10 s nichts, ist das nur ein Problem, wenn der Puffer fast leer ist. MA schickt oft das
             // Ende eines Titels auf einmal (bis 30 s Vorrat) – dann ist Funkstille normal. Früher: Neuverbinden +
             // "weiterspielen" → MA startete den Titel nochmal (Lied lief zweimal).
-            if (!connected || audio.silentUs() < 10_000_000 || audio.bufferedMs() > 3000 || checkedSilence == audio.lastDataUs()) return
+            // Aber: nach 45 s Funkstille ist auch ein voller Puffer (max. 30 s) aufgebraucht – hängt er trotzdem, ist was kaputt.
+            val sil = audio.silentUs()
+            if (!connected || sil < 10_000_000 || (audio.bufferedMs() > 3000 && sil < 45_000_000) || checkedSilence == audio.lastDataUs()) return
             val seen = audio.lastDataUs()
             val q = phoneQueue(); if (q.isEmpty()) return
             val l = ws
