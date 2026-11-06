@@ -243,10 +243,13 @@ function onEvent(m) {
 /* ---------- Lautsprecher ---------- */
 const pname = p => (p && (p.display_name || p.name)) || "";
 const pstate = p => (p ? (p.playback_state || p.state || "idle") : "idle");
-function usable(p) {
+/** im Profil ausgeblendete Lautsprecher (Einstellungen → Persönlich → Lautsprecher) */
+function hiddenPlayers() { return (S.myFav && S.myFav.prefs && S.myFav.prefs.hidePlayers) || []; }
+function usable(p, all) {
   // private Player (z. B. Handy mit der Music-Assistant-App) auch zeigen – sonst fehlt das eigene Handy
   return !!p && p.available !== false && p.enabled !== false && !p.hide_in_ui &&
-    !HIDE_TYPES.includes(p.type) && !p.synced_to;
+    !HIDE_TYPES.includes(p.type) && !p.synced_to &&
+    (all || p.player_id === S.pid || !hiddenPlayers().includes(p.player_id));   // gewählter bleibt immer sichtbar
 }
 function playerList() { return Object.values(S.players).filter(usable).sort((a, b) => pname(a).localeCompare(pname(b), "de")); }
 function leaderOf(id) { const p = S.players[id]; return p && p.synced_to && S.players[p.synced_to] ? p.synced_to : id; }
@@ -900,6 +903,8 @@ function renderSettings() {
     html += '<div class="shh gsh">Handy im Auto</div><div id="carBox"><div class="rshint">lädt …</div></div>';
   }
   html += '<div class="shh gsh">Startseite' + (prof() ? " von " + esc(profName(prof())) : "") + '</div><div id="hoBox"></div>';
+  html += '<div class="shh gsh">Lautsprecher' + (prof() ? " von " + esc(profName(prof())) : "") + '</div>' +
+    '<div class="rshint" style="margin:-4px 2px 6px">ausgeschaltete erscheinen nicht mehr in der Auswahl</div><div id="hpBox"></div>';
   html += '<div class="shh gsh">Push bei neuen Podcast-Folgen' + (prof() ? " · " + esc(profName(prof())) : "") + '</div><div id="ppBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
@@ -938,7 +943,7 @@ function renderSettings() {
   html = settingsTabs(html);
   openSheet("settings", html, c => {
     bindSettingsTabs(c);
-    loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c); loadCarPrefs(c);
+    loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c); loadCarPrefs(c); paintHidePlayers(c);
     const upd = c.querySelector("#appUpd");
     if (upd) upd.onclick = () => { try { window.AndroidMediaSession.checkUpdate(); } catch (e) {} };
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
@@ -952,7 +957,7 @@ function renderSettings() {
       try { window.AndroidMediaSession.setPhonePlayer(on); } catch (e) {} toast(on ? "Handy-Player startet" : "Handy-Player aus"); };
     const phs = c.querySelector("#phpSetup");
     if (phs) phs.onclick = () => { try { window.AndroidMediaSession.openPhonePlayerSetup(); } catch (e) {} };
-    c.querySelectorAll(".srow:not(.pfr):not(.php):not(.dspon):not(.carPod)").forEach(b => b.onclick = () => {
+    c.querySelectorAll(".srow:not(.pfr):not(.php):not(.dspon):not(.carPod):not(.hpl)").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
       if (k === "effects" || k === "skip_votes") setSave({ [k]: on });
@@ -1360,6 +1365,23 @@ function saveHomePrefs(p) {
   if (S.myFav) S.myFav.prefs = Object.assign(S.myFav.prefs || {}, p);
   fetch("party/favs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: favUid(), prefs: p }) }).catch(() => {});
   if (S.favMode && !S.favCat && !(S.nav && S.nav.length)) paintFav();
+}
+/* Lautsprecher ein-/ausblenden (pro Profil gespeichert) */
+async function paintHidePlayers(c) {
+  const box = c.querySelector("#hpBox"); if (!box) return;
+  if (!S.myFav || S.myFav.uid !== favUid()) { box.innerHTML = '<div class="rshint">lädt …</div>'; await loadMyFavs(); }
+  const hid = hiddenPlayers();
+  const all = Object.values(S.players).filter(p => usable(p, true)).sort((a, b) => pname(a).localeCompare(pname(b), "de"));
+  box.innerHTML = all.map(p => '<button class="row srow hpl' + (hid.includes(p.player_id) ? "" : " on") + '" data-id="' + esc(p.player_id) + '">' +
+    '<span class="rm"><span class="r1">' + esc(pname(p)) + '</span></span><span class="gsw"><i></i></span></button>').join("") ||
+    '<div class="rshint">keine Lautsprecher</div>';
+  box.querySelectorAll(".hpl").forEach(b => b.onclick = () => {
+    const on = !b.classList.contains("on"), id = b.dataset.id;
+    b.classList.toggle("on", on);
+    const h = hiddenPlayers().filter(x => x !== id); if (!on) h.push(id);
+    saveHomePrefs({ hidePlayers: h });
+    toast(pname(S.players[id]) + (on ? " wird angezeigt" : " ausgeblendet"));
+  });
 }
 async function paintHomeOrder(c) {
   const box = c.querySelector("#hoBox"); if (!box) return;

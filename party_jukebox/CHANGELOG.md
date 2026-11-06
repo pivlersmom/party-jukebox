@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.119
+- Einstellungen → Persönlich → Lautsprecher: nicht genutzte Lautsprecher pro Profil ausblenden
+
 ## 0.1.118
 - „Abspielen auf“: spielende Lautsprecher mit animierten Balken statt ▶
 

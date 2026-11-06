@@ -154,7 +154,7 @@ async def party_favs_post(request):
             if isinstance(v, (bool, int, str)):
                 p[str(k)[:40]] = v
             elif isinstance(v, list):   # z. B. Reihenfolge der Startseite
-                p[str(k)[:40]] = [str(x)[:40] for x in v[:30]]
+                p[str(k)[:40]] = [str(x)[:120] for x in v[:60]]   # auch lange Player-IDs
         _save_favs()
         return web.json_response({"ok": True, "prefs": p})
     if isinstance(data.get("items"), list):
