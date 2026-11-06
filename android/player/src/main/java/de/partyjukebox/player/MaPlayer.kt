@@ -612,6 +612,12 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         var title = s(mi, "name").ifEmpty { s(ci, "name") }
         var artist = mi?.let { artists(it) }.orEmpty()
         var album = s(mi?.optJSONObject("album"), "name")
+        // Podcast: statt Interpret der Podcast-Name ("🎙 Gemischtes Hack"), Hörbuch: Autor(en)
+        when (s(mi, "media_type")) {
+            "podcast_episode" -> s(mi?.optJSONObject("podcast"), "name").takeIf { it.isNotEmpty() }?.let { artist = "🎙 $it"; album = it }
+            "audiobook" -> if (artist.isEmpty()) mi?.optJSONArray("authors")?.let { a ->
+                artist = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() && it != "null" }.joinToString(", ") }
+        }
         var art = Library.image(ci)
         val sd = ci.optJSONObject("streamdetails")
         val radio = s(mi, "media_type") == "radio" || s(sd, "media_type") == "radio"
