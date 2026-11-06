@@ -148,7 +148,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             val mb = MediaMetadata.Builder()
                 .setTitle(e.title)
                 // kurz eingeblendeter Hinweis (z. B. "🎚 Klang: Rock") statt Interpret – nur beim laufenden Titel
-                .setArtist(if (i == 0 && System.currentTimeMillis() < noteUntil) note else withSpeaker(e.artist, e.quality))
+                .setArtist(if (i == 0 && System.currentTimeMillis() < noteUntil) note else withSpeaker(e))
                 .setAlbumTitle(e.album)
                 .setArtworkUri(ArtProvider.uri(e.art))   // Cover über unseren ArtProvider (lädt mit Anmeldung)
                 .setIsPlayable(true).setIsBrowsable(false)
@@ -185,9 +185,17 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     }
 
     /** "Broilers · 🔊 Wohnzimmer" – zeigt im Auto, wo die Musik gerade läuft (nicht beim eigenen Handy) */
-    private fun withSpeaker(artist: String, quality: String): String =
-        listOf(artist, if (speakerName.isEmpty() || isPhone()) "" else "🔊 $speakerName", quality)
+    /** Radio: "ROSÉ & Bruno Mars · 📻 WDR 2 · MP3 128k" – damit klar ist, dass es Radio ist (keine Länge, kein Spulen) */
+    private fun withSpeaker(e: Entry): String {
+        val artist = when {
+            e.live && !e.song -> "📻 Live-Radio"
+            e.song && e.artist == e.album -> "📻 " + e.artist   // Sender liefert nur den Titel
+            else -> e.artist
+        }
+        val station = if (e.song && e.album.isNotEmpty() && e.album != e.artist) "📻 " + e.album else ""
+        return listOf(artist, station, if (speakerName.isEmpty() || isPhone()) "" else "🔊 $speakerName", e.quality)
             .filter { it.isNotEmpty() }.joinToString(" · ")
+    }
 
     /**
      * Wiedergabequalität aus den Stream-Daten von MA, z. B. "FLAC 24/96" (Hi-Res), "FLAC 16/44,1", "OGG 320k".
