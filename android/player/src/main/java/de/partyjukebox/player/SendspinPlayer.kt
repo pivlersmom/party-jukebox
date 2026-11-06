@@ -539,6 +539,10 @@ object SendspinPlayer {
                 p.optLong("server_transmitted"), nowUs())
             "stream/start" -> p.optJSONObject("player")?.let {
                 lastStreamStart = System.currentTimeMillis()
+                // Lernkarte: Stille ab Stream-Start neu zählen. Sonst galt "schon nachgefragt" noch von der Pause davor –
+                // kam nach ▶ dann gar keine Musik (z. B. nach Gemini), merkte die Überwachung das nie → kein Ton.
+                checkedSilence = -1L
+                audio.touch()
                 audio.start(it.optInt("sample_rate", 48000), it.optInt("channels", 2), it.optInt("bit_depth", 16), it.optString("codec"),
                     it.optString("codec_header", ""))
             }
@@ -734,6 +738,8 @@ object SendspinPlayer {
         /** Stream läuft laut MA (gestartet, nicht beendet), aber seit wie vielen µs kam nichts mehr? */
         fun silentUs() = if (track == null || lastData == 0L) 0L else nowUs() - lastData
         fun lastDataUs() = lastData
+        /** Stream (neu) gestartet: ab jetzt zählt die Stille */
+        fun touch() { lastData = nowUs() }
         /** grob: wie viel Musik liegt noch in der Warteschlange (ms) */
         fun bufferedMs(): Long = try { queue.sumOf { it.data.size.toLong() } * 1000 / maxOf(1, rate * frameBytes) } catch (e: Exception) { -1 }
         /** Stream wurde gestartet und nicht beendet (egal ob gerade Daten kommen) */
