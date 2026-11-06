@@ -739,6 +739,9 @@ function openPlayers() {
   });
 }
 $("#plBtn").onclick = openPlayers;
+/* In der Android-App kein Sprung zur Gäste-Seite (von dort führt kein Weg zurück); erreichbar bleibt sie
+   über Einstellungen → Party → „Gäste-Seite öffnen“ */
+if (window.AndroidMediaSession) { const g = $("#gstBtn"); if (g) g.style.display = "none"; }
 
 /* ---------- Party-Einstellungen (Lichteffekte, Abstimmung, Gast-Limits) ---------- */
 let setData = null;

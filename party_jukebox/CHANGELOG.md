@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.116
+- Android-App: Knopf zur Gäste-Seite oben ausgeblendet (bleibt unter Einstellungen → Party)
+
 ## 0.1.115
 - „Abspielen auf“ auch auf der Seite einer Playlist, eines Albums, Podcasts oder Künstlers
 
