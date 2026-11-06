@@ -309,7 +309,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             ma.send("music/search", o("search_query" to e.artist + " " + e.title, "media_types" to JSONArray().put("track"), "limit" to 8)) { r, _ ->
                 val a = (r as? JSONObject)?.optJSONArray("tracks")
                 val list = if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optJSONObject(it) }
-                val nt = norm(e.title), na = norm(e.artist).substringBefore(' ')
+                val nt = norm(e.title)
+                val na = norm(e.artist).substringBefore(" ")
                 val hit = list.firstOrNull { norm(it.optString("name")) == nt && (na.isEmpty() || norm(artists(it)).contains(na)) }
                     ?: list.firstOrNull { norm(it.optString("name")).startsWith(nt) }
                 if (songCache.size > 50) songCache.clear()
