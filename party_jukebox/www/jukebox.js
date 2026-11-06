@@ -1911,7 +1911,7 @@ function targetRow() {
                              pl.filter(p => p.player_id !== cur && pstate(p) !== "playing").map(p => p.player_id)).filter(Boolean);
   return '<div class="ptl">Abspielen auf</div><div class="chips ptarget">' + order.map(id => {
     const p = S.players[id]; if (!p) return "";
-    return '<button class="chip' + (id === cur ? " on" : "") + '" data-p="' + esc(id) + '">' + (pstate(p) === "playing" ? "▶ " : "") + esc(pname(p)) + "</button>";
+    return '<button class="chip' + (id === cur ? " on" : "") + '" data-p="' + esc(id) + '">' + (pstate(p) === "playing" ? '<span class="eq on"><i></i><i></i><i></i></span>' : "") + esc(pname(p)) + "</button>";
   }).join("") + "</div>";
 }
 /** Klick auf einen Ziel-Knopf (in Menü oder Detailseite) */

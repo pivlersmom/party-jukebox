@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.118
+- „Abspielen auf“: spielende Lautsprecher mit animierten Balken statt ▶
+
 ## 0.1.117
 - Android-App: Einstellungs-Knopf rechts oben (statt des Gäste-Knopfs)
 

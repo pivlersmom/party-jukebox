@@ -605,3 +605,7 @@ body[data-tab="home"] #v-search{padding-top:6px}
 .prow .xfer:active{background:var(--grad);color:#fff}
 .bacts + .ptl{margin:14px 4px 0}
 header > .setbtn{justify-self:end}
+/* spielende Lautsprecher im Ziel-Knopf: animierte Balken statt ▶ */
+.ptarget .chip{display:inline-flex;align-items:center}
+.ptarget .chip .eq{margin-right:7px}
+.ptarget .chip.on .eq i{background:#fff}
