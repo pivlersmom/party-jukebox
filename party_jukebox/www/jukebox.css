@@ -604,3 +604,4 @@ body[data-tab="home"] #v-search{padding-top:6px}
   background:var(--card2);border:1px solid var(--line);color:var(--a1)}
 .prow .xfer:active{background:var(--grad);color:#fff}
 .bacts + .ptl{margin:14px 4px 0}
+header > .setbtn{justify-self:end}

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.117
+- Android-App: Einstellungs-Knopf rechts oben (statt des Gäste-Knopfs)
+
 ## 0.1.116
 - Android-App: Knopf zur Gäste-Seite oben ausgeblendet (bleibt unter Einstellungen → Party)
 
