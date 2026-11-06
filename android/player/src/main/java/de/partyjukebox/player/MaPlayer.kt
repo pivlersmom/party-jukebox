@@ -36,7 +36,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
 
     /** Ein Eintrag der Anzeige: der laufende Titel und die nächsten aus der Warteschlange. */
     private data class Entry(val id: String, val title: String, val artist: String, val album: String,
-                             val art: String, val durationMs: Long, val live: Boolean, val quality: String = "")
+                             val art: String, val durationMs: Long, val live: Boolean, val quality: String = "",
+                             val mi: JSONObject? = null, val song: Boolean = false)   // mi = MA-Eintrag, song = Radio mit Song-Infos
 
     private val h = Handler(Looper.getMainLooper())
     private var entries: List<Entry> = emptyList()
@@ -278,6 +279,81 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         }
     }
 
+    /*
+     * Lernkarte: Herz-Knopf (Favorit)
+     * Wie in der Jukebox-Seite: der laufende Titel wird in Music Assistant als Favorit markiert.
+     * Läuft Radio mit Song-Infos, suchen wir den Song (Interpret + Titel) und markieren ihn – nicht den Sender.
+     * Ob ein Titel schon Favorit ist, steht am Bibliotheks-Eintrag (music/get_library_item).
+     */
+    var favOn = false
+        private set
+    private var favKey = ""
+    private var favItem: JSONObject? = null   // gilt als Favorit (bei Radio: der gefundene Song)
+    private var favLib: JSONObject? = null    // passender Bibliotheks-Eintrag (zum Entfernen nötig)
+    private var favTick = 0
+    private val songCache = HashMap<String, JSONObject?>()
+
+    private fun setFav(v: Boolean) { if (favOn != v) { favOn = v; onFavChanged?.invoke() } }
+
+    private fun favCheck(e: Entry?) {
+        val key = when {
+            e == null -> ""
+            e.song -> "r|" + e.artist + "|" + e.title
+            else -> e.mi?.optString("uri").orEmpty()
+        }
+        if (key == favKey && ++favTick % 20 != 0) return   // neuer Titel sofort, sonst ab und zu nachsehen
+        if (key != favKey) { favKey = key; favItem = null; favLib = null; setFav(false) }
+        if (e == null || key.isEmpty()) return
+        if (e.song) {
+            if (songCache.containsKey(key)) { favUse(key, songCache[key]); return }
+            ma.send("music/search", o("search_query" to e.artist + " " + e.title, "media_types" to JSONArray().put("track"), "limit" to 8)) { r, _ ->
+                val a = (r as? JSONObject)?.optJSONArray("tracks")
+                val list = if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optJSONObject(it) }
+                val nt = norm(e.title), na = norm(e.artist).substringBefore(' ')
+                val hit = list.firstOrNull { norm(it.optString("name")) == nt && (na.isEmpty() || norm(artists(it)).contains(na)) }
+                    ?: list.firstOrNull { norm(it.optString("name")).startsWith(nt) }
+                if (songCache.size > 50) songCache.clear()
+                songCache[key] = hit
+                favUse(key, hit)
+            }
+        } else favUse(key, e.mi)
+    }
+
+    private fun favUse(key: String, item: JSONObject?) {
+        if (key != favKey) return
+        favItem = item
+        if (item == null) { setFav(false); return }
+        if (item.optString("provider") == "library") { favLib = item; setFav(item.optBoolean("favorite")); return }
+        ma.send("music/get_library_item", o("media_type" to item.optString("media_type", "track"), "item_id" to item.optString("item_id"),
+            "provider_instance_id_or_domain" to item.optString("provider"))) { r, _ ->
+            if (key != favKey) return@send
+            val l = r as? JSONObject
+            favLib = l
+            setFav(l?.optBoolean("favorite") ?: item.optBoolean("favorite"))
+        }
+    }
+
+    private fun norm(x: String) = x.lowercase().replace(Regex("\\(.*?\\)|\\[.*?\\]|feat\\..*$"), "")
+        .replace(Regex("[^a-z0-9äöüß]+"), " ").trim()
+
+    /** Herz gedrückt: Favorit an/aus */
+    fun toggleFav() {
+        val e = entries.firstOrNull()
+        val it = favItem ?: run { showNote(if (e?.song == true) "♡ „" + e.title + "“ nicht gefunden" else "♡ Gerade läuft kein Titel"); return }
+        val on = !favOn
+        setFav(on); showNote(if (on) "❤️ Favorit" else "♡ Kein Favorit mehr")
+        val recheck = { h.postDelayed({ favKey = ""; refreshSoon() }, 2500) }
+        if (on) ma.send("music/favorites/add_item", o("item" to it.optString("uri"))) { _, err ->
+            if (err != null) { setFav(false); showNote("Favorit ging nicht") } else recheck()
+        } else {
+            val l = favLib
+            if (l == null || l.optString("item_id").isEmpty()) { setFav(true); showNote("Favorit ging nicht"); return }
+            ma.send("music/favorites/remove_item", o("media_type" to l.optString("media_type", "track"), "library_item_id" to l.optString("item_id"))) { _, err ->
+                if (err != null) { setFav(true); showNote("Favorit ging nicht") } else recheck()
+            }
+        }
+    }
+
     /** Liste leeren: alle kommenden Titel entfernen, die MA noch nicht geladen hat (laufender spielt weiter) */
     fun clearUpcoming() {
         val q = playerId(); if (q.isEmpty()) return
@@ -436,6 +512,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             if (was != playing) AppLog.add("Medienkarte: " + q + (if (playing) " spielt" else " pausiert/aus") + (if (carMode) " (Auto)" else ""))
             positionMs = (qu.optDouble("elapsed_time", 0.0) * 1000).toLong()
             val cur = qu.optJSONObject("current_item")?.let { toEntry(it) }
+            favCheck(cur)
             if (carMode) {
                 // im Auto lief schon etwas / anderer Titel als beim Einsteigen → ▶ setzt diesen fort statt den Vorschlag zu starten
                 if (boardCur == null) boardCur = cur?.id ?: ""
@@ -509,7 +586,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         val d = ci.optDouble("duration", 0.0)
         val dur = if (d.isNaN()) 0L else (d * 1000).toLong()
         val id = s(ci, "queue_item_id").ifEmpty { title }
-        return Entry(id, title.ifEmpty { "Jukebox" }, artist, album, art, dur, radio, quality(sd))
+        return Entry(id, title.ifEmpty { "Jukebox" }, artist, album, art, dur, radio, quality(sd), mi, radio && album.isNotEmpty() && artist != "Radio" && title != album)
     }
 
     companion object {
@@ -519,6 +596,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         @JvmField @Volatile var uiVisible = false
         /** anderer Lautsprecher gewählt → Knopfreihe im Auto anpassen (setzt JukeboxService) */
         @JvmField var onPlayerChanged: (() -> Unit)? = null
+        /** Herz an/aus hat sich geändert → Knopfreihe neu (setzt JukeboxService) */
+        @JvmField var onFavChanged: (() -> Unit)? = null
         private val main = Handler(Looper.getMainLooper())
 
         /** Seite meldet eine Änderung → gleich bei MA nachsehen */

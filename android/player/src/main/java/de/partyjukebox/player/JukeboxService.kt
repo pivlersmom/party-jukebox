@@ -60,6 +60,7 @@ class JukeboxService : MediaLibraryService() {
         // auch, wenn sich noch kein Gerät (Auto, Uhr) verbunden hat
         session?.let { addSession(it) }
         MaPlayer.onPlayerChanged = { showLayout(); refreshKlang() }
+        MaPlayer.onFavChanged = { showLayout() }
         player.startPolling()
         refreshHome()
         // Handy-Player auch starten, wenn nur Android Auto die App weckt (z. B. nach einem Update)
@@ -87,6 +88,7 @@ class JukeboxService : MediaLibraryService() {
     override fun onDestroy() {
         Library.session = null
         MaPlayer.onPlayerChanged = null
+        MaPlayer.onFavChanged = null
         MaPlayer.instance = null
         session?.let { it.player.release(); it.release() }
         session = null
@@ -156,12 +158,23 @@ class JukeboxService : MediaLibraryService() {
         .setSessionCommand(klangCmd)
         .build()
 
-    /** "Ins Auto holen" nur, wenn gerade nicht schon das Handy spielt */
+    /* Herz: laufender Titel als Favorit (gefüllt = schon Favorit) */
+    private val favCmd = SessionCommand("jukebox.FAV", Bundle.EMPTY)
+
+    @Suppress("DEPRECATION")
+    private fun favButton(on: Boolean) = CommandButton.Builder()
+        .setDisplayName(if (on) "Favorit entfernen" else "Als Favorit")
+        .setIconResId(if (on) R.drawable.ic_fav_on else R.drawable.ic_fav_off)
+        .setSessionCommand(favCmd)
+        .build()
+
+    /** "Ins Auto holen" nur, wenn gerade nicht schon das Handy spielt; "Liste leeren" ganz hinten (landet ggf. im ⋯-Menü) */
     private fun layout(): ImmutableList<CommandButton> {
         val onPhone = MaPlayer.instance?.playerId().let { it != null && it.isNotEmpty() && it == PhonePlayer.playerId(this) }
         val l = mutableListOf<CommandButton>()
         homeSw?.let { l.add(homeButton(it)) }
         l.add(klangButton())
+        l.add(favButton(MaPlayer.instance?.favOn == true))
         if (!onPhone) l.add(toCarButton)
         l.add(clearButton)
         return ImmutableList.copyOf(l)
@@ -238,7 +251,7 @@ class JukeboxService : MediaLibraryService() {
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             if (isCar(controller)) { cars++; MaPlayer.instance?.carMode = true; refreshHome() }
-            val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).build()
+            val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(cmds)
                 .setCustomLayout(layout())
@@ -262,6 +275,10 @@ class JukeboxService : MediaLibraryService() {
                 homeSw = sw.copy(third = !sw.third); session.setCustomLayout(layout())
                 MaPlayer.instance?.showNote("🏠 " + sw.second + (if (!sw.third) ": AN" else ": AUS"))
                 Library.toggleLive(sw.first) { refreshHome() }
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+            if (customCommand.customAction == favCmd.customAction) {
+                MaPlayer.instance?.toggleFav()
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
             if (customCommand.customAction == klangCmd.customAction) {
