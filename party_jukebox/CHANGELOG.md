@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.131
+- Kein Ton mehr auf der Box beim normalen Wunsch
+
 ## 0.1.130
 - Vordrängeln: kurzes Scratchen, dann Buh einer ganzen Menge – Durchsage entfernt (Option tts_engine entfällt)
 

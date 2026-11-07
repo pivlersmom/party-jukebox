@@ -1360,7 +1360,8 @@ async def party_ev(request):
     qid = str(data.get("q") or "")[:60]
     if typ == "wish":
         asyncio.create_task(run_script(session, OPT.get("script_wish")))
-        asyncio.create_task(box_sound(session, "boost" if data.get("b") else "wish", qid, data.get("name")))
+        if data.get("b"):   # normaler Wunsch: kein Ton auf der Box, nur beim Vordrängeln
+            asyncio.create_task(box_sound(session, "boost", qid, data.get("name")))
     elif typ == "boost":
         asyncio.create_task(run_script(session, OPT.get("script_boost")))
         asyncio.create_task(box_sound(session, "boost", qid, data.get("name")))   # Vordrängeln aus der Warteschlange (nach Wunsch: schon gelaufen, 4-s-Sperre)
