@@ -1466,15 +1466,27 @@ async def box_sound(session, kind, qid="", name=""):
         if kind == "boost":   # erst Buh-Konzert, dann Durchsage mit Namen
             who = re.sub(r"[^\w äöüÄÖÜß.\-]", "", str(name or "Jemand"))[:30].strip() or "Jemand"
             say = await tts_url(session, f"Achtung, Achtung! {who} hat sich vorgedrängelt!")
-        t0 = now()
-        await MAC.cmd(session, "players/cmd/play_announcement", {"player_id": pid, "url": url, "pre_announce": False})
-        log.info("Party-Ton %s auf %s", kind, pid)
+        # Lief Musik? Dann prüfen wir danach, ob sie wieder läuft (manche Boxen setzen nach Durchsagen nicht fort)
+        q = {}
+        try:
+            q = await MAC.cmd(session, "player_queues/get_active_queue", {"player_id": pid}) or {}
+        except Exception:
+            pass
+        was_playing = q.get("state") == "playing"
+        # EINE Durchsage: Buh als "Vorab-Ton", danach der Text – zwei Durchsagen hintereinander
+        # brachten Music Assistant durcheinander (Musik kam danach nicht wieder)
         if say:
-            wait = 6.2 - (now() - t0)   # Buh dauert 6 s – falls MA nicht bis zum Ende wartet
-            if wait > 0:
-                await asyncio.sleep(wait)
-            await MAC.cmd(session, "players/cmd/play_announcement", {"player_id": pid, "url": say, "pre_announce": False})
-            log.info("Durchsage Vordrängeln (%s) auf %s", name, pid)
+            args = {"player_id": pid, "url": say, "pre_announce": True, "pre_announce_url": url}
+        else:
+            args = {"player_id": pid, "url": url, "pre_announce": False}
+        await MAC.cmd(session, "players/cmd/play_announcement", args)
+        log.info("Party-Ton %s auf %s%s", kind, pid, " + Durchsage (%s)" % name if say else "")
+        if was_playing and q.get("queue_id"):
+            await asyncio.sleep(12)
+            q2 = await MAC.cmd(session, "player_queues/get", {"queue_id": q["queue_id"]}) or {}
+            if q2.get("state") != "playing":
+                log.info("Nach Party-Ton läuft %s nicht weiter – setze fort", q["queue_id"])
+                await MAC.cmd(session, "player_queues/resume", {"queue_id": q["queue_id"]})
     except Exception as e:
         log.info("Party-Ton %s: %s", kind, e)
 

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.129
+- Vordrängeln: Buh + Durchsage als eine Ansage (Musik lief danach nicht weiter); läuft sie nach einem Party-Ton nicht wieder, wird fortgesetzt
+
 ## 0.1.128
 - Vordrängeln: Buh-Konzert und Durchsage „Achtung, Achtung! <Name> hat sich vorgedrängelt!“ auf dem Lautsprecher (TTS aus Home Assistant, neue Option tts_engine)
 
