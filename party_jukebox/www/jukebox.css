@@ -609,3 +609,10 @@ header > .setbtn{justify-self:end}
 .ptarget .chip{display:inline-flex;align-items:center}
 .ptarget .chip .eq{margin-right:7px}
 .ptarget .chip.on .eq i{background:#fff}
+/* Meldungen der App */
+.lgrow{display:grid;grid-template-columns:44px 22px 1fr;gap:6px;align-items:start;padding:7px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.35}
+.lgt{color:var(--dim);font-variant-numeric:tabular-nums}
+.lgi{text-align:center}
+.lgrow.lge .lgx{color:#ff8a80;font-weight:600}
+.lgrow.lgw .lgx{color:#ffd180}
+.lgrow.lgi .lgx{color:var(--dim)}

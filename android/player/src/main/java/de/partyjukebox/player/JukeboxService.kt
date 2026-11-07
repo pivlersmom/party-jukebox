@@ -37,6 +37,7 @@ class JukeboxService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
 
     override fun onCreate() {
+        AppLog.init(this)
         super.onCreate()
         CrashLog.install(this)
         Library.app = applicationContext

@@ -658,6 +658,76 @@ document.querySelectorAll("#nav button").forEach(b => { b.onclick = () => showTa
 
 /* ---------- Unteres Fenster ---------- */
 let sheetKind = "";
+/* ---------- Meldungen der App: Fern-Log des Handys, übersetzt ----------
+   Jede Regel: Muster → [Stufe, Text]. Stufe: e = Fehler, w = Hinweis/Störung, o = gut, i = Info, null = ausblenden */
+const secDE = ms => (ms / 1000).toFixed(1).replace(".", ",");
+const LOG_RULES = [
+  [/^⚠ ?Absturz/, () => ["e", "Die App ist abgestürzt und wurde neu gestartet"]],
+  [/Keine Musik mehr angekommen/, () => ["e", "Es kam keine Musik mehr an – Verbindung wird neu aufgebaut"]],
+  [/MA spielt, aber kein Stream/, () => ["w", "Music Assistant spielte, aber es kam kein Ton – Wiedergabe neu angestoßen"]],
+  [/Nach Verbindungsabbruch: Wiedergabe neu anstoßen \(Versuch (\d+)/, m => ["w", "Nach dem Abbruch weitergespielt (Versuch " + m[1] + ")"]],
+  [/Verbindung weg \((.*?)\)/, m => ["w", "Verbindung unterbrochen" + ({ stall: " (keine Daten mehr)", net: " (Netz weg)" }[m[1]] || "") + " – der Vorrat spielt weiter"]],
+  [/Netz der Verbindung weg/, () => ["w", "Netz weg (z. B. Funkloch oder WLAN aus) – verbinde neu"]],
+  [/Netz wieder da/, () => ["o", "Netz wieder da"]],
+  [/WebRTC klappt nicht, nehme Nabu Casa/, () => ["w", "Direktverbindung ging nicht – nutze den Umweg über Nabu Casa"]],
+  [/Verbinde direkt/, () => ["i", "Verbinde im Heimnetz"]],
+  [/Verbinde (per WebRTC|über Nabu Casa)/, () => ["i", "Verbinde von unterwegs"]],
+  [/angemeldet bei/, () => ["o", "Mit Music Assistant verbunden"]],
+  [/Ausgabe hängt \(Verspätung (-?\d+)/, m => ["e", "Ton-Ausgabe hing (" + secDE(m[1]) + " s) – neu gestartet"]],
+  [/AudioTrack neu|^⚠ Audio:/, () => ["e", "Ton-Ausgabe hatte einen Fehler – neu gestartet"]],
+  [/FLAC-Decoder voll|Paket zu alt verworfen/, () => ["w", "Ein kleines Stück Musik ging verloren (kurzer Aussetzer)"]],
+  [/FLAC-Decoder:|^⚠ FLAC:|Format nicht unterstützt/, () => ["e", "Musik konnte nicht entpackt werden"]],
+  [/Sprung: zu (spät|früh) (\d+)/, m => ["w", "Ton war " + (m[1] === "spät" ? "zu spät" : "zu früh") + " (" + secDE(m[2]) + " s) – zurechtgerückt"]],
+  [/Nachlauf \+(\d+)/, m => ["i", "Kurzen Hänger ohne Lücke ausgeglichen (+" + secDE(m[1]) + " s)"]],
+  [/Uhr neu abgeglichen/, () => ["w", "Handy war im Tiefschlaf – Takt neu abgeglichen"]],
+  [/Doppelte Pakete/, () => ["i", "Nach dem Neuverbinden doppelte Musik übersprungen"]],
+  [/Ausgabe getrennt/, () => ["w", "Ausgabe getrennt (z. B. Kopfhörer/Auto weg) – pausiert"]],
+  [/Ausgabeweg gewechselt/, () => ["i", "Ton läuft jetzt über ein anderes Gerät"]],
+  [/Audio-Fokus selbst zurückgeholt/, () => ["w", "Eine andere App hat den Ton nicht zurückgegeben – selbst zurückgeholt"]],
+  [/Audio-Fokus: (-?\d+)/, m => ({ "-1": ["w", "Eine andere App hat den Ton übernommen"], "-2": ["i", "Kurz unterbrochen (Navi, Anruf, Sprachassistent)"], "-3": ["i", "Leiser gestellt für eine Ansage"] }[m[1]] || [null])],
+  [/Fortsetzen: (.*)/, m => ["e", "Weiterspielen ging nicht: " + m[1]]],
+  [/Lautsprecher-Liste: (.*)/, () => ["e", "Lautsprecher-Liste konnte nicht geladen werden"]],
+  [/Update laden: /, () => ["e", "App-Update konnte nicht geladen werden"]],
+  [/Signaling|Remote-ID|Nachricht: |Netz beobachten|Wach-Sperre:/, () => ["e", "Interner Fehler beim Verbinden"]],
+  [/Leerlauf 10 min/, () => ["i", "10 min keine Musik – Handy-Lautsprecher schläft (Akku)"]],
+  [/Aufgeweckt: (.*)/, m => ["i", "Aufgewacht (" + m[1] + ")"]],
+  [/Lange Pause/, () => ["i", "Lange Pause – Energiesparen an"]],
+  [/Weiterspielen angefragt/, () => ["i", "Weiterspielen über Medientaste/Auto"]],
+  [/Stream: (\w+) (\d+) Hz/, m => ["i", "Musik startet (" + m[1].toUpperCase() + " " + (m[2] / 1000).toString().replace(".", ",") + " kHz)"]],
+  [/gestartet als/, () => ["i", "App gestartet"]],
+  [/Status: (\S+).*?(?:Aussetzer: (\d+)[^·]*· )?Puffer (\d+) ms/, m => [m[1] === "verbunden" ? "i" : "w",
+    (m[1] === "verbunden" ? "Läuft" : "Getrennt") + " · Vorrat " + secDE(m[3]) + " s" + (m[2] ? " · " + m[2] + " Aussetzer bisher" : "")]],
+  [/Benachrichtigung:|Medienkarte:|MA-Player:|Zustand:|Datenkanal|ICE-Server|Medien-Dienst|Ende: |Pause – Ausgabe/, () => [null]],
+  [/^⚠ (.*)/, m => ["w", m[1]]],
+];
+function logLine(raw) {
+  const m0 = /^(\d{4}-\d\d-\d\d) (\d\d:\d\d):\d\d (.*)$/.exec(raw); if (!m0) return null;
+  const msg = m0[3];
+  for (const [re, f] of LOG_RULES) { const m = re.exec(msg); if (m) { const [lv, t] = f(m); return lv ? { d: m0[1], t: m0[2], lv, txt: t } : null; } }
+  return { d: m0[1], t: m0[2], lv: "i", txt: msg };
+}
+function openAppLog(onlyProblems) {
+  let lines = [];
+  try { lines = JSON.parse(window.AndroidMediaSession.getAppLog() || "[]"); } catch (e) {}
+  const all = lines.map(logLine).filter(Boolean).reverse();
+  const shown = onlyProblems ? all.filter(x => x.lv === "e" || x.lv === "w") : all;
+  const ico = { e: "⛔", w: "⚠️", o: "✅", i: "·" };
+  const today = new Date().toISOString().slice(0, 10), yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  let html = '<div class="shh">Meldungen der App</div>' +
+    '<div class="chips" style="margin:4px 0 10px"><button class="chip' + (onlyProblems ? " on" : "") + '" id="lgP">Nur Probleme</button>' +
+    '<button class="chip' + (onlyProblems ? "" : " on") + '" id="lgA">Alles</button></div>';
+  if (!shown.length) html += '<div class="rshint">' + (onlyProblems ? "Keine Probleme in letzter Zeit 👍" : "Noch keine Meldungen") + '</div>';
+  let lastD = "";
+  shown.slice(0, 250).forEach(x => {
+    if (x.d !== lastD) { lastD = x.d; html += '<div class="shh gsh">' + (x.d === today ? "Heute" : x.d === yest ? "Gestern" : x.d.split("-").reverse().join(".")) + '</div>'; }
+    html += '<div class="lgrow lg' + x.lv + '"><span class="lgt">' + x.t + '</span><span class="lgi">' + ico[x.lv] + '</span><span class="lgx">' + esc(x.txt) + '</span></div>';
+  });
+  openSheet("applog", html, c => {
+    c.querySelector("#lgP").onclick = () => openAppLog(true);
+    c.querySelector("#lgA").onclick = () => openAppLog(false);
+  });
+}
+
 function openSheet(kind, html, bind) {
   const sh = $("#sheet"), c = $("#sheetCard");
   sheetKind = kind; c.innerHTML = html;
@@ -938,6 +1008,9 @@ function renderSettings() {
     if (AMS2 && typeof AMS2.checkUpdate === "function")
       html += '<a class="row lrow" id="appUpd"><span class="rm"><span class="r1">⬇ Nach App-Update suchen</span>' +
         '<span class="r2">lädt die neue Version direkt in die App (nichts in „Downloads“)</span></span></a>';
+    if (AMS2 && typeof AMS2.getAppLog === "function")
+      html += '<a class="row lrow" id="appLog"><span class="rm"><span class="r1">🩺 Meldungen der App</span>' +
+        '<span class="r2">Abbrüche, Aussetzer und Fehler – verständlich erklärt</span></span><span class="lic">›</span></a>';
     if (v || av) html += '<div class="rshint" style="text-align:center;margin-top:18px">' + [v ? "App " + esc(v) : "", av ? "Add-on " + esc(av) : ""].filter(Boolean).join(" · ") + '</div>';
   }
   html = settingsTabs(html);
@@ -946,6 +1019,7 @@ function renderSettings() {
     loadQs(c); paintHomeOrder(c); loadPodPush(c); loadDsp(c); loadCarPrefs(c); paintHidePlayers(c);
     const upd = c.querySelector("#appUpd");
     if (upd) upd.onclick = () => { try { window.AndroidMediaSession.checkUpdate(); } catch (e) {} };
+    const alog = c.querySelector("#appLog"); if (alog) alog.onclick = () => openAppLog(true);
     c.querySelectorAll(".srow.pfr").forEach(b => b.onclick = () => {
       b.classList.toggle("on");
       const ids = [...c.querySelectorAll(".srow.pfr.on")].map(x => x.dataset.u);

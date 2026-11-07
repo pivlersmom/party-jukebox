@@ -296,6 +296,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getCarPrefs(){ return CarPrefs.get(MainActivity.this); }
         @JavascriptInterface public void setCarPrefs(String json){ CarPrefs.set(MainActivity.this, json); }
         @JavascriptInterface public void checkUpdate(){ runOnUiThread(() -> Updater.check(MainActivity.this, true)); }
+        @JavascriptInterface public String getAppLog(){ AppLog.init(MainActivity.this); return AppLog.recent(); }
         @JavascriptInterface public String getAppVersion(){ return BuildConfig.VERSION_NAME+" ("+BuildConfig.VERSION_CODE+")"; }
         /** Android Auto: gewählter Lautsprecher und Profil (Benutzer + Musikquellen) der Jukebox */
         @JavascriptInterface public void setAaContext(String json){

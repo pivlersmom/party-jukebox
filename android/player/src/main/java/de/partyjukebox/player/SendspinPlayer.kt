@@ -137,6 +137,7 @@ object SendspinPlayer {
     @JvmStatic fun start(c: Context) {
         if (running) return
         app = c.applicationContext
+        AppLog.init(app)
         volume = prefs().getInt("ss_vol", 60)
         muted = prefs().getBoolean("ss_muted", false)
         running = true

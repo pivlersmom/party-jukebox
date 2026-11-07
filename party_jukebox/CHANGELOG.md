@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.124
+- Einstellungen → „Meldungen der App“ (nur in der Android-App): Abbrüche, Aussetzer und Fehler verständlich übersetzt
+
+
 ## 0.1.123
 - Podcast-Push: „Jetzt abspielen“ versucht es bis zu 20 s lang (Handy-Lautsprecher wacht evtl. gerade auf)
 
