@@ -7,6 +7,7 @@ import org.json.JSONObject
  * Einstellungen fürs Auto, pro Handy gespeichert (Jukebox → Einstellungen → Persönlich → Auto):
  *  - me_person: wer bin ich? (person.xyz) – für "Ist noch jemand zuhause?" beim Einsteigen/Aussteigen
  *  - pod_suggest: im Auto die neueste Podcast-Folge vorschlagen
+ *  - rtc: unterwegs per WebRTC statt über Nabu Casa verbinden (Standard: aus)
  * Fehlt etwas, wird einmalig eine frühere Zuordnung übernommen, falls der Build eine mitbringt (siehe Legacy).
  */
 object CarPrefs {
@@ -30,13 +31,15 @@ object CarPrefs {
         return legacy
     }
 
-    @JvmStatic fun get(c: Context): String = JSONObject().put("me", mePerson(c)).put("podSuggest", podSuggest(c)).toString()
+    @JvmStatic fun get(c: Context): String = JSONObject().put("me", mePerson(c)).put("podSuggest", podSuggest(c))
+        .put("rtc", Endpoint.prefs(c).getBoolean("ss_rtc", false)).toString()
 
     @JvmStatic fun set(c: Context, json: String) {
         val o = try { JSONObject(json) } catch (e: Exception) { return }
         val e = Endpoint.prefs(c).edit()
         if (o.has("me")) e.putString("me_person", o.optString("me"))
         if (o.has("podSuggest")) e.putBoolean("pod_suggest", o.optBoolean("podSuggest"))
+        if (o.has("rtc")) e.putBoolean("ss_rtc", o.optBoolean("rtc"))   // gilt ab der nächsten Verbindung
         e.apply()
     }
 }

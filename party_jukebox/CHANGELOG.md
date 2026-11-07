@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.125
+- App: Schalter „Unterwegs per WebRTC verbinden“ (Standard aus = Nabu Casa)
+
 ## 0.1.124
 - Einstellungen → „Meldungen der App“ (nur in der Android-App): Abbrüche, Aussetzer und Fehler verständlich übersetzt
 

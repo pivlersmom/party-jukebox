@@ -294,7 +294,10 @@ object SendspinPlayer {
         }
         viaCloud = true
         val rid = prefs().getString("ma_rid", "") ?: ""
-        if (rid.isNotEmpty() && prefs().getBoolean("ss_rtc", true) && System.currentTimeMillis() > rtcBlockUntil) {
+        // Unterwegs: Standard ist Nabu Casa (robuster bei WLAN ↔ Mobilfunk). WebRTC nur, wenn eingeschaltet –
+        // oder wenn es gar keine Adresse für unterwegs gibt (dann geht nur WebRTC).
+        val wantRtc = prefs().getBoolean("ss_rtc", false) || Endpoint.HA_REMOTE.isEmpty()
+        if (rid.isNotEmpty() && wantRtc && System.currentTimeMillis() > rtcBlockUntil) {
             AppLog.i(TAG, "Verbinde per WebRTC (unterwegs)")
             val l = RtcLink(app, rid, listener)
             ws = l; l.start()
