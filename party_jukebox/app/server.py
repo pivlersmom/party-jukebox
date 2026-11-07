@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import socket
 from urllib.parse import parse_qs, quote, urlparse
 import logging
 import os
@@ -1356,13 +1357,17 @@ async def party_ev(request):
     typ = PARTY.event(data)
     PARTY.save()
     session = request.app["session"]
+    qid = str(data.get("q") or "")[:60]
     if typ == "wish":
         asyncio.create_task(run_script(session, OPT.get("script_wish")))
+        asyncio.create_task(box_sound(session, "boost" if data.get("b") else "wish", qid))
     elif typ == "boost":
         asyncio.create_task(run_script(session, OPT.get("script_boost")))
+        asyncio.create_task(box_sound(session, "boost", qid))   # Vordrängeln aus der Warteschlange (nach Wunsch: schon gelaufen, 4-s-Sperre)
     elif typ == "beer":
         x = PARTY.bi[-1]
         asyncio.create_task(run_script(session, OPT.get("script_drink")))
+        asyncio.create_task(box_sound(session, "beer", qid))
         asyncio.create_task(notify_drink(session, x))
     elif typ == "vote" and setting("skip_votes", OPT.get("skip_votes", True)):
         down, up, need = len(PARTY.down), len(PARTY.up), PARTY.need()
@@ -1370,6 +1375,38 @@ async def party_ev(request):
             _last_skip.update(u=PARTY.vu, t=now())
             asyncio.create_task(skip(session, PARTY.vq, PARTY.vu))
     return web.json_response({"ok": typ is not None, "type": typ})
+
+
+_sfx_last = {"t": 0.0}
+
+
+def _own_addr():
+    """Adresse dieses Add-ons im internen Netz – darüber holt Music Assistant die Ton-Datei."""
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except Exception:
+        return socket.gethostname()
+
+
+async def box_sound(session, kind, qid=""):
+    """Wunsch-Klimpern, Buh beim Vordrängeln, Einschenken beim Bier – zusätzlich auf dem Lautsprecher, der gerade spielt.
+    Music Assistant spielt die Datei als Durchsage (Musik wird kurz leiser bzw. unterbrochen). Höchstens alle 4 s."""
+    if not setting("box_sounds", True) or now() - _sfx_last["t"] < 4:
+        return
+    _sfx_last["t"] = now()
+    try:
+        pid = await resolve_player(session) or qid or PARTY.vq
+        if not pid:   # sonst: der Player, der gerade spielt
+            for p in await MAC.cmd(session, "players/all") or []:
+                if p.get("playback_state") == "playing" or p.get("state") == "playing":
+                    pid = p.get("player_id"); break
+        if not pid:
+            return
+        url = "http://%s:%d/sfx/%s.mp3" % (_own_addr(), PORT, kind)
+        await MAC.cmd(session, "players/cmd/play_announcement", {"player_id": pid, "url": url, "pre_announce": False})
+        log.info("Party-Ton %s auf %s", kind, pid)
+    except Exception as e:
+        log.info("Party-Ton %s: %s", kind, e)
 
 
 async def resolve_player(session):
@@ -1511,6 +1548,7 @@ async def party_settings_get(request):
     out = {"effects": bool(setting("effects", True)),
            **tv_settings(),
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
+           "box_sounds": bool(setting("box_sounds", True)),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
            "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN),
            "host_pin": host_pin_set(), "profiles": SETTINGS.get("profiles")}
@@ -1541,7 +1579,7 @@ async def party_settings_post(request):
         # Ohne Gastgeber-Anmeldung darf nur die TV-Anzeige den Songtext-Versatz melden
         if set(data) - {"lyr_offset", "tv_only"}:
             return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig"}, status=403)
-    for k in ("effects", "skip_votes"):
+    for k in ("effects", "skip_votes", "box_sounds"):
         if isinstance(data.get(k), bool):
             SETTINGS[k] = data[k]
     if isinstance(data.get("lyr_offset"), (int, float)) and not isinstance(data.get("lyr_offset"), bool):

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.126
+- Party: Wunsch-Klimpern, Bier-Einschenken und Buh beim Vordrängeln auch auf dem Lautsprecher, der gerade spielt (Einstellungen → Party, abschaltbar)
+
 ## 0.1.125
 - App: Schalter „Unterwegs per WebRTC verbinden“ (Standard aus = Nabu Casa)
 
