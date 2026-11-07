@@ -1404,46 +1404,6 @@ async def party_tvplayer(request):
     return web.json_response({"ok": bool(pid)})
 
 
-_tts = {"eng": None, "at": 0.0}
-
-
-async def tts_engine(session):
-    """TTS-Dienst aus Home Assistant: Add-on-Option tts_engine, sonst automatisch (Cloud, Piper, …)."""
-    want = (OPT.get("tts_engine") or "").strip()
-    if want.startswith("tts."):
-        return want
-    if _tts["eng"] is not None and now() - _tts["at"] < 3600:
-        return _tts["eng"]
-    eng = ""
-    try:
-        async with session.get(f"{HA_HTTP}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=10) as r:
-            ids = [s.get("entity_id", "") for s in (await r.json() if r.status == 200 else [])
-                   if str(s.get("entity_id", "")).startswith("tts.") and s.get("state") != "unavailable"]
-        prefer = ["tts.home_assistant_cloud", "tts.piper"]
-        eng = next((p for p in prefer if p in ids), ids[0] if ids else "")
-    except Exception as e:
-        log.info("TTS-Dienste nicht lesbar: %s", e)
-    _tts.update(eng=eng, at=now())
-    return eng
-
-
-async def tts_url(session, text):
-    """Ansage-Text → Adresse einer MP3 bei Home Assistant (die holt Music Assistant ab)."""
-    eng = await tts_engine(session) if SUP_TOKEN else ""
-    if not eng:
-        return ""
-    try:
-        async with session.post(f"{HA_HTTP}/tts_get_url", json={"engine_id": eng, "message": text},
-                                headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=20) as r:
-            d = await r.json() if r.status == 200 else {}
-            if r.status != 200:
-                log.info("TTS %s -> %s", eng, r.status)
-        return d.get("url") or ("http://homeassistant:8123" + d["path"] if d.get("path") else "")
-    except Exception as e:
-        log.info("TTS: %s", e)
-        return ""
-
-
 async def box_sound(session, kind, qid="", name=""):
     """Wunsch-Klimpern, Buh beim Vordrängeln, Einschenken beim Bier – zusätzlich auf dem Lautsprecher, den der Fernseher zeigt.
     Music Assistant spielt die Datei als Durchsage (Musik wird kurz leiser bzw. unterbrochen). Höchstens alle 4 s."""
@@ -1462,10 +1422,6 @@ async def box_sound(session, kind, qid="", name=""):
         if not pid:
             return
         url = "http://%s:%d/sfx/%s.mp3" % (_own_addr(), PORT, kind)
-        say = ""
-        if kind == "boost":   # erst Buh-Konzert, dann Durchsage mit Namen
-            who = re.sub(r"[^\w äöüÄÖÜß.\-]", "", str(name or "Jemand"))[:30].strip() or "Jemand"
-            say = await tts_url(session, f"Achtung, Achtung! {who} hat sich vorgedrängelt!")
         # Lief Musik? Dann prüfen wir danach, ob sie wieder läuft (manche Boxen setzen nach Durchsagen nicht fort)
         q = {}
         try:
@@ -1473,14 +1429,8 @@ async def box_sound(session, kind, qid="", name=""):
         except Exception:
             pass
         was_playing = q.get("state") == "playing"
-        # EINE Durchsage: Buh als "Vorab-Ton", danach der Text – zwei Durchsagen hintereinander
-        # brachten Music Assistant durcheinander (Musik kam danach nicht wieder)
-        if say:
-            args = {"player_id": pid, "url": say, "pre_announce": True, "pre_announce_url": url}
-        else:
-            args = {"player_id": pid, "url": url, "pre_announce": False}
-        await MAC.cmd(session, "players/cmd/play_announcement", args)
-        log.info("Party-Ton %s auf %s%s", kind, pid, " + Durchsage (%s)" % name if say else "")
+        await MAC.cmd(session, "players/cmd/play_announcement", {"player_id": pid, "url": url, "pre_announce": False})
+        log.info("Party-Ton %s auf %s", kind, pid)
         if was_playing and q.get("queue_id"):
             await asyncio.sleep(12)
             q2 = await MAC.cmd(session, "player_queues/get", {"queue_id": q["queue_id"]}) or {}

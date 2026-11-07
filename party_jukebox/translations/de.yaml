@@ -41,9 +41,6 @@ configuration:
   drinks:
     name: Getränke
     description: Eine Zeile pro Getränk im Format Name|Emoji|Satz, z. B. Bier|🍺|ein Bier
-  tts_engine:
-    name: Durchsage – TTS-Dienst
-    description: "Optional, z. B. tts.home_assistant_cloud oder tts.piper. Leer = automatisch. Für „Achtung, Achtung! … hat sich vorgedrängelt“ auf dem Lautsprecher."
   app_update_repo:
     name: App-Updates – GitHub-Repository
     description: "Optional. Repository der Android-App mit Releases, z. B. benutzer/meine-app. Die App holt neue Versionen dann selbst über das Add-on."

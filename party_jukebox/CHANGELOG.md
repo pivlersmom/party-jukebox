@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.130
+- Vordrängeln: kurzes Scratchen, dann Buh einer ganzen Menge – Durchsage entfernt (Option tts_engine entfällt)
+
 ## 0.1.129
 - Vordrängeln: Buh + Durchsage als eine Ansage (Musik lief danach nicht weiter); läuft sie nach einem Party-Ton nicht wieder, wird fortgesetzt
 
