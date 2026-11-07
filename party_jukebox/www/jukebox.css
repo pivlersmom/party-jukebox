@@ -616,3 +616,11 @@ header > .setbtn{justify-self:end}
 .lgrow.lge .lgx{color:#ff8a80;font-weight:600}
 .lgrow.lgw .lgx{color:#ffd180}
 .lgrow.lgi .lgx{color:var(--dim)}
+/* Beschriftung unter den Modus-Knöpfen (Song-Radio, Übergang, Qualität, AI DJ, Autoplay) */
+.mw{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.mw small{font-size:10px;line-height:1.1;color:var(--dim);white-space:nowrap;opacity:.85}
+.mw:has(> [hidden]){display:none}
+.modes .mside .mw{flex:0 1 52px;min-width:34px}
+.modes .mside .mw .mbtn{width:100%}
+.modes .mmid .mw{max-width:100%}
+.modes{align-items:start}

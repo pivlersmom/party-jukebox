@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.133
+- Jukebox: Beschriftung unter den Knöpfen im Player (Song-Radio, Übergang, Qualität, AI DJ, Autoplay)
+
 ## 0.1.132
 - Party: doppelte Wünsche verhindern – auch gleiche Songs von anderem Dienst oder als Remaster, und was in den letzten 3 Stunden lief (Einstellungen → Party → „Doppelte Songs verhindern“)
 

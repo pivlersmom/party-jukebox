@@ -271,11 +271,11 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   const meta = document.querySelector("#v-now .meta"); if (!meta) return;
   const row = document.createElement("div"); row.className = "modes";
   row.innerHTML = '<span class="mside l">' +
-    '<button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button>' +
-    '<button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button></span>' +
-    '<span class="mmid"><button class="aq" id="mAq" hidden></button></span>' +
-    '<span class="mside r"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button>' +
-    '<button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button></span>';
+    '<span class="mw"><button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button><small>Song-Radio</small></span>' +
+    '<span class="mw"><button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button><small>Übergang</small></span></span>' +
+    '<span class="mmid"><span class="mw"><button class="aq" id="mAq" hidden></button><small>Qualität</small></span></span>' +
+    '<span class="mside r"><span class="mw"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button><small>AI DJ</small></span>' +
+    '<span class="mw"><button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button><small>Autoplay</small></span></span>';
   meta.after(row);
   const det = document.createElement("div"); det.className = "aqd"; row.after(det);
   const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio");
