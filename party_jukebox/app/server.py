@@ -1392,6 +1392,48 @@ def _own_addr():
 TV_PLAYER = {"pid": "", "t": 0.0}   # Player, den die TV-Anzeige gerade zeigt (meldet sie jede Minute)
 
 
+def _song_key(name, artist=""):
+    """Titel/Interpret vergleichbar machen: Klammern (Remastered, Radio Edit, feat. …) und Satzzeichen weg."""
+    n = re.sub(r"\s*[\(\[].*?[\)\]]", "", str(name or "").lower())
+    n = re.sub(r"\s+-\s+.*$", "", n)                   # "Titel - Remastered 2011"
+    n = re.sub(r"\bfeat\.?.*$|\bft\..*$", "", n)
+    n = re.sub(r"[^\w]+", " ", n).strip()
+    a = re.sub(r"[^\w]+", " ", str(artist or "").lower().split(",")[0].split("&")[0].split(" feat")[0]).strip()
+    return n + "|" + a
+
+
+async def party_dupe(request):
+    """Ist der Wunsch schon in der Warteschlange oder lief er in den letzten 3 Stunden? (Schalter "no_dupes")"""
+    if not setting("no_dupes", True):
+        return web.json_response({"dupe": False})
+    q = str(request.query.get("q") or "")[:60] or PARTY.vq
+    uri = str(request.query.get("uri") or "")
+    key = _song_key(request.query.get("name"), request.query.get("artist"))
+    if not q or (not uri and key.startswith("|")):
+        return web.json_response({"dupe": False})
+    session = request.app["session"]
+    try:
+        qu = await MAC.cmd(session, "player_queues/get", {"queue_id": q}) or {}
+        cur = int(qu.get("current_index") or 0)
+        start = max(0, cur - 60)   # zuletzt gespielte + alles was noch kommt (max. 300)
+        items = await MAC.cmd(session, "player_queues/items", {"queue_id": q, "limit": 300, "offset": start}) or []
+        cutoff = now() - 3 * 3600
+        for i, it in enumerate(items):
+            idx = start + i
+            mi = it.get("media_item") or {}
+            played = idx < cur
+            if played and (mi.get("last_played") or 0) and mi.get("last_played") < cutoff:
+                continue
+            arts = ", ".join(a.get("name", "") for a in (mi.get("artists") or []) if isinstance(a, dict))
+            same = (uri and mi.get("uri") == uri) or (not key.startswith("|") and _song_key(mi.get("name") or it.get("name"), arts) == key)
+            if same:
+                where = "läuft gerade" if idx == cur else ("lief schon" if played else "ist schon gewünscht")
+                return web.json_response({"dupe": True, "where": where})
+    except Exception as e:
+        log.info("Doppel-Prüfung: %s", e)
+    return web.json_response({"dupe": False})
+
+
 async def party_tvplayer(request):
     try:
         d = await request.json()
@@ -1582,6 +1624,7 @@ async def party_settings_get(request):
            **tv_settings(),
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "box_sounds": bool(setting("box_sounds", True)),
+           "no_dupes": bool(setting("no_dupes", True)),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
            "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN),
            "host_pin": host_pin_set(), "profiles": SETTINGS.get("profiles")}
@@ -1612,7 +1655,7 @@ async def party_settings_post(request):
         # Ohne Gastgeber-Anmeldung darf nur die TV-Anzeige den Songtext-Versatz melden
         if set(data) - {"lyr_offset", "tv_only"}:
             return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig"}, status=403)
-    for k in ("effects", "skip_votes", "box_sounds"):
+    for k in ("effects", "skip_votes", "box_sounds", "no_dupes"):
         if isinstance(data.get(k), bool):
             SETTINGS[k] = data[k]
     if isinstance(data.get("lyr_offset"), (int, float)) and not isinstance(data.get("lyr_offset"), bool):
@@ -1850,6 +1893,7 @@ def make_app():
     app.router.add_get("/party/join.json", party_join)
     app.router.add_get("/party/settings", party_settings_get)
     app.router.add_get("/party/tv.json", party_tv_get)
+    app.router.add_get("/party/dupe", party_dupe)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)

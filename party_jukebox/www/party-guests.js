@@ -290,7 +290,20 @@ $('pDdOk').onclick=function(){ ddClose(String($('pDdIn').value||'').replace(/^\s
 $('pDdNo').onclick=function(){ ddClose(''); };
 $('pDdIn').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('pDdOk').click(); } });
 dd.addEventListener('click',function(e){ if(e.target===dd) ddClose(false); });
+/* Doppelte Songs: das Add-on prüft Warteschlange und die letzten 3 Stunden (abschaltbar in den Einstellungen) */
+function dupeCheck(t){
+  var arts=window.pjParty?window.pjParty.artists(t):'';
+  var u='party/dupe?uri='+encodeURIComponent(t.uri||'')+'&name='+encodeURIComponent(t.name||'')+'&artist='+encodeURIComponent(arts)+
+    '&q='+encodeURIComponent((window.pjParty&&window.pjParty.qid&&window.pjParty.qid())||'');
+  return fetch(u,{cache:'no-store'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; });
+}
 window.pjBeforeAdd=function(t,boost){
+  return dupeCheck(t).then(function(d){
+    if(d&&d.dupe){ if(window.pjParty) window.pjParty.toast('🔁 „'+t.name+'“ '+d.where+' – such dir was anderes aus!'); return false; }
+    return askDedication(t,boost);
+  });
+};
+function askDedication(t,boost){
   return new Promise(function(res){
     ddRes=res;
     $('pDdS').innerHTML='<b>'+esc(t.name)+'</b><br>Für jemanden? Die Widmung erscheint auf dem Fernseher, wenn der Song läuft.';
@@ -298,7 +311,7 @@ window.pjBeforeAdd=function(t,boost){
     $('pDdIn').value=''; $('pDdOk').textContent=boost?'⚡ Trotzdem vordrängeln':'🪙 Wünschen';
     dd.classList.add('on'); setTimeout(function(){ try{ $('pDdIn').focus(); }catch(e){} },150);
   });
-};
+}
 window.pjAfterAdd=function(t,boost,ded,qid,btn){
   var arts=window.pjParty?window.pjParty.artists(t):'';
   post(EV,{type:'wish',id:id,name:g('name','')||'Gast',u:t.uri,s:t.name,a:arts,d:ded||'',b:!!boost,q:qid||''});

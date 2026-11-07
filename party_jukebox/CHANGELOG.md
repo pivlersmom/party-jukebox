@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.132
+- Party: doppelte Wünsche verhindern – auch gleiche Songs von anderem Dienst oder als Remaster, und was in den letzten 3 Stunden lief (Einstellungen → Party → „Doppelte Songs verhindern“)
+
 ## 0.1.131
 - Kein Ton mehr auf der Box beim normalen Wunsch
 
