@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.127
+- Party-Töne laufen auf dem Player, den die TV-Anzeige gerade zeigt
+
 ## 0.1.126
 - Party: Wunsch-Klimpern, Bier-Einschenken und Buh beim Vordrängeln auch auf dem Lautsprecher, der gerade spielt (Einstellungen → Party, abschaltbar)
 

@@ -260,6 +260,14 @@ function poll(){
     return TV.send('player_queues/get',{queue_id:p.player_id});
   },function(){ return TV.send('player_queues/get',{queue_id:p.player_id}); })
   .then(function(q){ if(q&&q.queue_id) applyQueue(q,true); }).catch(noop);
+  tvReport(p.player_id);
+}
+/* Dem Add-on melden, welchen Player der Fernseher zeigt – dort laufen dann auch die Party-Töne (Wunsch, Bier, Buh) */
+var tvRep={pid:'',t:0};
+function tvReport(pid){
+  var now=Date.now(); if(pid===tvRep.pid && now-tvRep.t<60000) return;
+  tvRep.pid=pid; tvRep.t=now;
+  try{ fetch('party/tvplayer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pid:pid,q:TV.qid||''}),keepalive:true}).catch(noop); }catch(e){}
 }
 setInterval(poll,2000);
 setInterval(function(){ if(TV.ok) loadPlayers(); },30000);

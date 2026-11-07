@@ -1388,14 +1388,33 @@ def _own_addr():
         return socket.gethostname()
 
 
+TV_PLAYER = {"pid": "", "t": 0.0}   # Player, den die TV-Anzeige gerade zeigt (meldet sie jede Minute)
+
+
+async def party_tvplayer(request):
+    try:
+        d = await request.json()
+    except Exception:
+        d = {}
+    pid = str((d or {}).get("pid") or "")[:120] if isinstance(d, dict) else ""
+    if pid:
+        if pid != TV_PLAYER["pid"]:
+            log.info("TV zeigt Player %s", pid)
+        TV_PLAYER.update(pid=pid, t=now())
+    return web.json_response({"ok": bool(pid)})
+
+
 async def box_sound(session, kind, qid=""):
-    """Wunsch-Klimpern, Buh beim Vordrängeln, Einschenken beim Bier – zusätzlich auf dem Lautsprecher, der gerade spielt.
+    """Wunsch-Klimpern, Buh beim Vordrängeln, Einschenken beim Bier – zusätzlich auf dem Lautsprecher, den der Fernseher zeigt.
     Music Assistant spielt die Datei als Durchsage (Musik wird kurz leiser bzw. unterbrochen). Höchstens alle 4 s."""
     if not setting("box_sounds", True) or now() - _sfx_last["t"] < 4:
         return
     _sfx_last["t"] = now()
     try:
-        pid = await resolve_player(session) or qid or PARTY.vq
+        # 1. der Player, den der Fernseher zeigt (gemeldet in den letzten 3 min), 2. Party-Player-Option,
+        # 3. Queue des Gastes, 4. der gerade spielende Player
+        tv = TV_PLAYER["pid"] if now() - TV_PLAYER["t"] < 180 else ""
+        pid = tv or await resolve_player(session) or qid or PARTY.vq
         if not pid:   # sonst: der Player, der gerade spielt
             for p in await MAC.cmd(session, "players/all") or []:
                 if p.get("playback_state") == "playing" or p.get("state") == "playing":
@@ -1811,6 +1830,7 @@ def make_app():
     app.router.add_get("/config.js", config_js)
     app.router.add_post("/party/hb", party_hb)
     app.router.add_post("/party/ev", party_ev)
+    app.router.add_post("/party/tvplayer", party_tvplayer)
     app.router.add_get("/party/wishes.json", party_wishes)
     app.router.add_get("/party/guests.json", party_guests)
     app.router.add_get("/party/join.json", party_join)
