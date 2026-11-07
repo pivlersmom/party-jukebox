@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.128
+- Vordrängeln: Buh-Konzert und Durchsage „Achtung, Achtung! <Name> hat sich vorgedrängelt!“ auf dem Lautsprecher (TTS aus Home Assistant, neue Option tts_engine)
+
 ## 0.1.127
 - Party-Töne laufen auf dem Player, den die TV-Anzeige gerade zeigt
 

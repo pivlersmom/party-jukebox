@@ -41,6 +41,9 @@ configuration:
   drinks:
     name: Drinks
     description: One line per drink in the format Name|Emoji|Phrase, e.g. Beer|🍺|a beer
+  tts_engine:
+    name: Announcement – TTS engine
+    description: "Optional, e.g. tts.home_assistant_cloud or tts.piper. Empty = automatic. Used for the queue-jump announcement on the speaker."
   app_update_repo:
     name: App updates – GitHub repository
     description: "Optional. Repository of the Android app with releases, e.g. user/my-app. The app then fetches new versions itself through the add-on."

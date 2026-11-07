@@ -1360,10 +1360,10 @@ async def party_ev(request):
     qid = str(data.get("q") or "")[:60]
     if typ == "wish":
         asyncio.create_task(run_script(session, OPT.get("script_wish")))
-        asyncio.create_task(box_sound(session, "boost" if data.get("b") else "wish", qid))
+        asyncio.create_task(box_sound(session, "boost" if data.get("b") else "wish", qid, data.get("name")))
     elif typ == "boost":
         asyncio.create_task(run_script(session, OPT.get("script_boost")))
-        asyncio.create_task(box_sound(session, "boost", qid))   # Vordrängeln aus der Warteschlange (nach Wunsch: schon gelaufen, 4-s-Sperre)
+        asyncio.create_task(box_sound(session, "boost", qid, data.get("name")))   # Vordrängeln aus der Warteschlange (nach Wunsch: schon gelaufen, 4-s-Sperre)
     elif typ == "beer":
         x = PARTY.bi[-1]
         asyncio.create_task(run_script(session, OPT.get("script_drink")))
@@ -1404,7 +1404,47 @@ async def party_tvplayer(request):
     return web.json_response({"ok": bool(pid)})
 
 
-async def box_sound(session, kind, qid=""):
+_tts = {"eng": None, "at": 0.0}
+
+
+async def tts_engine(session):
+    """TTS-Dienst aus Home Assistant: Add-on-Option tts_engine, sonst automatisch (Cloud, Piper, …)."""
+    want = (OPT.get("tts_engine") or "").strip()
+    if want.startswith("tts."):
+        return want
+    if _tts["eng"] is not None and now() - _tts["at"] < 3600:
+        return _tts["eng"]
+    eng = ""
+    try:
+        async with session.get(f"{HA_HTTP}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=10) as r:
+            ids = [s.get("entity_id", "") for s in (await r.json() if r.status == 200 else [])
+                   if str(s.get("entity_id", "")).startswith("tts.") and s.get("state") != "unavailable"]
+        prefer = ["tts.home_assistant_cloud", "tts.piper"]
+        eng = next((p for p in prefer if p in ids), ids[0] if ids else "")
+    except Exception as e:
+        log.info("TTS-Dienste nicht lesbar: %s", e)
+    _tts.update(eng=eng, at=now())
+    return eng
+
+
+async def tts_url(session, text):
+    """Ansage-Text → Adresse einer MP3 bei Home Assistant (die holt Music Assistant ab)."""
+    eng = await tts_engine(session) if SUP_TOKEN else ""
+    if not eng:
+        return ""
+    try:
+        async with session.post(f"{HA_HTTP}/tts_get_url", json={"engine_id": eng, "message": text},
+                                headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=20) as r:
+            d = await r.json() if r.status == 200 else {}
+            if r.status != 200:
+                log.info("TTS %s -> %s", eng, r.status)
+        return d.get("url") or ("http://homeassistant:8123" + d["path"] if d.get("path") else "")
+    except Exception as e:
+        log.info("TTS: %s", e)
+        return ""
+
+
+async def box_sound(session, kind, qid="", name=""):
     """Wunsch-Klimpern, Buh beim Vordrängeln, Einschenken beim Bier – zusätzlich auf dem Lautsprecher, den der Fernseher zeigt.
     Music Assistant spielt die Datei als Durchsage (Musik wird kurz leiser bzw. unterbrochen). Höchstens alle 4 s."""
     if not setting("box_sounds", True) or now() - _sfx_last["t"] < 4:
@@ -1422,8 +1462,19 @@ async def box_sound(session, kind, qid=""):
         if not pid:
             return
         url = "http://%s:%d/sfx/%s.mp3" % (_own_addr(), PORT, kind)
+        say = ""
+        if kind == "boost":   # erst Buh-Konzert, dann Durchsage mit Namen
+            who = re.sub(r"[^\w äöüÄÖÜß.\-]", "", str(name or "Jemand"))[:30].strip() or "Jemand"
+            say = await tts_url(session, f"Achtung, Achtung! {who} hat sich vorgedrängelt!")
+        t0 = now()
         await MAC.cmd(session, "players/cmd/play_announcement", {"player_id": pid, "url": url, "pre_announce": False})
         log.info("Party-Ton %s auf %s", kind, pid)
+        if say:
+            wait = 6.2 - (now() - t0)   # Buh dauert 6 s – falls MA nicht bis zum Ende wartet
+            if wait > 0:
+                await asyncio.sleep(wait)
+            await MAC.cmd(session, "players/cmd/play_announcement", {"player_id": pid, "url": say, "pre_announce": False})
+            log.info("Durchsage Vordrängeln (%s) auf %s", name, pid)
     except Exception as e:
         log.info("Party-Ton %s: %s", kind, e)
 

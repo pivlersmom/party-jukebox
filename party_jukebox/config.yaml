@@ -1,5 +1,5 @@
 name: Party-Jukebox
-version: "0.1.127"
+version: "0.1.128"
 slug: party_jukebox
 description: Jukebox, Party-Seite für Gäste und TV-Anzeige für Music Assistant
 url: https://github.com/pivlersmom/party-jukebox
@@ -52,6 +52,7 @@ schema:
   script_wish: str?
   script_boost: str?
   script_drink: str?
+  tts_engine: str?
   skip_votes: bool
   tv_cast_entity: str?
   tv_box_entities: str?
