@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.136
+- Party: Gäste zählen 2 Stunden nach ihrer letzten Aktivität als „dabei“ – für die Mehrheit beim Abwählen und für „Musik geht nie aus“ (auch wenn die Seite zu ist)
+
 ## 0.1.135
 - Party: Läuft der vorletzte Song, kurzes Banner „Nur noch 2 Songs – jetzt wünschen!“ auf Fernseher und Party-Seite
 - Party: „Musik geht nie aus“ – ohne Endlosschleife schaltet sich beim vorletzten Song Autoplay ein (Einstellungen → Party)

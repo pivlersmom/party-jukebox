@@ -623,11 +623,15 @@ def now():
 
 
 # ---------------------------------------------------------------- Party-Zustand
+PARTY_WINDOW = 2 * 3600   # so lange gilt ein Gast nach seiner letzten Aktivität als "dabei"
+
+
 class Party:
     """Party-Zustand: Gäste, Wünsche, Vordrängler, Abstimmung, Getränke."""
 
     def __init__(self):
-        self.guests = {}   # gid -> {n, t}
+        self.guests = {}   # gid -> {n, t}   (gerade online: Seite offen, Meldung < 3 min)
+        self.seen = {}     # gid -> t        (dabei: zuletzt aktiv < 2 h – zählt für Mehrheit und "Party läuft")
         self.w = []        # Wünsche
         self.bo = []       # Vordrängler
         self.bi = []       # Nachschub-Meldungen
@@ -647,6 +651,7 @@ class Party:
                 setattr(self, k, list(d.get(k) or []))
             self.bc = dict(d.get("bc") or {})
             self.guests = dict(d.get("guests") or {})
+            self.seen = dict(d.get("seen") or {})
             self.vu = d.get("vu") or ""
             self.vq = d.get("vq") or ""
         except Exception:
@@ -655,7 +660,7 @@ class Party:
     def save(self):
         try:
             STATE_FILE.write_text(json.dumps({
-                "guests": self.guests, "w": self.w, "bo": self.bo, "bi": self.bi, "bc": self.bc,
+                "guests": self.guests, "seen": self.seen, "w": self.w, "bo": self.bo, "bi": self.bi, "bc": self.bc,
                 "vu": self.vu, "vq": self.vq, "up": self.up, "down": self.down,
             }, ensure_ascii=False))
         except Exception as e:
@@ -666,7 +671,13 @@ class Party:
         t = now()
         before = len(self.guests)
         self.guests = {k: v for k, v in self.guests.items() if t - int(v.get("t", 0)) < 180}
+        self.seen = {k: v for k, v in self.seen.items() if t - int(v or 0) < PARTY_WINDOW}
         return len(self.guests) != before
+
+    def present(self):
+        """Gäste, die in den letzten 2 Stunden dabei waren (auch wenn die Seite gerade zu ist)."""
+        self.expire()
+        return max(len(self.seen), len(self.guests))
 
     def heartbeat(self, data):
         gid = gid_of(data.get("id"))
@@ -680,6 +691,8 @@ class Party:
         name = clean_name(data.get("name")) or "Gast"
         if len(self.guests) < 60 or gid in self.guests:
             self.guests[gid] = {"n": name, "t": now()}
+        if len(self.seen) < 200 or gid in self.seen:
+            self.seen[gid] = now()
 
     def guest_names(self):
         return [v["n"] for v in sorted(self.guests.values(), key=lambda x: x.get("t", 0))]
@@ -692,6 +705,8 @@ class Party:
         if not gid:
             return None
         t = now()
+        if len(self.seen) < 200 or gid in self.seen:
+            self.seen[gid] = t
         if typ == "wish" and data.get("u"):
             self.w = (self.w + [{
                 "u": clean(data.get("u"), 160), "s": clean(data.get("s"), 70), "a": clean(data.get("a"), 50),
@@ -733,7 +748,8 @@ class Party:
         return None
 
     def need(self):
-        return max(2, -(-len(self.guests) // 2))
+        # Mehrheit aller Gäste der letzten 2 Stunden – nicht nur derer, die gerade die Seite offen haben
+        return max(2, -(-self.present() // 2))
 
     def drinks_stale(self):
         """Letzte Bestellung länger als 12 h her → Ranking gilt als neue Party (leer)."""
@@ -964,7 +980,7 @@ async def party_keep_loop(app):
         try:
             PARTY.expire()
             tv = TV_PLAYER["pid"] if now() - TV_PLAYER["t"] < 180 else ""
-            if not (PARTY.guests or tv) or not setting("keep_music", True) or not OPT.get("ma_token"):
+            if not (PARTY.present() or tv) or not setting("keep_music", True) or not OPT.get("ma_token"):
                 continue
             pid = tv or await resolve_player(session) or PARTY.vq
             if not pid:
