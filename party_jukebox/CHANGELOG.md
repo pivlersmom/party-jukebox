@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.135
+- Party: Läuft der vorletzte Song, kurzes Banner „Nur noch 2 Songs – jetzt wünschen!“ auf Fernseher und Party-Seite
+- Party: „Musik geht nie aus“ – ohne Endlosschleife schaltet sich beim vorletzten Song Autoplay ein (Einstellungen → Party)
+
 ## 0.1.134
 - Übergang lange drücken: Aus / Standard / Smart, bei Standard die Dauer (1–15 s)
 - AI DJ: Tippen = an/aus mit zuletzt gewähltem Moderator, lange drücken = Moderator auswählen

@@ -954,6 +954,33 @@ async def set_room_lock(session, r, on):
             log.info("Raum %s trennen: %s", r["name"], e)
 
 
+async def party_keep_loop(app):
+    """Party: Musik geht nie aus. Läuft der vorletzte Song (nur noch einer danach), ohne Endlosschleife
+    und ohne Autoplay, schaltet das Add-on Autoplay ein – Music Assistant hängt dann ähnliche Songs an.
+    Nur während einer Party (Gäste online oder TV-Anzeige aktiv), abschaltbar ("keep_music")."""
+    session = app["session"]
+    while True:
+        await asyncio.sleep(15)
+        try:
+            PARTY.expire()
+            tv = TV_PLAYER["pid"] if now() - TV_PLAYER["t"] < 180 else ""
+            if not (PARTY.guests or tv) or not setting("keep_music", True) or not OPT.get("ma_token"):
+                continue
+            pid = tv or await resolve_player(session) or PARTY.vq
+            if not pid:
+                continue
+            q = await MAC.cmd(session, "player_queues/get_active_queue", {"player_id": pid}) or {}
+            if q.get("state") != "playing" or not q.get("queue_id"):
+                continue
+            left = int(q.get("items") or 0) - int(q.get("current_index") or 0) - 1
+            if left <= 1 and str(q.get("repeat_mode") or "off") == "off" and \
+                    not (q.get("autoplay_enabled") or q.get("dont_stop_the_music_enabled")):
+                await MAC.cmd(session, "player_queues/autoplay", {"queue_id": q["queue_id"], "autoplay_enabled": True})
+                log.info("Party: nur noch %d Song(s) in %s – Autoplay eingeschaltet", left + 1, q["queue_id"])
+        except Exception as e:
+            log.info("Party-Musik-Wächter: %s", e)
+
+
 async def rooms_loop(app):
     session = app["session"]
     n = 0
@@ -1625,6 +1652,7 @@ async def party_settings_get(request):
            "skip_votes": bool(setting("skip_votes", OPT.get("skip_votes", True))),
            "box_sounds": bool(setting("box_sounds", True)),
            "no_dupes": bool(setting("no_dupes", True)),
+           "keep_music": bool(setting("keep_music", True)),
            "scripts": any((OPT.get(k) or "").startswith("script.") for k in ("script_wish", "script_boost", "script_drink")),
            "limits": None, "plugin": None, "ma_web": ma_web(), "rooms": [], "rooms_ok": bool(SUP_TOKEN),
            "host_pin": host_pin_set(), "profiles": SETTINGS.get("profiles")}
@@ -1655,7 +1683,7 @@ async def party_settings_post(request):
         # Ohne Gastgeber-Anmeldung darf nur die TV-Anzeige den Songtext-Versatz melden
         if set(data) - {"lyr_offset", "tv_only"}:
             return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig"}, status=403)
-    for k in ("effects", "skip_votes", "box_sounds", "no_dupes"):
+    for k in ("effects", "skip_votes", "box_sounds", "no_dupes", "keep_music"):
         if isinstance(data.get(k), bool):
             SETTINGS[k] = data[k]
     if isinstance(data.get("lyr_offset"), (int, float)) and not isinstance(data.get("lyr_offset"), bool):
@@ -1871,6 +1899,7 @@ async def on_startup(app):
             log.info("Party-Player: %s → %s", OPT.get("party_player"), pid)
     app["tick"] = asyncio.create_task(tick(app))
     app["rooms"] = asyncio.create_task(rooms_loop(app))
+    app["partykeep"] = asyncio.create_task(party_keep_loop(app))
     app["podpush"] = asyncio.create_task(podpush_loop(app))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
 

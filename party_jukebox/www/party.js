@@ -291,6 +291,7 @@ document.addEventListener('click',async function(e){
 window.pjParty={
   now:function(){ return queue&&queue.current_item; },
   qid:function(){ return qid; },
+  queue:function(){ return queue; },
   artists:artists, img:img, toast:toast,
   rerenderQueue:function(){ renderQueue(); }
 };

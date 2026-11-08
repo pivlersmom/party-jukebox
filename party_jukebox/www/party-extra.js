@@ -157,3 +157,25 @@ b.addEventListener('click',function(e){
   fill(); dlg.classList.add('on');
 });
 })();
+
+/* ---------- "Nur noch 2 Songs" – kurz einblenden, wenn der vorletzte Song läuft ---------- */
+(function(){
+  var st=document.createElement('style');
+  st.textContent='.pjLast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translate(-50%,-30px);opacity:0;z-index:9999;pointer-events:none;'+
+    'padding:12px 20px;border-radius:999px;background:linear-gradient(135deg,#e040fb,#29b6f6);color:#fff;font-weight:800;font-size:16px;'+
+    'box-shadow:0 10px 40px rgba(224,64,251,.45);white-space:nowrap;transition:transform .5s cubic-bezier(.2,1.4,.4,1),opacity .4s}'+
+    '.pjLast.on{transform:translate(-50%,0);opacity:1;animation:pjLastP 1.2s ease-in-out infinite}'+
+    '@keyframes pjLastP{0%,100%{box-shadow:0 10px 40px rgba(224,64,251,.45)}50%{box-shadow:0 10px 60px rgba(41,182,246,.8)}}';
+  document.head.appendChild(st);
+  var el=document.createElement('div'); el.className='pjLast'; document.body.appendChild(el);
+  var shownFor='', hideT=null;
+  window.pjLastCheck=function(q){
+    if(!q||q.state!=='playing') return;
+    var left=(+q.items||0)-(+q.current_index||0)-1, ci=q.current_item||{}, key=(q.queue_id||'')+'|'+(ci.queue_item_id||'');
+    if(left<0||left>1||key===shownFor) return;
+    shownFor=key;
+    el.textContent=left===1?'🎵 Nur noch 2 Songs – jetzt wünschen!':'🎵 Letzter Song – schnell was wünschen!';
+    el.classList.add('on'); clearTimeout(hideT); hideT=setTimeout(function(){ el.classList.remove('on'); },12000);
+  };
+})();
+setInterval(function(){ try{ var q=window.pjParty&&window.pjParty.queue&&window.pjParty.queue(); if(q) window.pjLastCheck(q); }catch(e){} },3000);

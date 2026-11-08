@@ -921,6 +921,7 @@ function renderSettings() {
     '<label class="fl">Party-Name <small>(TV, Party-Seite, QR-Code)</small></label><input class="fi" id="pnIn" maxlength="40" placeholder="z. B. Sommerfest" value="' + esc(d.name || "") + '">';
   html += swRow("effects", "Lichteffekte", d.scripts ? "bei Wunsch, Vordrängeln und Nachschub" : "keine Skripte in den Add-on-Optionen eingetragen", !!d.effects);
   html += swRow("skip_votes", "Abstimmung überspringt Songs", "bei Mehrheit 👎 der Gäste", !!d.skip_votes);
+  html += swRow("keep_music", "Musik geht nie aus", "läuft der vorletzte Song, schaltet sich Autoplay ein (wenn keine Endlosschleife an ist)", d.keep_music !== false);
   html += swRow("no_dupes", "Doppelte Songs verhindern", "Gäste können nichts wünschen, was schon in der Liste ist oder in den letzten 3 Stunden lief", d.no_dupes !== false);
   html += swRow("box_sounds", "Party-Töne auf dem Lautsprecher", "Bier und Buh beim Vordrängeln auch über die Box, die der Fernseher zeigt", d.box_sounds !== false);
   html += '<div class="shh gsh">TV-Anzeige</div>';
@@ -1036,7 +1037,7 @@ function renderSettings() {
     c.querySelectorAll(".srow:not(.pfr):not(.php):not(.dspon):not(.carPod):not(.hpl)").forEach(b => b.onclick = () => {
       const k = b.dataset.k, on = !b.classList.contains("on");
       b.classList.toggle("on", on);
-      if (k === "effects" || k === "skip_votes" || k === "box_sounds" || k === "no_dupes") setSave({ [k]: on });
+      if (k === "effects" || k === "skip_votes" || k === "box_sounds" || k === "no_dupes" || k === "keep_music") setSave({ [k]: on });
       else if (k === "plugin") { b.disabled = true; setSave({ plugin: on ? "on" : "off" }); }
       else setSave({ limits: { [k]: on } });
     });
