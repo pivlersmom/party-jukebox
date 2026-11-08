@@ -624,3 +624,8 @@ header > .setbtn{justify-self:end}
 .modes .mside .mw .mbtn{width:100%}
 .modes .mmid .mw{max-width:100%}
 .modes{align-items:start}
+/* Übergänge: Dauer-Regler im Pop-up */
+.xfd{display:flex;align-items:center;gap:12px;margin:0 6px}
+.xfd input{flex:1;accent-color:var(--a2)}
+.xfd b{min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.mbtn{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}

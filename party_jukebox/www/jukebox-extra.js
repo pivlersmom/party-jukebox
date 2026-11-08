@@ -317,10 +317,63 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   };
   const qid = () => S.qid || S.pid;
 
-  /* Übergänge */
+  /* Langes Drücken (0,55 s) → eigene Aktion; der folgende "click" wird dann geschluckt */
+  function longPress(el, fn) {
+    let t = null;
+    const stop = () => { clearTimeout(t); t = null; };
+    el.addEventListener("pointerdown", () => { stop(); t = setTimeout(() => { t = null; el._lp = Date.now(); try { navigator.vibrate && navigator.vibrate(15); } catch (e) {} fn(); }, 550); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => el.addEventListener(ev, stop));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+  const wasLong = el => Date.now() - (el._lp || 0) < 900;
+
+  /* Übergänge: Tippen = an/aus, lange drücken = Art (Standard/Smart) und Dauer */
   let fadeHold = 0, fadeWant = false;
   const fadeOn = () => Date.now() < fadeHold ? fadeWant : !!(S.q && S.q.crossfade_enabled);
+  const gv = (c, a) => cmd(c, a).catch(() => null);
+  async function fadePick() {
+    const id = qid(); if (!id || !S.ready) { toast("Music Assistant nicht verbunden"); return; }
+    const [qm, gm, gd] = await Promise.all([
+      gv("config/player_queues/get_value", { queue_id: id, key: "crossfade_mode" }),
+      gv("config/core/get_value", { domain: "player_queues", key: "crossfade_mode" }),
+      gv("config/core/get_value", { domain: "player_queues", key: "crossfade_duration" })]);
+    let mode = !fadeOn() ? "off" : (qm && qm !== "global" ? qm : (gm || "smart_crossfade"));
+    let dur = +gd || 8;
+    const html = () => '<div class="shh">Übergänge</div>' +
+      '<div class="seg" id="xfSeg">' + [["off", "Aus"], ["standard_crossfade", "Standard"], ["smart_crossfade", "Smart"]]
+        .map(([k, n]) => '<button data-m="' + k + '"' + (k === mode ? ' class="on"' : "") + ">" + n + "</button>").join("") + "</div>" +
+      '<div class="rshint" style="margin:10px 6px">' + (mode === "smart_crossfade" ? "Smart: taktgenau gemischt – die Länge sucht Music Assistant passend zur Musik aus (oft 10–30 s)."
+        : mode === "standard_crossfade" ? "Standard: der alte Titel wird ausgeblendet, der neue eingeblendet – feste Dauer:" : "Titel folgen direkt aufeinander.") + "</div>" +
+      (mode === "standard_crossfade" ? '<div class="xfd"><input type="range" id="xfDur" min="1" max="15" step="1" value="' + dur + '"><b id="xfVal">' + dur + ' s</b></div>' +
+        '<div class="rshint" style="margin:4px 6px 0;opacity:.75">Die Dauer gilt für alle Lautsprecher mit Standard-Übergang.</div>' : "");
+    const bind = c => {
+      c.querySelectorAll("#xfSeg button").forEach(b => b.onclick = async () => {
+        const m = b.dataset.m; if (m === mode) return;
+        mode = m; c.innerHTML = html(); bind(c);
+        fadeWant = m !== "off"; fadeHold = Date.now() + 4000; paint();
+        try {
+          await cmd("player_queues/crossfade", { queue_id: id, crossfade_enabled: fadeWant });
+          if (S.q) S.q.crossfade_enabled = fadeWant;
+          if (fadeWant) await cmd("config/player_queues/save", { queue_id: id, values: { crossfade_mode: m } });
+          toast(m === "off" ? "Übergänge aus" : m === "smart_crossfade" ? "Smarter Übergang (taktgenau)" : "Standard-Übergang · " + dur + " s");
+        } catch (e) { fadeHold = 0; toast("Übergänge: " + ((e && e.message) || e)); }
+        paint();
+      });
+      const r = c.querySelector("#xfDur");
+      if (r) {
+        r.oninput = () => { c.querySelector("#xfVal").textContent = r.value + " s"; };
+        r.onchange = async () => {
+          dur = +r.value;
+          try { await cmd("config/core/save", { domain: "player_queues", values: { crossfade_duration: dur } }); toast("Übergang: " + dur + " s"); }
+          catch (e) { toast("Dauer: " + ((e && e.message) || e)); }
+        };
+      }
+    };
+    JB.openSheet("xfade", html(), c => bind(c));
+  }
+  longPress(bF, fadePick);
   bF.onclick = async () => {
+    if (wasLong(bF)) return;
     const id = qid(); if (!id || !S.ready) { toast("Music Assistant nicht verbunden"); return; }
     fadeWant = !fadeOn(); fadeHold = Date.now() + 4000; paint();
     try { await cmd("player_queues/crossfade", { queue_id: id, crossfade_enabled: fadeWant }); if (S.q) S.q.crossfade_enabled = fadeWant; toast("Übergänge " + (fadeWant ? "an" : "aus")); }
@@ -369,7 +422,26 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   async function djHosts() {
     try { const r = await cmd("ai_radio/hosts/list"); const l = (Array.isArray(r) ? r : Object.values(r || {})).map(h => [h.id || h.host_id, h.name || h.id]).filter(h => h[0]); if (l.length) hosts = l; } catch (e) {}
   }
+  /* AI DJ: Tippen = an/aus (zuletzt gewählter Moderator), lange drücken = Moderator auswählen */
+  const djLast = () => { try { return localStorage.getItem("pj_djhost") || ""; } catch (e) { return ""; } };
+  async function djSet(id, h) {
+    if (h) djStatus[id] = h; else delete djStatus[id];
+    if (h) { try { localStorage.setItem("pj_djhost", h); } catch (e) {} }
+    paint();
+    try { djStatus = (await cmd("ai_radio/queue_dj/set", { queue_id: id, host_id: h })) || djStatus; toast(h ? "AI DJ: " + hostName(h) : "AI DJ aus"); }
+    catch (e) { toast("AI DJ: " + ((e && e.message) || e)); djLoad(); }
+    paint();
+  }
+  longPress(bD, () => djPick());
   bD.onclick = async () => {
+    if (wasLong(bD)) return;
+    const id = qid(); if (!id) { toast("Erst einen Lautsprecher wählen"); return; }
+    if (djStatus[id]) { djSet(id, null); return; }
+    await djHosts();
+    const h = hosts.find(x => x[0] === djLast()) ? djLast() : "";
+    if (h) djSet(id, h); else djPick();   // noch nie gewählt → Auswahl zeigen
+  };
+  async function djPick() {
     const id = qid(); if (!id) { toast("Erst einen Lautsprecher wählen"); return; }
     await Promise.all([djHosts(), djLoad()]);
     const cur = djStatus[id] || null;
@@ -378,14 +450,9 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
       '<button class="act djh' + (!cur ? " sel" : "") + '" data-h="">Aus' + (!cur ? " ✓" : "") + '</button><button class="act ghost" data-x="1">Abbrechen</button>';
     JB.openSheet("dj", html, c => c.querySelectorAll(".act").forEach(b => b.onclick = async () => {
       JB.closeSheet(); if (b.dataset.x) return;
-      const h = b.dataset.h || null;
-      if (h) djStatus[id] = h; else delete djStatus[id];
-      paint();
-      try { djStatus = (await cmd("ai_radio/queue_dj/set", { queue_id: id, host_id: h })) || djStatus; toast(h ? "AI DJ: " + hostName(h) : "AI DJ aus"); }
-      catch (e) { toast("AI DJ: " + ((e && e.message) || e)); djLoad(); }
-      paint();
+      djSet(id, b.dataset.h || null);
     }));
-  };
+  }
 
   function paint() {
     bF.classList.toggle("on", fadeOn());

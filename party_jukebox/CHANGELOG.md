@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.134
+- Übergang lange drücken: Aus / Standard / Smart, bei Standard die Dauer (1–15 s)
+- AI DJ: Tippen = an/aus mit zuletzt gewähltem Moderator, lange drücken = Moderator auswählen
+
 ## 0.1.133
 - Jukebox: Beschriftung unter den Knöpfen im Player (Song-Radio, Übergang, Qualität, AI DJ, Autoplay)
 
