@@ -170,7 +170,11 @@ object SendspinPlayer {
     @JvmStatic fun wake(c: Context, why: String) {
         if (!PhonePlayer.enabled(c)) return
         busyAt = System.currentTimeMillis()
-        if (running) return
+        if (running) {
+            // läuft, ist aber gerade getrennt (z. B. nach Funkloch) → nicht auf den nächsten Versuch warten
+            if (!connected) h?.post { if (!connected) { AppLog.add("Neu verbinden: $why"); retryMs = 3000; retry(100) } }
+            return
+        }
         AppLog.add("Aufgeweckt: $why")
         start(c)
     }
@@ -310,12 +314,18 @@ object SendspinPlayer {
             }, 15000)
             return
         }
-        if (Endpoint.resolve(app, false) != "remote") { retry(60000); return }
+        if (Endpoint.resolve(app, false) != "remote") {   // kein Netz / Adresse nicht erreichbar
+            if (!noNetLogged) { noNetLogged = true; AppLog.i(TAG, "Kein Netz – versuche es weiter") }
+            retry(if (resumeWanted || MaPlayer.instance?.carMode == true) 10000 else 60000); return
+        }
+        noNetLogged = false
         val b = Request.Builder().url(Endpoint.base.replaceFirst("https://", "wss://") + "sendspin")
         Endpoint.cookie().takeIf { it.isNotEmpty() }?.let { b.header("Cookie", it) }
         AppLog.i(TAG, "Verbinde über Nabu Casa (unterwegs)")
         WsLink(http, b.build(), "Nabu Casa", listener).also { ws = it }.start()
     }
+
+    @Volatile private var noNetLogged = false
 
     private fun retry(ms: Long = retryMs) {
         connected = false
@@ -898,8 +908,18 @@ object SendspinPlayer {
 
         /** Pause: Audio-Fokus abgeben (Auto/andere Apps wissen dann: hier spielt nichts) */
         // Pause: nach 5 min ohne Musik die Wach-Sperre lösen (Akku); bei Funkloch kommt vorher wieder Musik
-        private val lockOff = Runnable { if (silentUs() > 290_000_000) { locks(false); AppLog.add("Lange Pause – Wach-Sperre gelöst") } }
-        private fun idle() { h?.post { abandonFocus(); h?.removeCallbacks(lockOff); h?.postDelayed(lockOff, 300_000) }; AppLog.i(TAG, "Pause – Ausgabe angehalten") }
+        // Lernkarte: Nach einem Funkloch NICHT schlafen gehen – sonst friert Android die App ein (Doze),
+        // die Neuverbindung bleibt minutenlang liegen und es kommt kein Ton mehr (Fahrt 8.11., 23 min Stille).
+        private val lockOff: Runnable = object : Runnable { override fun run() {
+            if (silentUs() < 290_000_000) return
+            if (resumeWanted || !connected || MaPlayer.instance?.carMode == true) { h?.postDelayed(this, 300_000); return }
+            locks(false); AppLog.add("Lange Pause – Wach-Sperre gelöst")
+        } }
+        private fun idle() {
+            val lost = !connected || resumeWanted   // Puffer leer, weil die Verbindung weg ist – keine echte Pause
+            h?.post { if (!lost) abandonFocus(); h?.removeCallbacks(lockOff); h?.postDelayed(lockOff, 300_000) }
+            AppLog.i(TAG, if (lost) "Puffer leer – warte auf Verbindung" else "Pause – Ausgabe angehalten")
+        }
         private fun resume() { locks(true); if (focus == null) h?.post { requestFocus(); applyVolume() } }
 
         private fun abandonFocus() {
