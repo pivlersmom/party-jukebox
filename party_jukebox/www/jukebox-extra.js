@@ -54,13 +54,13 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     if (r.k in songs) return songs[r.k];
     songs[r.k] = null;
     try {
-      const pv = profProv("providers"); if (pv.providers) pv.providers = pv.providers.concat("library");
+      const pv = JB.profProv ? JB.profProv("providers") : {}; if (pv.providers) pv.providers = pv.providers.concat("library");
       const res = await cmd("music/search", Object.assign({ search_query: r.a + " " + r.t, media_types: ["track"], limit: 8 }, pv));
       const list = (res && res.tracks) || [], nt = norm(r.t), na = norm(r.a);
       const hit = list.find(x => norm(x.name) === nt && (!na || norm((x.artists || []).map(y => y.name).join(" ")).includes(na.split(" ")[0]))) ||
         list.find(x => norm(x.name).startsWith(nt));
       songs[r.k] = hit || null;
-    } catch (e) {}
+    } catch (e) { delete songs[r.k]; }   // Fehler → beim nächsten Mal neu suchen
     return songs[r.k];
   }
   const curMi = () => {

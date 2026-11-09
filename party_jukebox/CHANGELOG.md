@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.137
+- Radio: Cover lange drücken findet den laufenden Song wieder (Suche lief ins Leere)
+
 ## 0.1.136
 - Party: Gäste zählen 2 Stunden nach ihrer letzten Aktivität als „dabei“ – für die Mehrheit beim Abwählen und für „Musik geht nie aus“ (auch wenn die Seite zu ist)
 
