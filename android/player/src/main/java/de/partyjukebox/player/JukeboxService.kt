@@ -87,6 +87,7 @@ class JukeboxService : MediaLibraryService() {
     override fun onTaskRemoved(rootIntent: Intent?) { }
 
     override fun onDestroy() {
+        main.removeCallbacks(carTick)
         Library.session = null
         MaPlayer.onPlayerChanged = null
         MaPlayer.onFavChanged = null
@@ -151,6 +152,22 @@ class JukeboxService : MediaLibraryService() {
     private val klangCmd = SessionCommand("jukebox.KLANG", Bundle.EMPTY)
     private var klangName = "Klang"
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /*
+     * Lernkarte: "Auto noch da?" nachzählen
+     * Android Auto verbindet sich oft mehrfach und meldet sich nicht immer ab (z. B. kabellos, Auto aus).
+     * Dann blieb "im Auto" für immer an: Abfrage alle 3 s, kein Leerlauf-Schlaf → hoher Akkuverbrauch.
+     * Darum jede Minute nachzählen, welche Auto-Verbindungen wirklich noch bestehen.
+     */
+    private fun carRecount() {
+        val n = session?.connectedControllers?.count { isCar(it) } ?: 0
+        if (n != cars) {
+            if (n == 0 && cars > 0) AppLog.add("Android Auto weg (ohne Abmeldung) – Auto-Modus aus")
+            cars = n
+            MaPlayer.instance?.carMode = n > 0
+        }
+    }
+    private val carTick = object : Runnable { override fun run() { carRecount(); main.postDelayed(this, 60_000) } }
 
     @Suppress("DEPRECATION")
     private fun klangButton() = CommandButton.Builder()
@@ -265,6 +282,7 @@ class JukeboxService : MediaLibraryService() {
 
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            if (isCar(controller)) { main.removeCallbacks(carTick); main.postDelayed(carTick, 60_000) }
             if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = true; refreshHome() }
             val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).add(backCmd).add(fwdCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
@@ -275,6 +293,7 @@ class JukeboxService : MediaLibraryService() {
 
         override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
             if (isCar(controller)) { cars = maxOf(0, cars - 1); if (cars == 0) MaPlayer.instance?.carMode = false }
+            main.postDelayed({ carRecount() }, 1500)
         }
 
         /** Knopf gedrückt → kommende Titel in MA entfernen (der laufende spielt weiter) */
