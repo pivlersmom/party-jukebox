@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.138
+- ♥ per langem Druck aufs Cover landet jetzt auch in den persönlichen Favoriten der Person (Startseite → Favoriten)
+
 ## 0.1.137
 - Radio: Cover lange drücken findet den laufenden Song wieder (Suche lief ins Leere)
 

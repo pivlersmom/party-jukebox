@@ -373,6 +373,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         val it = favItem ?: run { showNote(if (e?.song == true) "♡ „" + e.title + "“ nicht gefunden" else "♡ Gerade läuft kein Titel"); return }
         val on = !favOn
         setFav(on); showNote(if (on) "❤️ Favorit" else "♡ Kein Favorit mehr")
+        Library.personalFav(it, on)   // auch in „Meine Favoriten“ der Person
         val recheck = { h.postDelayed({ favKey = ""; refreshSoon() }, 2500) }
         if (on) ma.send("music/favorites/add_item", o("item" to it.optString("uri"))) { _, err ->
             if (err != null) { setFav(false); showNote("Favorit ging nicht") } else recheck()

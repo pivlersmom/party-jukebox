@@ -2249,7 +2249,7 @@ function setConn(c, wait) {
 /* ---------- Start ---------- */
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
 window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet,
-  selectPlayer, profUser, profProv, favUid: () => favUid() };
+  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt };
 renderAll();
 try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();

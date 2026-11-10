@@ -361,6 +361,23 @@ object Library {
     }
 
     /** Anfrage ans Jukebox-Add-on (zuhause direkt, unterwegs über Nabu Casa) – Antwort im Haupt-Thread */
+    /** ♥ aus Auto/Medienkarte auch in die persönliche Favoriten-Liste (Add-on) – wie das ♥ in der Jukebox */
+    fun personalFav(it: JSONObject, on: Boolean) {
+        val uid = (p().getString("aa_uid", "") ?: "").ifEmpty { "default" }
+        val slim = JSONObject().put("uri", it.optString("uri")).put("media_type", it.optString("media_type", "track"))
+            .put("name", it.optString("name")).put("item_id", it.opt("item_id")).put("provider", it.optString("provider")).put("favorite", true)
+        it.optJSONArray("artists")?.let { a ->
+            val o = JSONArray(); for (i in 0 until minOf(4, a.length())) o.put(JSONObject().put("name", a.optJSONObject(i)?.optString("name")))
+            slim.put("artists", o)
+        }
+        it.optJSONObject("album")?.optString("name")?.takeIf { n -> n.isNotEmpty() }?.let { n -> slim.put("album", JSONObject().put("name", n)) }
+        (it.optJSONObject("image") ?: it.optJSONObject("metadata")?.optJSONArray("images")?.optJSONObject(0))?.let { im ->
+            slim.put("image", JSONObject().put("path", im.optString("path")).put("provider", im.optString("provider"))
+                .put("remotely_accessible", im.optBoolean("remotely_accessible")))
+        }
+        addon("POST", "party/favs", JSONObject().put("user", uid).put("item", slim).put("on", on)) { }
+    }
+
     private fun addon(method: String, path: String, body: JSONObject?, cb: (JSONObject?) -> Unit) = Thread {
         val res = try {
             val c = java.net.URL(Endpoint.base + path).openConnection() as java.net.HttpURLConnection

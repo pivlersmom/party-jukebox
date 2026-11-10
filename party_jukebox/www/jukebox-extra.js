@@ -68,7 +68,8 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     return r ? (songs[r.k] || null) : m;
   };
   const curKey = () => { const r = radioSong(); return r ? "r|" + r.k + "|" + (songs[r.k] ? 1 : 0) : ((curMi() || {}).uri || ""); };
-  const isFav = () => !mi ? false : local[mi.uri] != null ? local[mi.uri] : lib ? !!lib.favorite : !!mi.favorite;
+  // ♥ wie überall in der Jukebox: persönliche Liste der gewählten Person (Add-on), sonst Music Assistant
+  const isFav = () => !mi ? false : local[mi.uri] != null ? local[mi.uri] : JB.isFavIt ? JB.isFavIt(mi) || !!(lib && JB.isFavIt(lib)) : lib ? !!lib.favorite : !!mi.favorite;
   const paint = () => cv.classList.toggle("fav", isFav());
   async function libOf(m) {
     if (!m) return null;
@@ -89,6 +90,11 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     if (!mi || mi.uri !== m.uri) { mi = m; lib = null; }
     const on = !isFav(); local[m.uri] = on; paint();
     if (window.pjCoverHint) window.pjCoverHint(on ? "❤️ Favorit" : "Kein Favorit mehr");
+    if (JB.toggleFav) {   // gleicher Weg wie das ♥ in Suche/Listen → landet unter „Favoriten“ der Person
+      try { await JB.toggleFav(Object.assign({}, m, { favorite: !on })); } catch (e) {}
+      setTimeout(() => { if (mi && mi.uri === m.uri) { delete local[m.uri]; lib = null; load(); } }, 2500);
+      return;
+    }
     try {
       if (on) { await cmd("music/favorites/add_item", { item: m.uri }); toast("❤️ Zu Favoriten hinzugefügt"); }
       else {
