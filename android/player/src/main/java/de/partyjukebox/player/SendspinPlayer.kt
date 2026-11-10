@@ -164,6 +164,8 @@ object SendspinPlayer {
         AppLog.flush()
         stop()
         asleep = true
+        // Vordergrund-Dienst (Meldung "Handy-Player bereit") auch beenden – stimmt im Schlaf nicht und hält nur wach
+        app.let { c -> try { c.stopService(android.content.Intent(c, KeepAliveService::class.java)) } catch (e: Exception) { } }
     }
 
     /** aufwecken (falls eingeschaltet und gerade schlafend) bzw. Leerlauf-Uhr neu starten */
@@ -177,6 +179,7 @@ object SendspinPlayer {
         }
         AppLog.add("Aufgeweckt: $why")
         start(c)
+        KeepAliveService.sync(c)   // Meldung "Handy-Player bereit" wieder da (klappt aus dem Hintergrund nicht immer – dann hält Android Auto/App wach)
     }
 
     /** cb (Haupt-Thread), sobald MA den Player angenommen hat – höchstens 20 s warten */
