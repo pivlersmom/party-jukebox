@@ -860,9 +860,13 @@ object SendspinPlayer {
          */
         fun focusCheck() {
             if (duck >= 1f || Build.VERSION.SDK_INT < 26) return
-            val f = focus ?: return
             if (System.currentTimeMillis() - duckSince < 15_000) return
             duckSince = System.currentTimeMillis()
+            val f = focus
+            if (f == null) {   // Musik kam während eines Gesprächs → Fokus jetzt erst anfragen
+                if (!voiceBusy()) { requestFocus(); applyVolume(); if (duck >= 1f) AppLog.i(TAG, "Gespräch vorbei – Musik wieder laut") }
+                return
+            }
             val am = app.getSystemService(AudioManager::class.java) ?: return
             /*
              * Lernkarte: Spracheingabe (z. B. Claude, Google Assistant) nimmt sich den Audio-Fokus und schaltet
@@ -920,7 +924,14 @@ object SendspinPlayer {
             h?.post { if (!lost) abandonFocus(); h?.removeCallbacks(lockOff); h?.postDelayed(lockOff, 300_000) }
             AppLog.i(TAG, if (lost) "Puffer leer – warte auf Verbindung" else "Pause – Ausgabe angehalten")
         }
-        private fun resume() { locks(true); if (focus == null) h?.post { requestFocus(); applyVolume() } }
+        private fun resume() {
+            locks(true)
+            if (focus == null) h?.post {
+                // Sprache/Anruf läuft → Fokus nicht wegschnappen, erst mal stumm; focusCheck() holt ihn später
+                if (voiceBusy()) { AppLog.i(TAG, "Sprache/Anruf läuft – Musik wartet stumm"); duck = 0f; duckSince = System.currentTimeMillis(); applyVolume() }
+                else { requestFocus(); applyVolume() }
+            }
+        }
 
         private fun abandonFocus() {
             val f = focus ?: return
@@ -929,8 +940,24 @@ object SendspinPlayer {
             if (Build.VERSION.SDK_INT >= 26) try { app.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(f) } catch (e: Exception) { }
         }
 
+        /** Spricht gerade jemand ins Handy (Claude-Sprachmodus, Assistant, Anruf über eine App)? */
+        private fun voiceBusy(): Boolean {
+            if (Build.VERSION.SDK_INT < 26) return false
+            val am = app.getSystemService(AudioManager::class.java) ?: return false
+            return am.mode == AudioManager.MODE_IN_COMMUNICATION || am.mode == AudioManager.MODE_IN_CALL ||
+                am.mode == AudioManager.MODE_RINGTONE || am.activeRecordingConfigurations.isNotEmpty()
+        }
+
         private fun onFocus(change: Int) {
-            when (change) {
+            if (change != AudioManager.AUDIOFOCUS_GAIN) AppLog.i(TAG, "Audio-Fokus: $change" + if (voiceBusy()) " (Sprache/Anruf)" else "")
+            /*
+             * Lernkarte: Sprachmodus ist keine Musik-App
+             * Der Claude-Sprachmodus holt sich den Fokus "dauerhaft". Früher haben wir dann in MA pausiert – und beim
+             * nächsten Abspielen den Fokus zurückgerissen: das Gespräch brach ab. Jetzt: läuft gerade Sprache,
+             * nur stumm schalten (wie bei einem Anruf) – nach dem Gespräch holt focusCheck() den Ton zurück.
+             */
+            val c = if (change == AudioManager.AUDIOFOCUS_LOSS && voiceBusy()) AudioManager.AUDIOFOCUS_LOSS_TRANSIENT else change
+            when (c) {
                 AudioManager.AUDIOFOCUS_GAIN -> duck = 1f
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> { duck = 0.3f; duckSince = System.currentTimeMillis() }   // Navi spricht
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> { duck = 0f; duckSince = System.currentTimeMillis() }               // Anruf o. Ä.
