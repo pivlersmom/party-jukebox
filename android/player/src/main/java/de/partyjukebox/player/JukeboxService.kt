@@ -364,18 +364,22 @@ class JukeboxService : MediaLibraryService() {
         /** Suche (Lupe bzw. Sprache): erst "ich suche", dann melden, wie viele Treffer es gibt */
         override fun onSearch(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String,
                               params: LibraryParams?): ListenableFuture<LibraryResult<Void>> {
-            Library.search(query) { list ->
-                results[query] = list
-                session.notifySearchResultChanged(browser, query, list.size, params)
-            }
+            /*
+             * Lernkarte: Suche nur EINMAL ausführen
+             * Android Auto fragt dieselbe Suche oft mehrfach an (Log: 15× „my“ in 5 s). Jede Anfrage startete eine neue
+             * Suche in MA – die stauten sich (bis 7 s) und Android Auto brach ab. Jetzt: Ergebnis 2 min merken,
+             * laufende Suche nicht doppelt starten, Wartende bekommen dasselbe Ergebnis.
+             */
+            cachedSearch(query)?.let { session.notifySearchResultChanged(browser, query, it.size, params); return Futures.immediateFuture(LibraryResult.ofVoid()) }
+            searchOnce(query) { list -> session.notifySearchResultChanged(browser, query, list.size, params) }
             return Futures.immediateFuture(LibraryResult.ofVoid())
         }
 
         override fun onGetSearchResult(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String,
                                        page: Int, pageSize: Int, params: LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-            results[query]?.let { return Futures.immediateFuture(LibraryResult.ofItemList(page(it, page, pageSize), params)) }
+            cachedSearch(query)?.let { return Futures.immediateFuture(LibraryResult.ofItemList(page(it, page, pageSize), params)) }
             val f = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
-            Library.search(query) { list -> results[query] = list; f.set(LibraryResult.ofItemList(page(list, page, pageSize), params)) }
+            searchOnce(query) { list -> f.set(LibraryResult.ofItemList(page(list, page, pageSize), params)) }
             return f
         }
 
@@ -385,7 +389,25 @@ class JukeboxService : MediaLibraryService() {
             Futures.immediateFuture(mediaItems)
     }
 
-    private val results = HashMap<String, List<MediaItem>>()
+    private val results = HashMap<String, Pair<Long, List<MediaItem>>>()
+    private val searching = HashMap<String, MutableList<(List<MediaItem>) -> Unit>>()
+
+    private fun cachedSearch(q: String): List<MediaItem>? =
+        results[q.trim().lowercase()]?.takeIf { System.currentTimeMillis() - it.first < 120_000 }?.second
+
+    /** gleiche Suche läuft schon → nur anhängen; sonst einmal suchen und alle Wartenden bedienen (Haupt-Thread) */
+    private fun searchOnce(q: String, cb: (List<MediaItem>) -> Unit) {
+        val k = q.trim().lowercase()
+        searching[k]?.let { it.add(cb); return }
+        searching[k] = mutableListOf(cb)
+        Library.search(q) { list ->
+            main.post {
+                if (results.size > 30) results.clear()
+                results[k] = System.currentTimeMillis() to list
+                searching.remove(k)?.forEach { w -> try { w(list) } catch (e: Exception) { } }
+            }
+        }
+    }
 
     /** Android Auto meldet sich mit dem Paketnamen "gearhead" */
     private var cars = 0
