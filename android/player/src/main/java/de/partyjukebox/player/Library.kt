@@ -583,10 +583,57 @@ object Library {
     }
 
     // ---------------------------------------------------------------- Suche
+    /*
+     * Lernkarte: Suche im Auto
+     * - Eigene Bibliothek ("library") wird immer mitgesucht – sonst fehlen z. B. die Tidal-"My Mix"-Playlists.
+     * - Reihenfolge in jeder Gruppe: Tidal zuerst, dann ganzes Wort im Namen ("Mix" passt zu "My Mix 1", nicht zu "Mixtape"),
+     *   dann eigene Bibliothek, dann kürzere Namen (näher am Suchwort).
+     * - Die Gruppe mit dem besten Treffer kommt nach oben (bei "Mix" also Playlists vor Titeln).
+     */
+    private fun searchArgs(q: String, limit: Int, types: List<String>): JSONObject {
+        val a = withProfile(o("search_query" to q.trim(), "limit" to limit), "providers")
+        a.optJSONArray("providers")?.let { pv -> if ((0 until pv.length()).none { pv.optString(it) == "library" }) pv.put("library") }
+        a.put("media_types", JSONArray(types))
+        return a
+    }
+
+    private fun isTidal(it: JSONObject): Boolean {
+        if (it.optString("provider").startsWith("tidal")) return true
+        val m = it.optJSONArray("provider_mappings") ?: return false
+        return (0 until m.length()).any { i -> m.optJSONObject(i)?.optString("provider_domain") == "tidal" }
+    }
+
+    private fun wholeWord(it: JSONObject, q: String): Boolean {
+        val name = " ${norm(it.optString("name"))} "
+        val w = norm(q).split(" ").filter { it.isNotEmpty() }
+        return w.isNotEmpty() && w.all { name.contains(" $it ") }
+    }
+
+    /** Gruppen sortiert: [(Überschrift, Treffer)] – beste Gruppe zuerst */
+    private fun ranked(res: JSONObject, q: String): List<Pair<String, List<JSONObject>>> {
+        val groups = listOf("tracks" to "Titel", "radio" to "Radio", "playlists" to "Playlists", "albums" to "Alben",
+            "artists" to "Künstler", "podcasts" to "Podcasts", "audiobooks" to "Hörbücher")
+        val out = groups.mapIndexed { gi, (key, label) ->
+            val arr = relevant(res.optJSONArray(key), q, key != "tracks")
+            val seen = HashSet<String>()
+            val list = (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+                .filter { seen.add(norm(it.optString("name")) + "|" + norm(artists(it)) + "|" + norm(it.optString("owner"))) }
+                .sortedWith(compareByDescending<JSONObject> { isTidal(it) }
+                    .thenByDescending { wholeWord(it, q) }
+                    .thenByDescending { it.optString("provider") == "library" }
+                    .thenBy { it.optString("name").length })
+                .take(15)
+            Triple(gi, label, list)
+        }.filter { it.third.isNotEmpty() }
+        // Gruppe nach vorne, wenn ihr bester Treffer das Suchwort als ganzes Wort hat und aus der eigenen Bibliothek ist
+        return out.sortedWith(compareByDescending<Triple<Int, String, List<JSONObject>>> {
+            val f = it.third.first(); if (wholeWord(f, q) && f.optString("provider") == "library") 1 else 0
+        }.thenBy { it.first }).map { it.second to it.third }
+    }
+
     fun search(q: String, out: (List<MediaItem>) -> Unit) {
         if (q.isBlank()) { out(emptyList()); return }
-        val a = withProfile(o("search_query" to q.trim(), "limit" to 8), "providers")
-        a.put("media_types", JSONArray(listOf("track", "artist", "album", "playlist", "radio", "podcast", "audiobook")))
+        val a = searchArgs(q, 40, listOf("track", "artist", "album", "playlist", "radio", "podcast", "audiobook"))
         ma().send("music/search", a) { r, _ ->
             val res = r as? JSONObject ?: run { out(emptyList()); return@send }
             /*
@@ -594,9 +641,7 @@ object Library {
              * Ordner (Playlist, Album, Künstler) würden verschwinden. Darum hier alles abspielbar:
              * Antippen spielt die ganze Playlist / das Album / den Sender.
              */
-            val groups = listOf("tracks" to "Titel", "radio" to "Radio", "playlists" to "Playlists", "albums" to "Alben",
-                "artists" to "Künstler", "podcasts" to "Podcasts", "audiobooks" to "Hörbücher")
-            out(groups.flatMap { (key, label) -> grouped(items(relevant(res.optJSONArray(key), q, key != "tracks"), false, playOnly = true), label) })
+            out(ranked(res, q).flatMap { (label, list) -> grouped(items(JSONArray(list), false, playOnly = true), label) })
         }
     }
 
@@ -648,19 +693,16 @@ object Library {
 
     /** „Hey Google, spiele … auf Party-Jukebox“: Name passt genau → Künstler/Playlist/Album, sonst bester Treffer */
     private fun playFromSearch(player: MaPlayer, query: String) {
-        val a = withProfile(o("search_query" to query.trim(), "limit" to 5), "providers")
-        a.put("media_types", JSONArray(listOf("track", "artist", "playlist", "album")))
+        val a = searchArgs(query, 25, listOf("track", "artist", "playlist", "album"))
         ma().send("music/search", a) { r, _ ->
             val res = r as? JSONObject ?: return@send
-            val ql = query.trim().lowercase()
-            for (k in listOf("artists", "playlists", "albums")) {
-                val first = res.optJSONArray(k)?.optJSONObject(0) ?: continue
-                if (first.optString("name").lowercase() == ql) { playUri(player, first.optString("uri")); return@send }
+            val ql = norm(query)
+            val groups = ranked(res, query)
+            // Name passt genau (Künstler/Playlist/Album) → das; sonst der beste Treffer der besten Gruppe
+            for ((label, list) in groups) if (label != "Titel") list.firstOrNull { norm(it.optString("name")) == ql }?.let {
+                playUri(player, it.optString("uri")); return@send
             }
-            for (k in listOf("tracks", "artists", "playlists", "albums")) {
-                val first = res.optJSONArray(k)?.optJSONObject(0) ?: continue
-                playUri(player, first.optString("uri")); return@send
-            }
+            groups.firstOrNull()?.second?.firstOrNull()?.let { playUri(player, it.optString("uri")) }
         }
     }
 
