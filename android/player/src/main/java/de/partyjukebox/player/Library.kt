@@ -633,9 +633,11 @@ object Library {
 
     fun search(q: String, out: (List<MediaItem>) -> Unit) {
         if (q.isBlank()) { out(emptyList()); return }
-        val a = searchArgs(q, 40, listOf("track", "artist", "album", "playlist", "radio", "podcast", "audiobook"))
-        ma().send("music/search", a) { r, _ ->
-            val res = r as? JSONObject ?: run { out(emptyList()); return@send }
+        val a = searchArgs(q, 30, listOf("track", "artist", "album", "playlist", "radio", "podcast", "audiobook"))
+        val t0 = System.currentTimeMillis()
+        ma().send("music/search", a) { r, err ->
+            val res = r as? JSONObject ?: run { AppLog.add("Suche „$q“ ohne Antwort: $err"); out(emptyList()); return@send }
+            AppLog.add("Suche „$q“: " + (System.currentTimeMillis() - t0) + " ms")
             /*
              * Gruppen mit Überschrift. Wichtig: Android Auto zeigt in Suchergebnissen nur ABSPIELBARE Einträge –
              * Ordner (Playlist, Album, Künstler) würden verschwinden. Darum hier alles abspielbar:
@@ -691,18 +693,23 @@ object Library {
         }
     }
 
+    fun playQuery(player: MaPlayer, query: String) = playFromSearch(player, query)
+
     /** „Hey Google, spiele … auf Party-Jukebox“: Name passt genau → Künstler/Playlist/Album, sonst bester Treffer */
     private fun playFromSearch(player: MaPlayer, query: String) {
+        AppLog.add("Sprachsuche: „$query“")
         val a = searchArgs(query, 25, listOf("track", "artist", "playlist", "album"))
-        ma().send("music/search", a) { r, _ ->
-            val res = r as? JSONObject ?: return@send
+        ma().send("music/search", a) { r, err ->
+            val res = r as? JSONObject ?: run { AppLog.add("Sprachsuche ohne Antwort: $err"); return@send }
             val ql = norm(query)
             val groups = ranked(res, query)
             // Name passt genau (Künstler/Playlist/Album) → das; sonst der beste Treffer der besten Gruppe
             for ((label, list) in groups) if (label != "Titel") list.firstOrNull { norm(it.optString("name")) == ql }?.let {
-                playUri(player, it.optString("uri")); return@send
+                AppLog.add("Sprachsuche spielt: " + it.optString("name")); playUri(player, it.optString("uri")); return@send
             }
-            groups.firstOrNull()?.second?.firstOrNull()?.let { playUri(player, it.optString("uri")) }
+            val best = groups.firstOrNull()?.second?.firstOrNull()
+            AppLog.add(if (best != null) "Sprachsuche spielt: " + best.optString("name") else "Sprachsuche: nichts gefunden")
+            best?.let { playUri(player, it.optString("uri")) }
         }
     }
 

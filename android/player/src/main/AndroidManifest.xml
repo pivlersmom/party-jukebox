@@ -34,6 +34,12 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Sprachbefehl „Spiele … auf Jukebox“ (Google Assistant / Android Auto): ohne diesen Eintrag
+                 bietet Android die App für Sprach-Wiedergabe gar nicht an -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
             <!-- Gäste-Seite im Browser → Jukebox-Logo öffnet die App (partyjukebox://open) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>

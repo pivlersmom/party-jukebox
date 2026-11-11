@@ -26,6 +26,7 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle b){
         super.onCreate(b);
         CrashLog.install(this);
+        voicePlay(getIntent());
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         // Lautstärketasten regeln (wenn die Seite es so will) die Medien-Lautstärke des Handys
@@ -253,9 +254,20 @@ public class MainActivity extends Activity {
     }
 
     /** Aufruf über partyjukebox://open (Jukebox-Logo auf der Gäste-Seite): zurück zur Jukebox. */
+    /** „Spiele … auf Jukebox“ am Handy → wie die Sprachsuche im Auto */
+    private void voicePlay(Intent intent){
+        if (intent == null || !"android.media.action.MEDIA_PLAY_FROM_SEARCH".equals(intent.getAction())) return;
+        String q = intent.getStringExtra(android.app.SearchManager.QUERY);
+        AppLog.add("Sprachbefehl am Handy: " + q);
+        MaPlayer p = MaPlayer.instance;
+        if (p != null && q != null && !q.trim().isEmpty()) Library.INSTANCE.playQuery(p, q);
+        else if (p != null) p.queueCmd("play");
+    }
+
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);
         setIntent(intent);
+        voicePlay(intent);
         if (intent != null && Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null
                 && "partyjukebox".equals(intent.getData().getScheme()) && webView != null) {
             String u = webView.getUrl();
