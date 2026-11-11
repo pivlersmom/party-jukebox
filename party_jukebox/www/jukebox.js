@@ -2045,12 +2045,16 @@ function openItem(it) {
 function whereName() { const p = S.players[S.pid]; return p ? "🔈 " + pname(p) : ""; }
 /* Playlist/Album/Podcast ab einem bestimmten Titel – der Rest der Liste folgt */
 async function playFrom(list, it) {
-  const ok = await qc("play_media", Object.assign({ media: list.uri, option: "play", start_item: it.uri }, profUser()));
+  const ok = await qc("play_media", Object.assign({ media: list.uri, option: "replace", start_item: it.uri }, profUser()));
   if (!ok) return;
   toast("▶ " + unent(list.name) + " ab „" + unent(it.name) + "“ · " + whereName()); skipFx();
 }
+/* Ganze Listen (Playlist, Album, Künstler, Podcast, Hörbuch) ersetzen beim Abspielen die Warteschlange,
+   einzelne Titel werden nur eingeschoben */
+const LIST_TYPES = ["playlist", "album", "artist", "podcast", "audiobook"];
 async function enqueue(it, opt) {
-  const ok = await qc("play_media", Object.assign({ media: it.uri, option: opt }, profUser()));
+  const o = opt === "play" && LIST_TYPES.includes(it.media_type) ? "replace" : opt;
+  const ok = await qc("play_media", Object.assign({ media: it.uri, option: o }, profUser()));
   if (!ok) return;
   toast((opt === "play" ? "Spielt jetzt: " + it.name : opt === "next" ? "Kommt als Nächstes: " + it.name : "Hinten angestellt: " + it.name) + " · " + whereName());
   if (opt === "play") skipFx();

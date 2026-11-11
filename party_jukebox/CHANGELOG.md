@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.139
+- Playlist, Album, Künstler, Podcast oder Hörbuch abspielen ersetzt jetzt die Warteschlange – alte Titel bleiben nicht mehr hinten dran
+
 ## 0.1.138
 - ♥ per langem Druck aufs Cover landet jetzt auch in den persönlichen Favoriten der Person (Startseite → Favoriten)
 

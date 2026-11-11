@@ -427,7 +427,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
                 if (uris.length() == 0) return@send
                 // ist noch jemand zuhause? Dann läuft die Musik dort weiter, sonst aus
                 othersHome { home -> if (!home) ma.send("player_queues/stop", o("queue_id" to src)) { _, _ -> } }
-                ma.send("player_queues/play_media", o("queue_id" to phone, "media" to uris, "option" to "play")) { _, _ ->
+                ma.send("player_queues/play_media", o("queue_id" to phone, "media" to uris, "option" to "replace")) { _, _ ->
                     // an der Stelle weiter, an der der Song zuhause war
                     if (pos > 5) h.postDelayed({ ma.send("player_queues/seek", o("queue_id" to phone, "position" to pos)) { _, _ -> } }, 2500)
                     refreshSoon()
