@@ -258,7 +258,7 @@ public class MainActivity extends Activity {
     private void voicePlay(Intent intent){
         if (intent == null || !"android.media.action.MEDIA_PLAY_FROM_SEARCH".equals(intent.getAction())) return;
         String q = intent.getStringExtra(android.app.SearchManager.QUERY);
-        AppLog.add("Sprachbefehl am Handy: " + q);
+        AppLog.INSTANCE.add("Sprachbefehl am Handy: " + q);
         MaPlayer p = MaPlayer.instance;
         if (p != null && q != null && !q.trim().isEmpty()) Library.INSTANCE.playQuery(p, q);
         else if (p != null) p.queueCmd("play");
