@@ -53,7 +53,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         set(v) {
             if (field == v) return
             field = v
-            if (v) { carSwitched = false; suggestDismissed = false; boardCur = null; toCar(); Library.load("pnew") { } } else fromCar()
+            if (v) { h.removeCallbacks(carGonePause); carSwitched = false; suggestDismissed = false; boardCur = null; toCar(); Library.load("pnew") { } } else fromCar()
             invalidateState()
             refreshSoon()   // Takt sofort anpassen (Auto = schnell)
         }
@@ -91,7 +91,24 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         refreshSoon()
     }
 
+    /*
+     * Lernkarte: Aussteigen = Pause
+     * Kabelloses Android Auto meldet beim Trennen oft kein "Ausgabe getrennt" (AUDIO_BECOMING_NOISY) –
+     * dann lief die Musik nach dem Aussteigen einfach über den Handy-Lautsprecher weiter.
+     * Darum: Spielt das Handy selbst, wenn das Auto weg ist, nach 8 s Gnadenfrist pausieren
+     * (kurze Funkaussetzer von AA verbinden sich in der Zeit wieder → dann nichts tun).
+     */
+    private val carGonePause = Runnable {
+        if (carMode) return@Runnable
+        val pid = PhonePlayer.playerId(ctx)
+        if (pid.isEmpty()) return@Runnable
+        AppLog.add("Android Auto getrennt – Handy pausiert")
+        ma.send("player_queues/pause", o("queue_id" to pid)) { _, _ -> refreshSoon() }
+    }
+
     private fun fromCar() {
+        h.removeCallbacks(carGonePause)
+        if (isPhone() && playing) h.postDelayed(carGonePause, 8000)
         val prefs = Endpoint.prefs(ctx)
         val home = prefs.getString("aa_pid_home", "") ?: ""
         if (home.isEmpty() || playerId() != PhonePlayer.playerId(ctx)) return
