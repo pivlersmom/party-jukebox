@@ -369,6 +369,8 @@ object SendspinPlayer {
             // Lief gerade Musik? Dann nach dem Neuverbinden dafür sorgen, dass sie weiterläuft (Funkloch)
             // (auch nach langem Funkloch: Stream war gestartet und nicht beendet → weiterspielen)
             if ((audio.active() || audio.streaming()) && reason != "rename") resumeWanted = true
+            // merken, bis wann wir Ton hatten (für das Zurückspringen nach dem Funkloch, nur der erste Abbruch zählt)
+            if (audio.streaming() && reason != "rename" && reason != "stop" && heardEndUs == 0L) heardEndUs = audio.heardEndUs()
             /*
              * Lernkarte: Puffer weiterspielen statt wegwerfen
              * Reißt die Verbindung ab (Funkloch, Netzwechsel), spielt die App die schon empfangene Musik einfach weiter
@@ -462,6 +464,51 @@ object SendspinPlayer {
      * (z. B. hing MA nach einem Netzwechsel noch an der alten Verbindung) → Fortsetzen anstoßen.
      * Frühestens 12 s nach dem Anmelden, danach höchstens alle 20 s.
      */
+    /*
+     * Lernkarte: Funkloch = an der Stelle weitermachen
+     * Im Funkloch kann das Handy MA nicht sagen "Pause" – MA spielt (stumm für uns) einfach weiter,
+     * beim Podcast fehlen dann Minuten. Darum merken wir uns, bis zu welchem Zeitpunkt wirklich Ton kam
+     * (Zeitstempel des letzten empfangenen Pakets). Nach dem Neuverbinden: Lücke länger als 8 s →
+     * in MA so weit zurückspulen (+2 s Überlappung). Lief in der Lücke schon der nächste Titel, geht es
+     * zum vorherigen Titel zurück. Radio (live) und Pause bleiben unberührt.
+     */
+    @Volatile private var heardEndUs = 0L
+    private fun rewindGap() {
+        val end = heardEndUs; heardEndUs = 0L
+        if (end == 0L || !connected) return
+        val gapS = (nowUs() - end) / 1_000_000
+        if (gapS < 8) return
+        val q = phoneQueue(); if (q.isEmpty()) return
+        val ma = MaClient.get(app)
+        ma.send("player_queues/get", JSONObject().put("queue_id", q)) { r, _ ->
+            val qu = r as? JSONObject ?: return@send
+            if (qu.optString("state") != "playing") return@send
+            val cur = qu.optJSONObject("current_item") ?: return@send
+            val type = cur.optJSONObject("media_item")?.optString("media_type") ?: ""
+            if (type == "radio" || cur.optDouble("duration", 0.0) <= 0) return@send   // live: nichts zurückzuspulen
+            // MA meldet die Position vom letzten Update – bis jetzt hochrechnen (höchstens 30 s)
+            val upd = qu.optDouble("elapsed_time_last_updated", 0.0)
+            val extra = if (upd > 0) (System.currentTimeMillis() / 1000.0 - upd).coerceIn(0.0, 30.0) else 0.0
+            val target = (qu.optDouble("elapsed_time", 0.0) + extra).toLong() - gapS - 2
+            if (target >= 0) {
+                AppLog.add("Funkloch ($gapS s) – zurück an die Stelle, wo der Ton abriss")
+                ma.send("player_queues/seek", JSONObject().put("queue_id", q).put("position", target)) { _, _ -> }
+                return@send
+            }
+            // in der Lücke lief schon der nächste Titel → zurück zum vorherigen
+            val idx = qu.optInt("current_index", 0); if (idx <= 0) return@send
+            ma.send("player_queues/items", JSONObject().put("queue_id", q).put("limit", 1).put("offset", idx - 1)) { r2, _ ->
+                val prev = (r2 as? JSONArray)?.optJSONObject(0) ?: return@send
+                val id = prev.optString("queue_item_id"); if (id.isEmpty()) return@send
+                val pos = (prev.optDouble("duration", 0.0).toLong() + target).coerceAtLeast(0)
+                AppLog.add("Funkloch ($gapS s) – zurück zum vorherigen Titel")
+                ma.send("player_queues/play_index", JSONObject().put("queue_id", q).put("index", id)) { _, _ ->
+                    if (pos > 0) h?.postDelayed({ ma.send("player_queues/seek", JSONObject().put("queue_id", q).put("position", pos)) { _, _ -> } }, 2500)
+                }
+            }
+        }
+    }
+
     @Volatile private var helloAt = 0L
     private var lastNoStreamTry = 0L
     private fun checkNoStream() {
@@ -555,6 +602,7 @@ object SendspinPlayer {
                 sendState(true)
                 clock.reset(); syncTime(0)
                 h?.postDelayed({ checkResume() }, 5000)
+                h?.postDelayed({ rewindGap() }, 3000)
                 startWatchdog()
             }
             "server/time" -> clock.add(p.optLong("client_transmitted"), p.optLong("server_received"),
@@ -760,6 +808,8 @@ object SendspinPlayer {
         /** Stream läuft laut MA (gestartet, nicht beendet), aber seit wie vielen µs kam nichts mehr? */
         fun silentUs() = if (track == null || lastData == 0L) 0L else nowUs() - lastData
         fun lastDataUs() = lastData
+        /** bis wann (Handy-Uhr, µs) reicht der Ton, der schon da ist? 0 = unbekannt */
+        fun heardEndUs(): Long = if (lastTs == Long.MIN_VALUE || !clock.ready) 0L else clock.toLocal(lastTs) + slack
         /** Stream (neu) gestartet: ab jetzt zählt die Stille */
         fun touch() { lastData = nowUs() }
         /** grob: wie viel Musik liegt noch in der Warteschlange (ms) */
