@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.147
+- Neuer Start-Sound (Bass-Wumms + jubelndes Publikum) in App 3.9.60 und TV-App 0.1.5 (TV-App mit kurzem Startbild)
+- „created by pivlersmom“ auf der Startseite und im Startbild der Apps
+- Warteschlange zeigt, welche Playlist / welches Album / welcher Endless Mix gerade läuft
+
 ## 0.1.146
 - Start-Sound „Created for you“: App (3.9.59, abschaltbar unter Persönlich → Auto) und TV-App 0.1.4
 - TV- und Jukebox-App 0.1.4 zum Herunterladen auf der Startseite

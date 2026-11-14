@@ -2139,12 +2139,25 @@ function canMoveUp(i) {
   const buf = q.index_in_buffer == null ? ci : q.index_in_buffer;
   return ci + i > buf;
 }
+/* Woher kommt die Musik? MA merkt sich die Quellen der Warteschlange (Playlist, Album, Endless Mix …) */
+function paintSource(q) {
+  const el = $("#qSrc"); if (!el) return;
+  const src = ((q && q.sources) || []).filter(s => s && s.name && s.media_type !== "track");
+  if (!src.length) { el.hidden = true; return; }
+  const last = src[src.length - 1];
+  const kind = /radio_playlist/.test(last.provider || last.uri || "") ? "📻 Endless Mix" :
+    ({ playlist: "🎶 Playlist", album: "💿 Album", artist: "🎤 Künstler", radio: "📻 Radio", podcast: "🎙 Podcast", audiobook: "📖 Hörbuch" })[last.media_type] || "▶ Quelle";
+  const name = String(last.name).replace(/ Endless Mix$/, "");
+  el.innerHTML = kind + ': <b>' + esc(name) + "</b>" + (src.length > 1 ? " + " + (src.length - 1) + " weitere" : "");
+  el.hidden = false;
+}
 function renderItems() {
   if (drag) return;   // während des Ziehens nicht neu zeichnen
   const box = $("#qList"), n = nowInfo(), q = S.q;
   $("#qClear").hidden = true;
   const left = q && typeof q.items === "number" ? Math.max(0, q.items - ((q.current_index == null ? -1 : q.current_index) + 1)) : S.items.length;
   setText($("#qCount"), left ? left + " Titel danach" : "");
+  paintSource(q);
   if (!S.ready) { box.innerHTML = '<div class="empty">Keine Verbindung zu Music Assistant</div>'; return; }
   if (!S.pid) { box.innerHTML = '<div class="empty">Kein Lautsprecher gewählt</div>'; return; }
   let html = "";
