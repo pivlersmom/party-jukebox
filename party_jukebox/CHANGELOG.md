@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.151
+- Jukebox: Hörfortschritt bei Podcast-Folgen und Hörbüchern („noch 12 min“ + Fortschrittsbalken, „✓ gehört“). Das Add-on schreibt die Position selbst mit (party/progress), weil MA den Fortschritt nur pro Benutzer liefert
+
 ## 0.1.150
 - Apps 0.1.9: „created by pivlersmom“ am unteren Bildschirmrand des Startbilds
 

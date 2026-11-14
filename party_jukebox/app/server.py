@@ -1455,6 +1455,52 @@ class MAConn:
         self.ws = None
 
 
+# ---------------------------------------------------------------- Hörfortschritt (Podcasts, Hörbücher)
+# Lernkarte: MA speichert den Fortschritt pro Benutzer – die Jukebox fragt aber mit dem Add-on-Benutzer
+# und sähe so nie, wie weit Stephan oder Vanessa gehört haben. Darum merkt sich das Add-on selbst:
+# läuft irgendwo eine Folge, wird alle 5 s die Position gespeichert (pro Folge, egal auf welchem Lautsprecher).
+PROG_FILE = "/data/progress.json"
+try:
+    PROG = json.load(open(PROG_FILE))
+except Exception:
+    PROG = {}
+PROG_DIRTY = {"t": 0, "dirty": False}
+
+
+def prog_note(q):
+    ci = q.get("current_item") or {}
+    mi = ci.get("media_item") or {}
+    if mi.get("media_type") not in ("podcast_episode", "audiobook") or not mi.get("uri"):
+        return
+    dur = float(ci.get("duration") or mi.get("duration") or 0)
+    pos = float(q.get("elapsed_time") or 0)
+    if dur <= 0 or pos < 5:
+        return
+    old = PROG.get(mi["uri"]) or [0, 0, False]
+    done = bool(old[2]) or pos >= dur - 30
+    PROG[mi["uri"]] = [round(pos), round(dur), done, int(now())]
+    PROG_DIRTY["dirty"] = True
+
+
+def prog_save(force=False):
+    if not PROG_DIRTY["dirty"] or (not force and now() - PROG_DIRTY["t"] < 60):
+        return
+    if len(PROG) > 3000:   # die ältesten weg
+        for k in sorted(PROG, key=lambda k: PROG[k][3] if len(PROG[k]) > 3 else 0)[:len(PROG) - 3000]:
+            PROG.pop(k, None)
+    try:
+        tmp = PROG_FILE + ".tmp"
+        json.dump(PROG, open(tmp, "w")); os.replace(tmp, PROG_FILE)
+        PROG_DIRTY.update(t=now(), dirty=False)
+    except Exception as e:
+        log.info("Fortschritt speichern: %s", e)
+
+
+async def party_progress(request):
+    """{uri: [Position s, Dauer s, fertig, Zeitpunkt]} – für die Fortschrittsbalken in der Jukebox."""
+    return web.json_response(PROG, headers={"Cache-Control": "no-cache"})
+
+
 async def autoplay_watch_loop(app):
     conn = MAConn(app["session"])
     while True:
@@ -1464,6 +1510,8 @@ async def autoplay_watch_loop(app):
         try:
             qs = await conn.cmd("player_queues/all") or []
             for q in qs:
+                if q.get("state") == "playing":
+                    prog_note(q)
                 qid = q.get("queue_id")
                 n, cur = int(q.get("items") or 0), q.get("current_index")
                 if not qid or cur is None:
@@ -1480,6 +1528,7 @@ async def autoplay_watch_loop(app):
                     st["ids"] = (st["ids"] + new)[-300:]
                     log.info("Autoplay in %s: %d Titel angehängt", q.get("display_name") or qid, len(new))
                 st["n"], st["cur"] = n, cur
+            prog_save()
         except Exception as e:
             log.debug("Autoplay-Wächter: %s", e)
             await conn.close()
@@ -2128,6 +2177,7 @@ def make_app():
     app.router.add_get("/party/tv.json", party_tv_get)
     app.router.add_get("/party/dupe", party_dupe)
     app.router.add_post("/party/queue/add", queue_add_behind)
+    app.router.add_get("/party/progress", party_progress)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)

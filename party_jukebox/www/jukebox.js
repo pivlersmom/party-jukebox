@@ -1195,6 +1195,28 @@ function subOf(it) {
   const base = subBase(it), pv = provOf(it);
   return pv && !base.includes(pv) ? (base ? base + " · " + pv : pv) : base;
 }
+/*
+ * Lernkarte: Hörfortschritt (Podcast-Folgen, Hörbücher)
+ * MA merkt sich pro Folge, wie weit gehört wurde (resume_position_ms) und ob sie fertig ist (fully_played).
+ * Angezeigt wird "noch 12 min" + ein dünner Fortschrittsbalken unter dem Titel, fertige Folgen mit "✓ gehört".
+ */
+/* Fortschritt, den das Add-on mitschreibt (MA zeigt ihn nur dem jeweiligen Benutzer) – party/progress */
+let PROG = {};
+async function loadProg() { try { const r = await fetch("party/progress", { cache: "no-store" }); if (r.ok) PROG = await r.json() || {}; } catch (e) {} }
+loadProg();
+function doneOf(it) { const p = it && PROG[it.uri]; return !!(it && (it.fully_played || (p && p[2]))); }
+function durOf(it) { const p = it && PROG[it.uri]; return (it && it.duration) || (p && p[1]) || 0; }
+function resumeOf(it) {
+  if (!it || doneOf(it)) return 0;
+  const p = PROG[it.uri], dur = durOf(it);
+  const pos = Math.max((it.resume_position_ms || 0) / 1000, p ? p[0] : 0);
+  return pos > 0 && dur && pos < dur - 5 ? pos : 0;
+}
+function prog(it) {
+  if (!it || (it.media_type !== "podcast_episode" && it.media_type !== "audiobook")) return "";
+  const r = resumeOf(it), done = doneOf(it), pct = done ? 100 : r ? Math.round(r / durOf(it) * 100) : 0;
+  return pct ? '<span class="epbar' + (done ? " done" : "") + '"><i style="width:' + pct + '%"></i></span>' : "";
+}
 function subBase(it) {
   const t = it.media_type;
   if (t === "track") return [artistsOf(it), it.album && it.album.name].filter(Boolean).join(" · ");
@@ -1203,10 +1225,10 @@ function subBase(it) {
   if (t === "playlist") return it.owner ? "Playlist · " + it.owner : "Playlist";
   if (t === "radio") return "Radiosender";
   if (t === "podcast") return ["Podcast", unent(it.publisher)].filter(Boolean).join(" · ");
-  if (t === "audiobook") return ["Hörbuch", (it.authors || []).join(", ")].filter(Boolean).join(" · ");
-  if (t === "podcast_episode") { const d = dateOf(it);
-    return [d && !isNaN(d) ? d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }) : "", it.duration ? fmt(it.duration) : "",
-      it.fully_played ? "gehört" : ""].filter(Boolean).join(" · "); }
+  if (t === "podcast_episode" || t === "audiobook") { const d = t === "podcast_episode" ? dateOf(it) : null, r = resumeOf(it);
+    const head = t === "audiobook" ? ["Hörbuch", (it.authors || []).join(", ")].filter(Boolean).join(" · ") : "";
+    return [head, d && !isNaN(d) ? d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }) : "",
+      doneOf(it) ? "✓ gehört" : r ? "noch " + Math.max(1, Math.round((durOf(it) - r) / 60)) + " min" : (it.duration ? fmt(it.duration) : "")].filter(Boolean).join(" · "); }
   return "";
 }
 async function doSearch() {
@@ -1244,7 +1266,7 @@ function renderResults() {
     arr.slice(0, max).forEach(it => {
       const i = S.sItems.push(it) - 1;
       html += '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120), it.media_type === "artist" ? "round" : "") +
-        '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
+        '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>";
     });
     html += "</div>";
   });
@@ -1412,6 +1434,7 @@ function loadPods(force) {
   const pk = "jb_pods_" + favUid();
   if (!force) try { const c = JSON.parse(localStorage.getItem(pk) || "null"); if (c && c.sig === sig && Date.now() - c.t < 2 * 3600e3) { S.home.pods = c.l; loadPodRec(pods); return; } } catch (e) {}
   const week = Date.now() - 7 * 864e5;
+  loadProg();
   Promise.all(pods.map(p => cmd("music/podcasts/podcast_episodes",
     { item_id: String(p.item_id), provider_instance_id_or_domain: p.provider || "library" }, 30000).then(ep => (ep || []).slice(0, 10)).catch(() => [])))
     .then(lists => {
@@ -1638,7 +1661,7 @@ function hrow(title, arr, opt) {
   return '<div class="sec"><div class="sech"><span>' + esc(title) + "</span>" + (opt && opt.act || "") + '</div><div class="hs">' + arr.map(it => {
     const i = S.sItems.push(it) - 1;
     return '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 240), it.media_type === "artist" ? "round" : "") +
-      '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(opt && opt.sub ? opt.sub(it) : subOf(it)) + "</span></span></button>";
+      '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(opt && opt.sub ? opt.sub(it) : subOf(it)) + "</span>" + prog(it) + "</span></button>";
   }).join("") + "</div></div>";
 }
 /* Übersicht = Kacheln je Art (kein langes Scrollen); Kachel antippen = Liste dieser Art mit Suchfeld */
@@ -1680,7 +1703,7 @@ function paintFav() {
   arr.forEach(it => {
     const i = S.sItems.push(it) - 1;
     html += '<button class="row" data-i="' + i + '" data-n="' + esc((it.name + " " + subOf(it)).toLowerCase()) + '">' + thumb(imgUrl(it, 120), t === "artist" ? "round" : "") +
-      '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>";
+      '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>";
   });
   box.innerHTML = html + "</div>";
   const q = $("#favQ");
@@ -1913,7 +1936,7 @@ async function renderHome() {
   S.sItems = [];
   const row = it => { const i = S.sItems.push(it) - 1;
     return '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120)) + '<span class="rm"><span class="r1">' + esc(it.name) +
-      '</span><span class="r2">' + esc(subOf(it)) + '</span></span><span class="go">' + ICON.dots + "</span></button>"; };
+      '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>"; };
   let html = head;
   const p = (pl || []).filter(x => x && x.uri), f = (fav || []).filter(x => x && x.uri);
   if (p.length) html += '<div class="sec"><div class="sech"><span>' + (u ? "Playlists von " + esc(profName(u)) : "Playlists") + "</span></div>" + p.map(row).join("") + "</div>";
@@ -1955,7 +1978,7 @@ async function loadNav(n) {
     } else if (it.media_type === "album") d = { tracks: await cmd("music/albums/album_tracks", a, 25000) || [] };
     else if (it.media_type === "podcast") {
       // Folgen: neueste zuerst
-      const ep = await cmd("music/podcasts/podcast_episodes", a, 40000) || [];
+      const [ep] = await Promise.all([cmd("music/podcasts/podcast_episodes", a, 40000).then(x => x || []), loadProg()]);
       ep.sort((x, y) => ((dateOf(y) || 0) - (dateOf(x) || 0)) || ((y.position || 0) - (x.position || 0)));
       d = { tracks: ep };
     }
@@ -1970,7 +1993,7 @@ function renderNav() {
   S.sItems = [];
   let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' +
     '<button class="bfav' + (isFavIt(it) ? " on" : "") + '" aria-label="Favorit">' + ICON.heart + "</button>" + thumb(imgUrl(it, 480), "lg favable" + (art ? " round" : "")) +
-    '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span></span></div>' +
+    '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span></div>' +
     '<div class="bacts"><button class="bact pri" data-o="play">' + ICON.play + 'Abspielen</button><button class="bact" data-o="next">' + ICON.nextup +
     'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>' + targetRow();
   if (!d) html += '<div class="spin"></div>';
@@ -2067,7 +2090,7 @@ function openItem(it) {
     n.data && (n.data.tracks || []).some(x => x && x.uri === it.uri) ? n.it : null;
   const target = targetRow();
   const html = '<div class="ihead">' + thumb(imgUrl(it, 240), "lg" + (it.media_type === "artist" ? " round" : "")) +
-    '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + "</span></span></div>" + target +
+    '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + "</span>" + prog(it) + "</span></div>" + target +
     (box ? '<button class="act pri" data-o="from">' + ICON.play + (box.media_type === "podcast" ? "Podcast ab dieser Folge" : box.media_type === "album" ? "Album ab hier" : "Playlist ab hier") + "</button>" : "") +
     '<button class="act' + (box ? "" : " pri") + '" data-o="play">' + ICON.play + (box ? "Nur diesen Titel spielen" : "Jetzt spielen") + "</button>" +
     '<button class="act" data-o="next">' + ICON.nextup + "Als Nächstes</button>" +

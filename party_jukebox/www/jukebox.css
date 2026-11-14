@@ -642,3 +642,8 @@ header > .setbtn{justify-self:end}
 .xfd input{flex:1;accent-color:var(--a2)}
 .xfd b{min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
 .mbtn{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* Hörfortschritt bei Podcast-Folgen/Hörbüchern */
+.epbar{display:block;height:3px;max-width:220px;margin-top:6px;border-radius:2px;background:var(--line);overflow:hidden}
+.epbar i{display:block;height:100%;border-radius:2px;background:var(--grad)}
+.epbar.done i{background:var(--dim2)}
