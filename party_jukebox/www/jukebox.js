@@ -2080,9 +2080,21 @@ async function playFrom(list, it) {
 /* Ganze Listen (Playlist, Album, Künstler, Podcast, Hörbuch) ersetzen beim Abspielen die Warteschlange,
    einzelne Titel werden nur eingeschoben */
 const LIST_TYPES = ["playlist", "album", "artist", "podcast", "audiobook"];
+/* Hinten anstellen: übers Add-on – es setzt den Titel hinter die eigenen Songs, Autoplay-Titel bleiben dahinter.
+   Klappt das nicht (z. B. altes Add-on), normal bei MA anhängen. */
+async function addBehind(it) {
+  const qid = S.qid || S.pid;
+  if (!qid) { toast("Erst einen Lautsprecher wählen"); return false; }
+  try {
+    const r = await fetch("party/queue/add", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ queue_id: qid, media: it.uri }, profUser())) });
+    if (r.ok) { later(loadQueue, 300, "lq"); return true; }
+  } catch (e) {}
+  return qc("play_media", Object.assign({ media: it.uri, option: "add" }, profUser()));
+}
 async function enqueue(it, opt) {
   const o = opt === "play" && LIST_TYPES.includes(it.media_type) ? "replace" : opt;
-  const ok = await qc("play_media", Object.assign({ media: it.uri, option: o }, profUser()));
+  const ok = o === "add" ? await addBehind(it) : await qc("play_media", Object.assign({ media: it.uri, option: o }, profUser()));
   if (!ok) return;
   toast((opt === "play" ? "Spielt jetzt: " + it.name : opt === "next" ? "Kommt als Nächstes: " + it.name : "Hinten angestellt: " + it.name) + " · " + whereName());
   if (opt === "play") skipFx();

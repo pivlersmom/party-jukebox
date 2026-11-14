@@ -1376,6 +1376,130 @@ class MA:
 MAC = MA()
 
 
+async def ma_cmds(session, calls):
+    """Mehrere MA-Befehle nacheinander über EINE Verbindung (z. B. viele Verschiebungen). Fehler je Befehl → None."""
+    token = OPT.get("ma_token") or ""
+    if not token:
+        raise RuntimeError("kein MA-Token")
+    out = []
+    async with session.ws_connect(MAC.base.replace("http", "ws", 1) + "/ws", timeout=15) as ws:
+        await ws.receive_json(timeout=10)
+        await ws.send_json({"message_id": "a", "command": "auth", "args": {"token": token}})
+        for i, (command, args) in enumerate(calls):
+            mid = "c%d" % i
+            await ws.send_json({"message_id": mid, "command": command, "args": args or {}})
+            res = None
+            while True:
+                m = await ws.receive_json(timeout=15)
+                if m.get("message_id") == "a" and m.get("error_code"):
+                    raise RuntimeError("MA-Anmeldung fehlgeschlagen")
+                if m.get("message_id") == mid:
+                    if m.get("partial"):
+                        res = (res or []) + (m.get("result") or [])
+                        continue
+                    if not m.get("error_code"):
+                        r = m.get("result")
+                        res = (res + (r or [])) if isinstance(res, list) else r
+                    break
+            out.append(res)
+    return out
+
+
+# ---------------------------------------------------------------- Autoplay merken & "hinten anstellen"
+# Lernkarte: Autoplay-Titel erkennen
+# MA markiert Autoplay-Titel nicht. Es hängt sie aber immer gleich an: kurz nach einem Titelwechsel, wenn
+# weniger als 5 Titel übrig sind (und Autoplay an ist). Genau das beobachtet das Add-on alle 5 s und merkt
+# sich die Queue-IDs dieser Titel. "Hinten anstellen" kommt dann VOR die Autoplay-Titel – hinter die eigenen Songs.
+AUTOQ = {}       # queue_id → {"n": Anzahl, "cur": Index, "ids": [queue_item_id …]}
+USER_ADD = {}    # queue_id → Zeitpunkt des letzten eigenen Hinzufügens (zählt dann nicht als Autoplay)
+
+
+async def autoplay_watch_loop(app):
+    session = app["session"]
+    while True:
+        await asyncio.sleep(5)
+        if not OPT.get("ma_token"):
+            continue
+        try:
+            qs = await MAC.cmd(session, "player_queues/all") or []
+            for q in qs:
+                qid = q.get("queue_id")
+                n, cur = int(q.get("items") or 0), q.get("current_index")
+                if not qid or cur is None:
+                    continue
+                st = AUTOQ.setdefault(qid, {"n": n, "cur": cur, "ids": []})
+                n0 = st["n"]
+                if n < n0 - 2 or (cur < st["cur"] - 3 and n != n0):
+                    st["ids"] = []          # neue Liste geladen → alte Markierungen weg
+                elif n > n0 and (n0 - cur) < 6 and (q.get("autoplay_enabled") or q.get("dont_stop_the_music_enabled")) \
+                        and now() - USER_ADD.get(qid, 0) > 20:
+                    items = await MAC.cmd(session, "player_queues/items", {"queue_id": qid, "limit": n - n0, "offset": n0}) or []
+                    new = [x.get("queue_item_id") for x in items if x.get("queue_item_id")]
+                    st["ids"] = (st["ids"] + new)[-300:]
+                    log.info("Autoplay in %s: %d Titel angehängt", q.get("display_name") or qid, len(new))
+                st["n"], st["cur"] = n, cur
+        except Exception as e:
+            log.debug("Autoplay-Wächter: %s", e)
+
+
+async def queue_add_behind(request):
+    """Jukebox "Hinten anstellen": Titel kommen hinter die eigenen Songs, Autoplay-Titel bleiben hinten.
+    Auch bei Zufallswiedergabe bleibt die Reihenfolge der kommenden Titel, wie sie war (MA würde neu mischen)."""
+    if not is_host(request):
+        return web.json_response({"error": "Gastgeber-PIN nötig"}, status=403)
+    b = await request.json()
+    qid, media = str(b.get("queue_id") or ""), b.get("media")
+    if not qid or not media:
+        return web.json_response({"error": "queue_id/media fehlt"}, status=400)
+    session = request.app["session"]
+    USER_ADD[qid] = now()
+    args = {"queue_id": qid, "media": media, "option": "add"}
+    if b.get("user"):
+        args["user"] = b["user"]
+    try:
+        q = await MAC.cmd(session, "player_queues/get", {"queue_id": qid}) or {}
+        cur, buf = q.get("current_index"), q.get("index_in_buffer")
+        start = max(x for x in (cur, buf, -1) if x is not None) + 1
+        before = []
+        if cur is not None:
+            before = [x.get("queue_item_id") for x in
+                      (await MAC.cmd(session, "player_queues/items", {"queue_id": qid, "limit": 500, "offset": start}) or [])]
+        try:
+            await MAC.cmd(session, "player_queues/play_media", args)
+        except Exception:
+            if "user" not in args:
+                raise
+            args.pop("user")
+            await MAC.cmd(session, "player_queues/play_media", args)
+        USER_ADD[qid] = now()
+        if cur is None:
+            return web.json_response({"ok": True, "moved": 0})
+        await asyncio.sleep(0.4)
+        after = [x.get("queue_item_id") for x in
+                 (await MAC.cmd(session, "player_queues/items", {"queue_id": qid, "limit": 500, "offset": start}) or [])]
+        auto = set((AUTOQ.get(qid) or {}).get("ids") or [])
+        bset = set(before)
+        new = [i for i in after if i not in bset]
+        keep = [i for i in before if i in set(after)]
+        want = [i for i in keep if i not in auto] + new + [i for i in keep if i in auto]
+        if want == after:
+            return web.json_response({"ok": True, "moved": 0})
+        calls, curl = [], list(after)
+        for pos, iid in enumerate(want):
+            j = curl.index(iid)
+            if j != pos:
+                calls.append(("player_queues/move_item", {"queue_id": qid, "queue_item_id": iid, "pos_shift": pos - j}))
+                curl.insert(pos, curl.pop(j))
+        if calls:
+            await ma_cmds(session, calls)
+        log.info("Hinten angestellt in %s: %d neue Titel, %d Autoplay-Titel dahinter, %d Verschiebungen",
+                 qid, len(new), len([i for i in keep if i in auto]), len(calls))
+        return web.json_response({"ok": True, "moved": len(calls)})
+    except Exception as e:
+        log.info("Hinten anstellen: %s", e)
+        return web.json_response({"error": str(e)}, status=500)
+
+
 # ---------------------------------------------------------------- Party-HTTP
 async def party_hb(request):
     try:
@@ -1918,6 +2042,7 @@ async def on_startup(app):
     app["partykeep"] = asyncio.create_task(party_keep_loop(app))
     app["podpush"] = asyncio.create_task(podpush_loop(app))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
+    app["autowatch"] = asyncio.create_task(autoplay_watch_loop(app))
 
 
 async def on_cleanup(app):
@@ -1939,6 +2064,7 @@ def make_app():
     app.router.add_get("/party/settings", party_settings_get)
     app.router.add_get("/party/tv.json", party_tv_get)
     app.router.add_get("/party/dupe", party_dupe)
+    app.router.add_post("/party/queue/add", queue_add_behind)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)

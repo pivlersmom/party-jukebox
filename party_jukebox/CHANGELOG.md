@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.143
+- „Hinten anstellen“ setzt Titel hinter die eigenen Songs – Autoplay-Titel bleiben immer am Ende (auch bei Zufallswiedergabe)
+- Add-on merkt sich, welche Titel Music Assistant per Autoplay angehängt hat
+
 ## 0.1.142
 - Aufgeklappter Player: Knopf oben rechts öffnet direkt die Warteschlange
 
