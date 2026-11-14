@@ -1,6 +1,7 @@
 # Änderungen
 
 ## 0.1.148
+- Jukebox- und TV-App 0.1.7: Update direkt aus der App – die App fragt beim Start das Add-on (apk/versions.json) und installiert neue Versionen selbst
 - Neues Logo „Jukebox-Bogen“ (Web-Icons, Jukebox-Seite, Jukebox-App, TV-App inkl. Banner)
 - Jukebox-App 0.1.6 und TV-App 0.1.6: bewegtes Logo im Startbild (Balken hüpfen, Farben wandern im Bogen), „created by pivlersmom“, Start-Sound
 - Party-Seite: zeigt die laufende Playlist/das Album, „created by pivlersmom“, Start-Sound nach dem ersten Antippen
