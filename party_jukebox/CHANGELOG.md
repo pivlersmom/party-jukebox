@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.150
+- Apps 0.1.9: „created by pivlersmom“ am unteren Bildschirmrand des Startbilds
+
 ## 0.1.149
 - Animiertes Logo (Jukebox-Bogen) oben links auf der Party-Seite und in der Jukebox
 - Icons/Logos werden nicht mehr veraltet aus dem Zwischenspeicher gezeigt
