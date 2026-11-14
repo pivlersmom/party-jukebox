@@ -1412,16 +1412,55 @@ async def ma_cmds(session, calls):
 # sich die Queue-IDs dieser Titel. "Hinten anstellen" kommt dann VOR die Autoplay-Titel – hinter die eigenen Songs.
 AUTOQ = {}       # queue_id → {"n": Anzahl, "cur": Index, "ids": [queue_item_id …]}
 USER_ADD = {}    # queue_id → Zeitpunkt des letzten eigenen Hinzufügens (zählt dann nicht als Autoplay)
+USERQ = {}       # queue_id → [queue_item_id …] per "Hinten anstellen" hinzugefügt (Reihenfolge der Wünsche)
+
+
+class MAConn:
+    """Dauerhafte MA-Verbindung für Hintergrund-Abfragen (sonst alle 5 s eine neue Anmeldung im MA-Log)."""
+
+    def __init__(self, session):
+        self.session, self.ws, self.n = session, None, 0
+
+    async def cmd(self, command, args=None):
+        if self.ws is None or self.ws.closed:
+            self.ws = await self.session.ws_connect(MAC.base.replace("http", "ws", 1) + "/ws", timeout=15, heartbeat=30)
+            await self.ws.receive_json(timeout=10)
+            await self.ws.send_json({"message_id": "auth", "command": "auth", "args": {"token": OPT.get("ma_token") or ""}})
+        self.n += 1
+        mid = "w%d" % self.n
+        await self.ws.send_json({"message_id": mid, "command": command, "args": args or {}})
+        acc = None
+        while True:
+            m = await self.ws.receive_json(timeout=15)
+            if m.get("message_id") == "auth" and m.get("error_code"):
+                raise RuntimeError("MA-Anmeldung fehlgeschlagen")
+            if m.get("message_id") != mid:
+                continue   # Ereignisse und Antworten auf andere Befehle überspringen
+            if m.get("error_code"):
+                raise RuntimeError(m.get("details") or m.get("error_code"))
+            if m.get("partial"):
+                acc = (acc or []) + (m.get("result") or [])
+                continue
+            res = m.get("result")
+            return (acc + (res or [])) if acc is not None else res
+
+    async def close(self):
+        try:
+            if self.ws is not None:
+                await self.ws.close()
+        except Exception:
+            pass
+        self.ws = None
 
 
 async def autoplay_watch_loop(app):
-    session = app["session"]
+    conn = MAConn(app["session"])
     while True:
         await asyncio.sleep(5)
         if not OPT.get("ma_token"):
             continue
         try:
-            qs = await MAC.cmd(session, "player_queues/all") or []
+            qs = await conn.cmd("player_queues/all") or []
             for q in qs:
                 qid = q.get("queue_id")
                 n, cur = int(q.get("items") or 0), q.get("current_index")
@@ -1431,15 +1470,17 @@ async def autoplay_watch_loop(app):
                 n0 = st["n"]
                 if n < n0 - 2 or (cur < st["cur"] - 3 and n != n0):
                     st["ids"] = []          # neue Liste geladen → alte Markierungen weg
-                elif n > n0 and (n0 - cur) < 6 and (q.get("autoplay_enabled") or q.get("dont_stop_the_music_enabled")) \
+                elif n > n0 and (n0 - cur) < 6 and (q.get("autoplay_enabled") or q.get("dont_stop_the_music_enabled")
+                                                     or q.get("is_dynamic")) \
                         and now() - USER_ADD.get(qid, 0) > 20:
-                    items = await MAC.cmd(session, "player_queues/items", {"queue_id": qid, "limit": n - n0, "offset": n0}) or []
+                    items = await conn.cmd("player_queues/items", {"queue_id": qid, "limit": n - n0, "offset": n0}) or []
                     new = [x.get("queue_item_id") for x in items if x.get("queue_item_id")]
                     st["ids"] = (st["ids"] + new)[-300:]
                     log.info("Autoplay in %s: %d Titel angehängt", q.get("display_name") or qid, len(new))
                 st["n"], st["cur"] = n, cur
         except Exception as e:
             log.debug("Autoplay-Wächter: %s", e)
+            await conn.close()
 
 
 async def queue_add_behind(request):
@@ -1453,7 +1494,14 @@ async def queue_add_behind(request):
         return web.json_response({"error": "queue_id/media fehlt"}, status=400)
     session = request.app["session"]
     USER_ADD[qid] = now()
-    args = {"queue_id": qid, "media": media, "option": "add"}
+    # Lernkarte: Endless Mix (dynamische Warteschlange)
+    # Läuft ein Endless Mix, baut MA bei "add" die GANZE restliche Liste neu als Mix – hinzugefügte Songs
+    # werden nur "Zutat" und können verschwinden. Bei "next" bleibt ein einzelner Titel aber wörtlich drin.
+    # Darum: Titel mit "next" einfügen und dann hinter die bisher gewünschten Songs schieben.
+    q0 = await MAC.cmd(session, "player_queues/get", {"queue_id": qid}) or {}
+    dyn = bool(q0.get("is_dynamic"))
+    track = isinstance(media, str) and "://track/" in media
+    args = {"queue_id": qid, "media": media, "option": "next" if (dyn and track) else "add"}
     if b.get("user"):
         args["user"] = b["user"]
     try:
@@ -1472,7 +1520,7 @@ async def queue_add_behind(request):
             args.pop("user")
             await MAC.cmd(session, "player_queues/play_media", args)
         USER_ADD[qid] = now()
-        if cur is None:
+        if cur is None or (dyn and not track):   # Album/Playlist im Endless Mix: MA mischt selbst
             return web.json_response({"ok": True, "moved": 0})
         await asyncio.sleep(0.4)
         after = [x.get("queue_item_id") for x in
@@ -1481,7 +1529,14 @@ async def queue_add_behind(request):
         bset = set(before)
         new = [i for i in after if i not in bset]
         keep = [i for i in before if i in set(after)]
-        want = [i for i in keep if i not in auto] + new + [i for i in keep if i in auto]
+        ul = USERQ.setdefault(qid, [])
+        if dyn:
+            # Endless Mix: Wünsche vorne in Wunsch-Reihenfolge, danach der Mix
+            mine = [i for i in keep if i in set(ul)]
+            want = mine + new + [i for i in keep if i not in set(ul)]
+        else:
+            want = [i for i in keep if i not in auto] + new + [i for i in keep if i in auto]
+        USERQ[qid] = (ul + new)[-200:]
         if want == after:
             return web.json_response({"ok": True, "moved": 0})
         calls, curl = [], list(after)

@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.144
+- Endless Mix: „Hinten anstellen“ hält Wünsche fest in der Liste (MA hat sonst die ganze Liste neu gemischt und Wünsche verworfen) – Wünsche kommen in Wunsch-Reihenfolge vor den Mix
+- Autoplay-Wächter mit einer dauerhaften MA-Verbindung (keine Anmeldung alle 5 s im MA-Log)
+
 ## 0.1.143
 - „Hinten anstellen“ setzt Titel hinter die eigenen Songs – Autoplay-Titel bleiben immer am Ende (auch bei Zufallswiedergabe)
 - Add-on merkt sich, welche Titel Music Assistant per Autoplay angehängt hat
