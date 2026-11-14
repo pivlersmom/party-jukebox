@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.146
+- Start-Sound „Created for you“: App (3.9.59, abschaltbar unter Persönlich → Auto) und TV-App 0.1.4
+- TV- und Jukebox-App 0.1.4 zum Herunterladen auf der Startseite
+
 ## 0.1.145
 - „Hinten anstellen“: Reihenfolge wird positionsunabhängig hergestellt – jeder neue Wunsch landet hinter dem vorherigen (auch im Endless Mix)
 - Warteschlange: Zurück-Knopf zur vorher genutzten Seite (auch zurück in den aufgeklappten Player)
