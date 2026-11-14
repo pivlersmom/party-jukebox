@@ -78,7 +78,36 @@ public class MainActivity extends Activity {
             beat.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator()); beat.start();
         }).start();
         splash = sp; splashAt = System.currentTimeMillis();
+        sp.postDelayed(this::playStartSound, 350);
         sp.postDelayed(this::hideSplash, 6000);   // spätestens nach 6 s weg
+    }
+
+    /*
+     * Lernkarte: Start-Sound
+     * Beim echten App-Start (Splash) einmal „Created for you“ – über die Medien-Lautstärke, etwas leiser.
+     * Still bleibt es, wenn: abgeschaltet (Einstellungen), schon Musik läuft, Android Auto verbunden ist
+     * oder das Handy auf lautlos/vibrieren steht.
+     */
+    private void playStartSound(){
+        if (!Endpoint.prefs(this).getBoolean("start_sound", true)) return;
+        AudioManager am = getSystemService(AudioManager.class);
+        if (am == null || am.isMusicActive() || am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) return;
+        MaPlayer p = MaPlayer.instance;
+        if (p != null && p.getCarMode()) return;
+        try {
+            final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            mp.setAudioAttributes(new android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            android.content.res.AssetFileDescriptor fd = getResources().openRawResourceFd(R.raw.start_sound);
+            mp.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+            fd.close();
+            mp.setVolume(0.7f, 0.7f);
+            mp.setOnPreparedListener(m -> m.start());
+            mp.setOnCompletionListener(m -> m.release());
+            mp.setOnErrorListener((m, w, x) -> { m.release(); return true; });
+            mp.prepareAsync();
+        } catch (Exception e) { AppLog.INSTANCE.add("Start-Sound: " + e); }
     }
 
     /** Farbiger Schein hinter dem Logo: Farbkreis (lila → blau), zur Mitte hin sichtbar, nach außen ausgeblendet */

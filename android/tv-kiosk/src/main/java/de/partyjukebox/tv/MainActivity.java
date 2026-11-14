@@ -89,6 +89,31 @@ public class MainActivity extends Activity {
         } else {
             load();
         }
+        if (savedInstanceState == null) handler.postDelayed(this::playStartSound, 500);
+    }
+
+    /*
+     * Lernkarte: Start-Sound
+     * Beim Start der TV-App einmal „Created for you“ (Medien-Lautstärke, etwas leiser).
+     * Läuft auf dem Fernseher schon Ton (z. B. Musik), bleibt es still.
+     */
+    private void playStartSound() {
+        android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (am == null || am.isMusicActive()) return;
+        try {
+            final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            mp.setAudioAttributes(new android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            android.content.res.AssetFileDescriptor fd = getResources().openRawResourceFd(R.raw.start_sound);
+            mp.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+            fd.close();
+            mp.setVolume(0.8f, 0.8f);
+            mp.setOnPreparedListener(m -> m.start());
+            mp.setOnCompletionListener(m -> m.release());
+            mp.setOnErrorListener((m, w, x) -> { m.release(); return true; });
+            mp.prepareAsync();
+        } catch (Exception ignored) { }
     }
 
     @SuppressLint("SetJavaScriptEnabled")

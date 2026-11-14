@@ -1587,6 +1587,8 @@ async function loadCarPrefs(c) {
     '<span class="r2">im Auto, wenn gerade nichts läuft</span></span><span class="gsw"><i></i></span></button>' +
     (cp.rtc !== undefined ? '<button class="row srow carRtc' + (cp.rtc ? " on" : "") + '" style="margin-top:8px"><span class="rm"><span class="r1">Unterwegs per WebRTC verbinden</span>' +
     '<span class="r2">aus = über Nabu Casa (stabiler beim Wechsel WLAN ↔ Mobilfunk)</span></span><span class="gsw"><i></i></span></button>' : "") +
+    (cp.startSound !== undefined ? '<button class="row srow carSnd' + (cp.startSound ? " on" : "") + '" style="margin-top:8px"><span class="rm"><span class="r1">Start-Sound</span>' +
+    '<span class="r2">„Created for you“ beim Öffnen der App</span></span><span class="gsw"><i></i></span></button>' : "") +
     '<button class="row lrow" id="carSetup"><span class="rm"><span class="r1">Adressen der App</span><span class="r2">zuhause / unterwegs / Token</span></span><span class="lic">›</span></button>';
   const save = o => { try { A.setCarPrefs(JSON.stringify(o)); toast("Gespeichert"); } catch (e) {} };
   box.querySelector("#carMe").onchange = e => save({ me: e.target.value });
@@ -1594,6 +1596,8 @@ async function loadCarPrefs(c) {
   pod.onclick = () => { const on = !pod.classList.contains("on"); pod.classList.toggle("on", on); save({ podSuggest: on }); };
   const rtc = box.querySelector(".carRtc");
   if (rtc) rtc.onclick = () => { const on = !rtc.classList.contains("on"); rtc.classList.toggle("on", on); save({ rtc: on }); };
+  const snd = box.querySelector(".carSnd");
+  if (snd) snd.onclick = () => { const on = !snd.classList.contains("on"); snd.classList.toggle("on", on); save({ startSound: on }); };
   box.querySelector("#carSetup").onclick = () => { try { A.openSetup(); } catch (e) {} };
 }
 
