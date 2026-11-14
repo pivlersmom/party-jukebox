@@ -230,6 +230,13 @@ function loadPlayers(){
 /* ---------- Player wählen ---------- */
 function pst(p){ return (p&&(p.playback_state||p.state))||''; }
 function pname(p){ return (p&&(p.display_name||p.name))||''; }
+/* Handy als Lautsprecher? (Jukebox-App auf dem Handy, Sendspin-Web-Player im Browser) */
+function isPhone(p){
+  var d=p.device_info||{}, n=pname(p)+' '+(p.name||'');
+  return /handy|phone|pixel|iphone|galaxy|smartphone/i.test(n) ||
+    /^(SM-|Pixel|iPhone|CPH|M2\d)/i.test(String(d.model||'')) ||
+    /^(samsung|xiaomi|oneplus|huawei|motorola|oppo|realme|vivo)$/i.test(String(d.manufacturer||''));
+}
 function pick(){
   var list=[]; for(var k in P){ var p=P[k]; if(p && p.available!==false && p.enabled!==false) list.push(p); }
   var want=String(PJ.player||'').trim().toLowerCase();
@@ -237,11 +244,15 @@ function pick(){
     for(var i=0;i<list.length;i++) if(String(list[i].player_id).toLowerCase()===want) return list[i];
     for(i=0;i<list.length;i++) if(pname(list[i]).toLowerCase()===want||String(list[i].name||'').toLowerCase()===want) return list[i];
   }
-  /* sonst: spielend vor pausiert; Sync-Mitglieder und HA-Spiegel-Player nachrangig; aktueller bleibt bei Gleichstand */
+  /* sonst: feste Lautsprecher (Sonos, Numark …) vor Handys; spielend vor pausiert; Sync-Mitglieder und
+     HA-Spiegel-Player nachrangig; aktueller bleibt bei Gleichstand.
+     Handys kommen nur dran, wenn kein fester Lautsprecher spielt oder pausiert ist. */
   function score(p){
     var s=pst(p), v=s==='playing'?0:(s==='paused'?4:99);
+    if(v===99) return v;
     if(p.synced_to) v+=2;
     if(p.provider==='hass_players') v+=1;
+    if(isPhone(p)) v+=10;
     return v;
   }
   var best=null, bs=99;

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.152
+- TV-Anzeige: feste Lautsprecher (Sonos, Numark …) haben Vorrang; Handys werden nur gezeigt, wenn kein fester Lautsprecher spielt oder pausiert ist
+
 ## 0.1.151
 - Jukebox: Hörfortschritt bei Podcast-Folgen und Hörbüchern („noch 12 min“ + Fortschrittsbalken, „✓ gehört“). Das Add-on schreibt die Position selbst mit (party/progress), weil MA den Fortschritt nur pro Benutzer liefert
 
