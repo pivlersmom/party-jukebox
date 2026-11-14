@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.142
+- Aufgeklappter Player: Knopf oben rechts öffnet direkt die Warteschlange
+
 ## 0.1.141
 - 🎤 Sprachsuche rechts im Suchfeld – in der Jukebox und auf der Party-Seite (Browser: eingebaute Spracherkennung, App: Google-Spracheingabe)
 

@@ -54,6 +54,8 @@ body.blocked .view{display:none!important}
 .nphead #npClose{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--tx)}
 .nphead #npClose svg{width:28px;height:28px}
 .nphead .npsp{flex:none;width:42px}
+.nphead #npQ{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--tx)}
+.nphead #npQ svg{width:24px;height:24px}
 .nphead #npSpk{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border-radius:999px;font-size:13px;font-weight:700;color:var(--dim)}
 .nphead #npSpk svg{width:16px;height:16px;flex:none;color:var(--a2)}
 .nphead #npSpkN{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

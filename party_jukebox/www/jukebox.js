@@ -634,6 +634,7 @@ function closePlayer(silent) {
 }
 $("#npClose").onclick = () => closePlayer();
 $("#npSpk").onclick = () => $("#plBtn").click();
+$("#npQ").onclick = () => { closePlayer(); showTab("queue"); };   // Warteschlange direkt aus dem Player
 (function () {   // Lautsprecher-Name auch im Player-Kopf
   const src = $("#plName"), dst = $("#npSpkN");
   const cp = () => { dst.textContent = src.textContent; };
