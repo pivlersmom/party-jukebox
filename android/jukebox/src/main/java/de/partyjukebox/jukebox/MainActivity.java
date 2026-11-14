@@ -72,6 +72,57 @@ public class MainActivity extends Activity {
         } else {
             load();
         }
+        if (savedInstanceState == null) { showSplash(); handler.postDelayed(this::playStartSound, 400); }
+    }
+
+    /** Beim Start kurz: bewegtes Logo + "created by pivlersmom" (blendet nach 3,5 s aus, die Jukebox lädt dahinter) */
+    private void showSplash() {
+        final android.widget.LinearLayout sp = new android.widget.LinearLayout(this);
+        sp.setOrientation(android.widget.LinearLayout.VERTICAL);
+        sp.setGravity(android.view.Gravity.CENTER);
+        sp.setBackgroundColor(0xFF0B0D14);
+        sp.setClickable(true);
+        View logo = new LogoView(this);   // bewegtes Logo: Balken hüpfen, Farben wandern im Bogen
+        int size = (int) (Math.min(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels) * 0.45f);
+        sp.addView(logo, new android.widget.LinearLayout.LayoutParams(size, size));
+        TextView by = new TextView(this);
+        by.setText("created by pivlersmom");
+        by.setTextColor(0x99F2F5FB);
+        by.setTextSize(13);
+        by.setLetterSpacing(0.12f);
+        by.setPadding(0, (int) (28 * getResources().getDisplayMetrics().density), 0, 0);
+        sp.addView(by);
+        root.addView(sp, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        logo.setScaleX(0.85f); logo.setScaleY(0.85f); logo.setAlpha(0f);
+        logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).start();
+        by.setAlpha(0f);
+        by.animate().alpha(1f).setStartDelay(500).setDuration(800).start();
+        handler.postDelayed(() -> sp.animate().alpha(0f).setDuration(500)
+                .withEndAction(() -> root.removeView(sp)).start(), 3500);
+    }
+
+    /*
+     * Lernkarte: Start-Sound
+     * Beim Start einmal Bass-Wumms + jubelndes Publikum (Medien-Lautstärke, etwas leiser).
+     * Still bleibt es, wenn schon Musik läuft oder das Handy auf lautlos/vibrieren steht.
+     */
+    private void playStartSound() {
+        android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (am == null || am.isMusicActive() || am.getRingerMode() != android.media.AudioManager.RINGER_MODE_NORMAL) return;
+        try {
+            final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            mp.setAudioAttributes(new android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            android.content.res.AssetFileDescriptor fd = getResources().openRawResourceFd(R.raw.start_sound);
+            mp.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+            fd.close();
+            mp.setVolume(0.7f, 0.7f);
+            mp.setOnPreparedListener(m -> m.start());
+            mp.setOnCompletionListener(m -> m.release());
+            mp.setOnErrorListener((m, w, x) -> { m.release(); return true; });
+            mp.prepareAsync();
+        } catch (Exception ignored) { }
     }
 
     @Override

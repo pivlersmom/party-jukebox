@@ -203,5 +203,39 @@ b.addEventListener('click',function(e){
     try{ r.start(); }catch(x){ b.classList.remove('on'); }
   };
 })();
+
+/* ---------- Quelle ("Playlist: …"), "created by pivlersmom" und Start-Sound ---------- */
+(function(){
+  var st=document.createElement('style');
+  st.textContent='.pjsrc{margin:10px 2px 0;font-size:13px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+    '.pjsrc b{color:var(--tx);font-weight:700}.pjby{text-align:center;font-size:12px;letter-spacing:.12em;color:var(--tx3);opacity:.8;padding:22px 0 30px}';
+  document.head.appendChild(st);
+  var now=document.querySelector('#nowCard .now'), app=document.getElementById('app');
+  var src=document.createElement('div'); src.className='pjsrc'; src.style.display='none';
+  if(now) now.parentNode.insertBefore(src, now.nextSibling);
+  if(app){ var by=document.createElement('div'); by.className='pjby'; by.textContent='created by pivlersmom'; app.appendChild(by); }
+  var esc=function(x){ return String(x).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  var last='';
+  function paint(){
+    var q=window.pjParty&&window.pjParty.queue&&window.pjParty.queue();
+    var list=((q&&q.sources)||[]).filter(function(x){ return x&&x.name&&x.media_type!=='track'; });
+    var h='';
+    if(list.length){
+      var l=list[list.length-1], radio=/radio_playlist/.test(l.provider||l.uri||'');
+      var kind=radio?'📻 Endless Mix':({playlist:'🎶 Playlist',album:'💿 Album',artist:'🎤 Künstler',radio:'📻 Radio',podcast:'🎙 Podcast',audiobook:'📖 Hörbuch'})[l.media_type]||'▶ Quelle';
+      h=kind+': <b>'+esc(String(l.name).replace(/ Endless Mix$/,''))+'</b>'+(list.length>1?' + '+(list.length-1)+' weitere':'');
+    }
+    if(h!==last){ last=h; src.innerHTML=h; src.style.display=h?'':'none'; }
+  }
+  setInterval(paint,3000); setTimeout(paint,1500);
+  /* Start-Sound: Browser erlauben Ton erst nach dem ersten Antippen – darum dann einmal pro Besuch */
+  var played=false; try{ played=sessionStorage.getItem('pj_snd')==='1'; }catch(e){}
+  function snd(){
+    document.removeEventListener('pointerdown',snd,true);
+    if(played) return; played=true; try{ sessionStorage.setItem('pj_snd','1'); }catch(e){}
+    try{ var a=new Audio('sfx/start.mp3'); a.volume=0.6; a.play().catch(function(){}); }catch(e){}
+  }
+  if(!played) document.addEventListener('pointerdown',snd,true);
+})();
 })();
 setInterval(function(){ try{ var q=window.pjParty&&window.pjParty.queue&&window.pjParty.queue(); if(q) window.pjLastCheck(q); }catch(e){} },3000);

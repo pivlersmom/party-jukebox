@@ -92,14 +92,13 @@ public class MainActivity extends Activity {
         if (savedInstanceState == null) { showSplash(); handler.postDelayed(this::playStartSound, 500); }
     }
 
-    /** Beim Start kurz: Logo + "created by pivlersmom" (blendet nach 4 s aus, die TV-Seite lädt dahinter) */
+    /** Beim Start kurz: bewegtes Logo + "created by pivlersmom" (blendet nach 4 s aus, die TV-Seite lädt dahinter) */
     private void showSplash() {
         final android.widget.LinearLayout sp = new android.widget.LinearLayout(this);
         sp.setOrientation(android.widget.LinearLayout.VERTICAL);
         sp.setGravity(Gravity.CENTER);
         sp.setBackgroundColor(0xFF05070C);
-        android.widget.ImageView logo = new android.widget.ImageView(this);
-        logo.setImageResource(R.mipmap.ic_launcher);
+        View logo = new LogoView(this);   // bewegtes Logo: Balken hüpfen, Farben wandern im Bogen
         int size = (int) (Math.min(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels) * 0.35f);
         sp.addView(logo, new android.widget.LinearLayout.LayoutParams(size, size));
         TextView by = new TextView(this);

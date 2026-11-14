@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.148
+- Neues Logo „Jukebox-Bogen“ (Web-Icons, Jukebox-Seite, Jukebox-App, TV-App inkl. Banner)
+- Jukebox-App 0.1.6 und TV-App 0.1.6: bewegtes Logo im Startbild (Balken hüpfen, Farben wandern im Bogen), „created by pivlersmom“, Start-Sound
+- Party-Seite: zeigt die laufende Playlist/das Album, „created by pivlersmom“, Start-Sound nach dem ersten Antippen
+
 ## 0.1.147
 - Neuer Start-Sound (Bass-Wumms + jubelndes Publikum) in App 3.9.60 und TV-App 0.1.5 (TV-App mit kurzem Startbild)
 - „created by pivlersmom“ auf der Startseite und im Startbild der Apps
