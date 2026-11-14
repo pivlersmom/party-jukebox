@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.145
+- „Hinten anstellen“: Reihenfolge wird positionsunabhängig hergestellt – jeder neue Wunsch landet hinter dem vorherigen (auch im Endless Mix)
+- Warteschlange: Zurück-Knopf zur vorher genutzten Seite (auch zurück in den aufgeklappten Player)
+
 ## 0.1.144
 - Endless Mix: „Hinten anstellen“ hält Wünsche fest in der Liste (MA hat sonst die ganze Liste neu gemischt und Wünsche verworfen) – Wünsche kommen in Wunsch-Reihenfolge vor den Mix
 - Autoplay-Wächter mit einer dauerhaften MA-Verbindung (keine Anmeldung alle 5 s im MA-Log)

@@ -599,6 +599,8 @@ $("#mini").onclick = e => { if (e.target.closest("#miniPp")) { togglePlay(); ret
  */
 function showTab(t) {
   if (t === "now") { openPlayer(); return; }
+  S.qFromPlayer = false;
+  if (t !== S.tab) S.prevTab = S.tab;   // für den Zurück-Knopf in der Warteschlange
   if (S.playerOpen) closePlayer(true);
   const wasHome = S.favMode;
   S.tab = t; document.body.dataset.tab = t;
@@ -634,7 +636,12 @@ function closePlayer(silent) {
 }
 $("#npClose").onclick = () => closePlayer();
 $("#npSpk").onclick = () => $("#plBtn").click();
-$("#npQ").onclick = () => { closePlayer(); showTab("queue"); };   // Warteschlange direkt aus dem Player
+$("#npQ").onclick = () => { closePlayer(); showTab("queue"); S.qFromPlayer = true; };   // Warteschlange direkt aus dem Player
+/* Zurück aus der Warteschlange: dorthin, wo man vorher war (aufgeklappter Player, Start oder Suche) */
+$("#qBack").onclick = () => {
+  if (S.qFromPlayer) { showTab(S.prevTab && S.prevTab !== "queue" ? S.prevTab : "home"); openPlayer(); return; }
+  showTab(S.prevTab && S.prevTab !== "queue" ? S.prevTab : "home");
+};
 (function () {   // Lautsprecher-Name auch im Player-Kopf
   const src = $("#plName"), dst = $("#npSpkN");
   const cp = () => { dst.textContent = src.textContent; };

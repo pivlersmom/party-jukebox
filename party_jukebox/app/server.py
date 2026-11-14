@@ -1397,7 +1397,9 @@ async def ma_cmds(session, calls):
                     if m.get("partial"):
                         res = (res or []) + (m.get("result") or [])
                         continue
-                    if not m.get("error_code"):
+                    if m.get("error_code"):
+                        log.info("MA %s: %s", command, m.get("details") or m.get("error_code"))
+                    else:
                         r = m.get("result")
                         res = (res + (r or [])) if isinstance(res, list) else r
                     break
@@ -1498,14 +1500,13 @@ async def queue_add_behind(request):
     # Läuft ein Endless Mix, baut MA bei "add" die GANZE restliche Liste neu als Mix – hinzugefügte Songs
     # werden nur "Zutat" und können verschwinden. Bei "next" bleibt ein einzelner Titel aber wörtlich drin.
     # Darum: Titel mit "next" einfügen und dann hinter die bisher gewünschten Songs schieben.
-    q0 = await MAC.cmd(session, "player_queues/get", {"queue_id": qid}) or {}
-    dyn = bool(q0.get("is_dynamic"))
-    track = isinstance(media, str) and "://track/" in media
-    args = {"queue_id": qid, "media": media, "option": "next" if (dyn and track) else "add"}
-    if b.get("user"):
-        args["user"] = b["user"]
     try:
         q = await MAC.cmd(session, "player_queues/get", {"queue_id": qid}) or {}
+        dyn = bool(q.get("is_dynamic"))
+        track = isinstance(media, str) and "://track/" in media
+        args = {"queue_id": qid, "media": media, "option": "next" if (dyn and track) else "add"}
+        if b.get("user"):
+            args["user"] = b["user"]
         cur, buf = q.get("current_index"), q.get("index_in_buffer")
         start = max(x for x in (cur, buf, -1) if x is not None) + 1
         before = []
@@ -1522,33 +1523,40 @@ async def queue_add_behind(request):
         USER_ADD[qid] = now()
         if cur is None or (dyn and not track):   # Album/Playlist im Endless Mix: MA mischt selbst
             return web.json_response({"ok": True, "moved": 0})
-        await asyncio.sleep(0.4)
-        after = [x.get("queue_item_id") for x in
-                 (await MAC.cmd(session, "player_queues/items", {"queue_id": qid, "limit": 500, "offset": start}) or [])]
+        after = []
+        for wait in (0.4, 1.0, 2.0):   # MA braucht manchmal einen Moment, bis der neue Titel in der Liste steht
+            await asyncio.sleep(wait)
+            after = [x.get("queue_item_id") for x in
+                     (await MAC.cmd(session, "player_queues/items", {"queue_id": qid, "limit": 500, "offset": start}) or [])]
+            if any(i not in set(before) for i in after):
+                break
         auto = set((AUTOQ.get(qid) or {}).get("ids") or [])
-        bset = set(before)
+        bset, aset = set(before), set(after)
         new = [i for i in after if i not in bset]
-        keep = [i for i in before if i in set(after)]
+        keep = [i for i in before if i in aset]
         ul = USERQ.setdefault(qid, [])
+        # Lernkarte: Reihenfolge herstellen
+        # Gewünschter Anfang P der kommenden Titel; der Rest bleibt, wie MA ihn hat.
+        # "move_item" mit pos_shift 0 setzt einen Titel direkt hinter den laufenden/gepufferten –
+        # P rückwärts so verschoben ergibt genau P vorne. Das hängt nicht von Positionen ab,
+        # die sich zwischendurch ändern könnten (MA mischt bei Zufall/Endless Mix selbst um).
         if dyn:
             # Endless Mix: Wünsche vorne in Wunsch-Reihenfolge, danach der Mix
-            mine = [i for i in keep if i in set(ul)]
-            want = mine + new + [i for i in keep if i not in set(ul)]
+            P = [i for i in ul if i in aset and i not in new] + new
+        elif any(i in auto for i in after) or after != keep + new:
+            # normale Liste: eigene Songs (alte Reihenfolge) + neuer Titel, Autoplay-Titel danach
+            P = [i for i in keep if i not in auto] + new
         else:
-            want = [i for i in keep if i not in auto] + new + [i for i in keep if i in auto]
-        USERQ[qid] = (ul + new)[-200:]
-        if want == after:
+            P = []
+        USERQ[qid] = ([i for i in ul if i in aset] + new)[-200:]
+        if not P or after[:len(P)] == P:
+            log.info("Hinten angestellt in %s (%s): %d neue Titel, nichts zu verschieben",
+                     qid, "Endless Mix" if dyn else "Liste", len(new))
             return web.json_response({"ok": True, "moved": 0})
-        calls, curl = [], list(after)
-        for pos, iid in enumerate(want):
-            j = curl.index(iid)
-            if j != pos:
-                calls.append(("player_queues/move_item", {"queue_id": qid, "queue_item_id": iid, "pos_shift": pos - j}))
-                curl.insert(pos, curl.pop(j))
-        if calls:
-            await ma_cmds(session, calls)
-        log.info("Hinten angestellt in %s: %d neue Titel, %d Autoplay-Titel dahinter, %d Verschiebungen",
-                 qid, len(new), len([i for i in keep if i in auto]), len(calls))
+        calls = [("player_queues/move_item", {"queue_id": qid, "queue_item_id": iid, "pos_shift": 0}) for iid in reversed(P)]
+        await ma_cmds(session, calls)
+        log.info("Hinten angestellt in %s (%s): %d neue Titel hinter %d eigene, %d Autoplay-Titel dahinter",
+                 qid, "Endless Mix" if dyn else "Liste", len(new), len(P) - len(new), len([i for i in after if i in auto]))
         return web.json_response({"ok": True, "moved": len(calls)})
     except Exception as e:
         log.info("Hinten anstellen: %s", e)

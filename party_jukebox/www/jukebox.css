@@ -185,6 +185,9 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;width:28px;hei
 /* Warteschlange */
 .qhead{display:flex;align-items:baseline;justify-content:space-between;margin:2px 6px 10px}
 .qhead h2{margin:0;font-size:20px}
+.qhead .qtl{display:flex;align-items:center;gap:2px}
+#qBack{flex:none;width:36px;height:36px;margin-left:-8px;border-radius:50%;display:grid;place-items:center;color:var(--tx)}
+#qBack svg{width:24px;height:24px}
 #qCount{color:var(--dim);font-size:13px}
 .qnow{border:1px solid transparent;border-radius:16px;padding:4px;margin-bottom:12px;
   background:linear-gradient(var(--card),var(--card)) padding-box,var(--grad) border-box}
