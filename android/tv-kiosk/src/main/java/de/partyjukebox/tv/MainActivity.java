@@ -89,12 +89,38 @@ public class MainActivity extends Activity {
         } else {
             load();
         }
-        if (savedInstanceState == null) handler.postDelayed(this::playStartSound, 500);
+        if (savedInstanceState == null) { showSplash(); handler.postDelayed(this::playStartSound, 500); }
+    }
+
+    /** Beim Start kurz: Logo + "created by pivlersmom" (blendet nach 4 s aus, die TV-Seite lädt dahinter) */
+    private void showSplash() {
+        final android.widget.LinearLayout sp = new android.widget.LinearLayout(this);
+        sp.setOrientation(android.widget.LinearLayout.VERTICAL);
+        sp.setGravity(Gravity.CENTER);
+        sp.setBackgroundColor(0xFF05070C);
+        android.widget.ImageView logo = new android.widget.ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        int size = (int) (Math.min(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels) * 0.35f);
+        sp.addView(logo, new android.widget.LinearLayout.LayoutParams(size, size));
+        TextView by = new TextView(this);
+        by.setText("created by pivlersmom");
+        by.setTextColor(0x99F2F5FB);
+        by.setTextSize(20);
+        by.setLetterSpacing(0.12f);
+        by.setPadding(0, 48, 0, 0);
+        sp.addView(by);
+        root.addView(sp, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        logo.setScaleX(0.85f); logo.setScaleY(0.85f); logo.setAlpha(0f);
+        logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).start();
+        by.setAlpha(0f);
+        by.animate().alpha(1f).setStartDelay(500).setDuration(800).start();
+        handler.postDelayed(() -> sp.animate().alpha(0f).setDuration(600)
+                .withEndAction(() -> root.removeView(sp)).start(), 4000);
     }
 
     /*
      * Lernkarte: Start-Sound
-     * Beim Start der TV-App einmal „Created for you“ (Medien-Lautstärke, etwas leiser).
+     * Beim Start der TV-App einmal der Start-Sound (Bass-Wumms + jubelndes Publikum, Medien-Lautstärke).
      * Läuft auf dem Fernseher schon Ton (z. B. Musik), bleibt es still.
      */
     private void playStartSound() {

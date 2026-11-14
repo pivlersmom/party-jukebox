@@ -62,6 +62,13 @@ public class MainActivity extends Activity {
         View glow = new GlowView(this);
         sp.addView(glow, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
         sp.addView(logo, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
+        // unten: "created by pivlersmom"
+        android.widget.TextView by = new android.widget.TextView(this);
+        by.setText("created by pivlersmom"); by.setTextColor(0x99F2F5FB); by.setTextSize(13); by.setLetterSpacing(0.12f);
+        android.widget.FrameLayout.LayoutParams bl = new android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
+        bl.bottomMargin = (int) (48 * getResources().getDisplayMetrics().density);
+        sp.addView(by, bl);
+        by.setAlpha(0f); by.animate().alpha(1f).setStartDelay(500).setDuration(800).start();
         root.addView(sp, new android.widget.FrameLayout.LayoutParams(-1, -1));
         glow.setAlpha(0f);
         glow.animate().alpha(0.9f).setDuration(600).start();
@@ -84,7 +91,8 @@ public class MainActivity extends Activity {
 
     /*
      * Lernkarte: Start-Sound
-     * Beim echten App-Start (Splash) einmal „Created for you“ – über die Medien-Lautstärke, etwas leiser.
+     * Beim echten App-Start (Splash) einmal der Start-Sound (Bass-Wumms + jubelndes Publikum) –
+     * über die Medien-Lautstärke, etwas leiser.
      * Still bleibt es, wenn: abgeschaltet (Einstellungen), schon Musik läuft, Android Auto verbunden ist
      * oder das Handy auf lautlos/vibrieren steht.
      */

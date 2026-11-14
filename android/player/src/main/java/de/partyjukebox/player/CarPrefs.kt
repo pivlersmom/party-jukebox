@@ -8,7 +8,7 @@ import org.json.JSONObject
  *  - me_person: wer bin ich? (person.xyz) – für "Ist noch jemand zuhause?" beim Einsteigen/Aussteigen
  *  - pod_suggest: im Auto die neueste Podcast-Folge vorschlagen
  *  - rtc: unterwegs per WebRTC statt über Nabu Casa verbinden (Standard: aus)
- *  - startSound: „Created for you“ beim App-Start (Standard: an)
+ *  - startSound: Start-Sound beim App-Start (Standard: an)
  * Fehlt etwas, wird einmalig eine frühere Zuordnung übernommen, falls der Build eine mitbringt (siehe Legacy).
  */
 object CarPrefs {

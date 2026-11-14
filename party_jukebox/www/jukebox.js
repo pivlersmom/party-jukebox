@@ -1588,7 +1588,7 @@ async function loadCarPrefs(c) {
     (cp.rtc !== undefined ? '<button class="row srow carRtc' + (cp.rtc ? " on" : "") + '" style="margin-top:8px"><span class="rm"><span class="r1">Unterwegs per WebRTC verbinden</span>' +
     '<span class="r2">aus = über Nabu Casa (stabiler beim Wechsel WLAN ↔ Mobilfunk)</span></span><span class="gsw"><i></i></span></button>' : "") +
     (cp.startSound !== undefined ? '<button class="row srow carSnd' + (cp.startSound ? " on" : "") + '" style="margin-top:8px"><span class="rm"><span class="r1">Start-Sound</span>' +
-    '<span class="r2">„Created for you“ beim Öffnen der App</span></span><span class="gsw"><i></i></span></button>' : "") +
+    '<span class="r2">Bass und Jubel beim Öffnen der App</span></span><span class="gsw"><i></i></span></button>' : "") +
     '<button class="row lrow" id="carSetup"><span class="rm"><span class="r1">Adressen der App</span><span class="r2">zuhause / unterwegs / Token</span></span><span class="lic">›</span></button>';
   const save = o => { try { A.setCarPrefs(JSON.stringify(o)); toast("Gespeichert"); } catch (e) {} };
   box.querySelector("#carMe").onchange = e => save({ me: e.target.value });
