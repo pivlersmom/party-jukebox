@@ -94,21 +94,22 @@ public class MainActivity extends Activity {
 
     /** Beim Start kurz: bewegtes Logo + "created by pivlersmom" (blendet nach 4 s aus, die TV-Seite lädt dahinter) */
     private void showSplash() {
-        final android.widget.LinearLayout sp = new android.widget.LinearLayout(this);
-        sp.setOrientation(android.widget.LinearLayout.VERTICAL);
-        sp.setGravity(Gravity.CENTER);
+        final FrameLayout sp = new FrameLayout(this);
         sp.setBackgroundColor(0xFF05070C);
         View logo = new LogoView(this);   // bewegtes Logo: Balken hüpfen, Farben wandern im Bogen
         int size = (int) (Math.min(getResources().getDisplayMetrics().widthPixels, getResources().getDisplayMetrics().heightPixels) * 0.35f);
-        sp.addView(logo, new android.widget.LinearLayout.LayoutParams(size, size));
+        sp.addView(logo, new FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
         TextView by = new TextView(this);
         by.setText("created by pivlersmom");
         by.setGravity(android.view.Gravity.CENTER_HORIZONTAL);   // Text mittig (die Zeile ist so breit wie der Bildschirm)
         by.setTextColor(0x99F2F5FB);
         by.setTextSize(20);
         by.setLetterSpacing(0.12f);
-        by.setPadding(0, 48, 0, 0);
-        sp.addView(by);
+        // ganz unten am Bildschirmrand
+        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
+        bl.bottomMargin = (int) (40 * getResources().getDisplayMetrics().density);
+        sp.addView(by, bl);
         root.addView(sp, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         logo.setScaleX(0.85f); logo.setScaleY(0.85f); logo.setAlpha(0f);
         logo.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(700).start();
