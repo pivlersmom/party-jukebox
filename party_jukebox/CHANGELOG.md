@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.140
+- „Benutzeroberfläche öffnen“ in Home Assistant zeigt wieder die Startseite mit der Auswahl (Jukebox, Party, TV)
+
 ## 0.1.139
 - Playlist, Album, Künstler, Podcast oder Hörbuch abspielen ersetzt jetzt die Warteschlange – alte Titel bleiben nicht mehr hinten dran
 

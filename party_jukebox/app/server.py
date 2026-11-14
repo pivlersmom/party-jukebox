@@ -1880,7 +1880,7 @@ async def ma_http(request):
 async def no_cache_html(request, handler):
     pre = ingress_prefix(request)
     if request.path == "/":
-        raise web.HTTPFound(pre + ("/jukebox.html" if pre else "/start.html"))
+        raise web.HTTPFound(pre + "/start.html")   # Startseite mit Auswahl (auch über HA/Ingress)
     if request.path in ("/jukebox.html", "/jukebox") and not is_host(request):
         raise web.HTTPFound(pre + "/host.html?next=jukebox.html")
     resp = await handler(request)
@@ -1894,7 +1894,7 @@ async def no_cache_html(request, handler):
 
 async def index(request):
     pre = ingress_prefix(request)
-    raise web.HTTPFound(pre + ("/jukebox.html" if pre else "/start.html"))
+    raise web.HTTPFound(pre + "/start.html")   # Startseite mit Auswahl (auch über HA/Ingress)
 
 
 async def tick(app):
