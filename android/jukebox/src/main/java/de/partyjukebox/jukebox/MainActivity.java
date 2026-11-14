@@ -87,6 +87,7 @@ public class MainActivity extends Activity {
         sp.addView(logo, new android.widget.LinearLayout.LayoutParams(size, size));
         TextView by = new TextView(this);
         by.setText("created by pivlersmom");
+        by.setGravity(android.view.Gravity.CENTER_HORIZONTAL);   // Text mittig (die Zeile ist so breit wie der Bildschirm)
         by.setTextColor(0x99F2F5FB);
         by.setTextSize(13);
         by.setLetterSpacing(0.12f);
