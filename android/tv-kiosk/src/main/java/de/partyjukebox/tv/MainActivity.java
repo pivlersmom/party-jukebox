@@ -322,6 +322,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Update vom Add-on? (nach dem Startbild, höchstens alle 6 h)
+        handler.postDelayed(() -> Updater.check(this, ServerAddress.get(this), "tv", "PartyJukebox-TV.apk", false), 5000);
         hideSystemUi();
         if (web != null) web.onResume();
     }

@@ -327,6 +327,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Update vom Add-on? (nach dem Startbild, höchstens alle 6 h)
+        handler.postDelayed(() -> Updater.check(this, ServerAddress.get(this), "jukebox", "PartyJukebox-Jukebox.apk", false), 5000);
         if (web != null) web.onResume();
     }
 
