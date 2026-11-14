@@ -2072,7 +2072,7 @@ async def no_cache_html(request, handler):
         raise web.HTTPFound(pre + "/host.html?next=jukebox.html")
     resp = await handler(request)
     p = request.path
-    if p.endswith((".html", ".js", ".css", ".json")) or p == "/":
+    if p.endswith((".html", ".js", ".css", ".json", ".svg", ".webmanifest")) or p == "/" or p.startswith("/icons/"):
         resp.headers["Cache-Control"] = "no-cache"
     if p.endswith(".apk"):
         resp.headers["Content-Type"] = "application/vnd.android.package-archive"

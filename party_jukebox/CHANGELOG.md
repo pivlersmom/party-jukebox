@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.149
+- Animiertes Logo (Jukebox-Bogen) oben links auf der Party-Seite und in der Jukebox
+- Icons/Logos werden nicht mehr veraltet aus dem Zwischenspeicher gezeigt
+- Apps 0.1.8: „created by pivlersmom“ mittig im Startbild
+
 ## 0.1.148
 - Jukebox- und TV-App 0.1.7: Update direkt aus der App – die App fragt beim Start das Add-on (apk/versions.json) und installiert neue Versionen selbst
 - Neues Logo „Jukebox-Bogen“ (Web-Icons, Jukebox-Seite, Jukebox-App, TV-App inkl. Banner)

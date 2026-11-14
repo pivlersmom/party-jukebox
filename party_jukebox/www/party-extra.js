@@ -237,5 +237,19 @@ b.addEventListener('click',function(e){
   }
   if(!played) document.addEventListener('pointerdown',snd,true);
 })();
+
+/* ---------- Neues Logo (Jukebox-Bogen, animiert) oben links + Jukebox-Knopf mit neuem Icon ---------- */
+(function(){
+  // Inhalt des vorhandenen <svg class="lg"> austauschen (das Element bleibt – langes Drücken = Gastgeber-Anmeldung)
+  var lg=document.querySelector('header svg.lg');
+  if(lg) fetch('icons/logo-anim.svg?v=148').then(function(r){ return r.text(); }).then(function(t){
+    var d=new DOMParser().parseFromString(t,'image/svg+xml').documentElement;
+    if(!d||d.nodeName!=='svg') return;
+    lg.setAttribute('viewBox',d.getAttribute('viewBox')); lg.style.width='46px'; lg.style.height='50px';
+    while(lg.firstChild) lg.removeChild(lg.firstChild);
+    Array.prototype.forEach.call(d.childNodes,function(n){ lg.appendChild(document.importNode(n,true)); });
+  }).catch(function(){});
+  var hb=document.querySelector('#hostBtn img'); if(hb) hb.src='icons/icon.svg?v=148';
+})();
 })();
 setInterval(function(){ try{ var q=window.pjParty&&window.pjParty.queue&&window.pjParty.queue(); if(q) window.pjLastCheck(q); }catch(e){} },3000);
