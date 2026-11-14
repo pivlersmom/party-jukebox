@@ -291,7 +291,41 @@ public class MainActivity extends Activity {
     }
 
     /** Brücke Seite → App (window.AndroidMediaSession.*). Läuft in einem Hintergrund-Thread. */
+    /*
+     * Lernkarte: Sprachsuche (🎤 im Suchfeld)
+     * Im WebView gibt es keine Web-Spracherkennung. Darum startet die App die Google-Spracheingabe
+     * (RecognizerIntent) und gibt den erkannten Text an die Seite zurück: window.voiceResult("…").
+     * Eigene Mikrofon-Berechtigung braucht die App dafür nicht – das Mikrofon nutzt die Google-App.
+     */
+    static final int REQ_VOICE = 2001;
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_VOICE) return;
+        String t = "";
+        if (res == RESULT_OK && data != null) {
+            java.util.ArrayList<String> l = data.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS);
+            if (l != null && !l.isEmpty() && l.get(0) != null) t = l.get(0);
+        }
+        AppLog.INSTANCE.add(t.isEmpty() ? "Sprachsuche: nichts verstanden" : "Sprachsuche im Suchfeld: " + t);
+        js("window.voiceResult&&window.voiceResult(" + org.json.JSONObject.quote(t) + ")");
+    }
+
     public class JukeboxBridge {
+        /** 🎤 im Suchfeld: Google-Spracheingabe öffnen */
+        @JavascriptInterface public void voiceSearch() {
+            runOnUiThread(() -> {
+                Intent i = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Was möchtest du hören?")
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                try { startActivityForResult(i, REQ_VOICE); }
+                catch (Exception e) {
+                    AppLog.INSTANCE.add("Sprachsuche nicht verfügbar: " + e);
+                    js("window.voiceResult&&window.voiceResult('');window.toast&&toast('🎤 Spracheingabe nicht verfügbar')");
+                }
+            });
+        }
         // Die Seite meldet Änderungen → MaPlayer fragt sofort bei MA nach (Anzeige kommt von dort)
         @JavascriptInterface public void updateMetadata(String t,String a,String al,String art,String tok,boolean p){ MaPlayer.poke(); }
         @JavascriptInterface public void setPlaybackState(boolean p){ MaPlayer.poke(); }

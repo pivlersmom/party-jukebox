@@ -164,6 +164,12 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;width:28px;hei
 .sfield input::-webkit-search-cancel-button{display:none}
 #qClr{position:absolute;right:4px;top:3px;width:40px;height:40px;color:var(--dim)}
 #qClr svg{width:20px;height:20px}
+#qMic{position:absolute;right:4px;top:3px;width:40px;height:40px;color:var(--dim)}
+#qMic svg{width:20px;height:20px}
+#qMic.on{color:var(--a2);animation:micPulse 1s ease-in-out infinite}
+.sfield.hasMic #qClr{right:44px}
+.sfield.hasMic input{padding-right:88px}
+@keyframes micPulse{50%{transform:scale(1.18);opacity:.6}}
 .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:10px!important}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;height:34px;padding:0 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:14px;font-weight:600;color:var(--dim)}

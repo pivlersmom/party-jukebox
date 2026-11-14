@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.141
+- 🎤 Sprachsuche rechts im Suchfeld – in der Jukebox und auf der Party-Seite (Browser: eingebaute Spracherkennung, App: Google-Spracheingabe)
+
 ## 0.1.140
 - „Benutzeroberfläche öffnen“ in Home Assistant zeigt wieder die Startseite mit der Auswahl (Jukebox, Party, TV)
 

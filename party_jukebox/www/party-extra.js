@@ -177,5 +177,31 @@ b.addEventListener('click',function(e){
     el.textContent=left===1?'🎵 Nur noch 2 Songs – jetzt wünschen!':'🎵 Letzter Song – schnell was wünschen!';
     el.classList.add('on'); clearTimeout(hideT); hideT=setTimeout(function(){ el.classList.remove('on'); },12000);
   };
+
+/* ---------- Sprachsuche: 🎤 rechts im Suchfeld (Browser-Spracherkennung bzw. in der App die Android-Erkennung) ---------- */
+(function(){
+  var A=window.AndroidMediaSession, SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var app=!!(A&&A.voiceSearch), box=document.getElementById('sbox'), q=document.getElementById('q');
+  if(!box||!q||(!app&&!SR)) return;
+  var st=document.createElement('style');
+  st.textContent='#pjMic{display:grid!important;place-items:center;flex:none;width:36px;height:36px;color:var(--tx3)}'+
+    '#pjMic.on{color:var(--cyan);animation:pjMic 1s ease-in-out infinite}@keyframes pjMic{50%{transform:scale(1.18);opacity:.6}}';
+  document.head.appendChild(st);
+  var b=document.createElement('button'); b.id='pjMic'; b.setAttribute('aria-label','Sprachsuche');
+  b.innerHTML='<svg class="ic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+  box.appendChild(b);
+  window.voiceResult=function(t){
+    b.classList.remove('on'); t=String(t||'').trim(); if(!t) return;
+    q.value=t; q.dispatchEvent(new Event('input')); q.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));
+  };
+  b.onclick=function(e){
+    e.preventDefault(); b.classList.add('on');
+    if(app){ try{ A.voiceSearch(); }catch(x){ b.classList.remove('on'); } return; }
+    var r=new SR(); r.lang='de-DE'; r.interimResults=false; r.maxAlternatives=1;
+    r.onresult=function(ev){ window.voiceResult(ev.results[0][0].transcript); };
+    r.onend=function(){ b.classList.remove('on'); };
+    try{ r.start(); }catch(x){ b.classList.remove('on'); }
+  };
+})();
 })();
 setInterval(function(){ try{ var q=window.pjParty&&window.pjParty.queue&&window.pjParty.queue(); if(q) window.pjLastCheck(q); }catch(e){} },3000);

@@ -45,6 +45,7 @@ const ICON = {
   list: '<svg viewBox="0 0 24 24"><path d="M4 6h12M4 12h12M4 18h8"/><path d="M16 15.5v5l4.5-2.5z"/></svg>',
   disc: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   grip: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
@@ -1250,6 +1251,32 @@ function setFilter(f) {
 $("#q").addEventListener("input", () => later(doSearch, 800, "search"));
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(timers.search); doSearch(); $("#q").blur(); } });
 $("#qClr").onclick = () => { $("#q").value = ""; doSearch(); $("#q").focus(); };
+/*
+ * Lernkarte: Sprachsuche (🎤 rechts im Suchfeld)
+ * In der App: Android-Spracherkennung (Google) über die Brücke, das Ergebnis kommt per window.voiceResult zurück.
+ * Im Browser (Chrome, Safari): eingebaute Web-Spracherkennung. Gibt es keins von beiden, bleibt der Knopf weg.
+ */
+(function () {
+  const A = window.AndroidMediaSession, SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const app = !!(A && A.voiceSearch), b = $("#qMic");
+  if (!b || (!app && !SR)) return;
+  b.hidden = false; b.parentNode.classList.add("hasMic");
+  b.onclick = () => {
+    b.classList.add("on");
+    if (app) { try { A.voiceSearch(); } catch (e) { b.classList.remove("on"); } return; }
+    const r = new SR(); r.lang = "de-DE"; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = e => voiceResult(e.results[0][0].transcript);
+    r.onerror = e => toast("🎤 " + (e.error === "not-allowed" ? "Mikrofon nicht erlaubt" : "Nichts verstanden"));
+    r.onend = () => b.classList.remove("on");
+    try { r.start(); } catch (e) { b.classList.remove("on"); }
+  };
+})();
+function voiceResult(t) {
+  $("#qMic").classList.remove("on");
+  t = String(t || "").trim(); if (!t) return;
+  $("#q").value = t; clearTimeout(timers.search); doSearch();
+}
+window.voiceResult = voiceResult;
 $("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) setFilter(c.dataset.f); };
 $("#sRes").onclick = e => {
   if (e.target.closest(".bback")) { history.back(); return; }
