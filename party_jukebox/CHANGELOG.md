@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.170
+- TV-Modus: −10 s / +30 s (auch ohne Länge, z. B. Prime Video); ohne Länge nur die Laufzeit.
+- TV-App meldet alle Metadaten (Protokoll), Apps 0.1.15.
+
 ## 0.1.169
 - TV-Ton beim Öffnen der Jukebox schneller erkannt.
 
