@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.167
+- TV-Modus: liefert eine App kein Bild (z. B. Disney+), zeigt die Jukebox das Banner bzw. Symbol der App von der TV-Box.
+- Apps 0.1.13.
+
 ## 0.1.166
 - TV-Modus: Bild der Sendung (von der TV-App), Spulen am Balken.
 - Apps 0.1.12.
