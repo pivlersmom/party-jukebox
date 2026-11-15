@@ -1295,7 +1295,8 @@ async def party_tvart_post(request):
     data = await request.read()
     if not data or len(data) > 2 * 1024 * 1024:
         return web.json_response({"ok": False}, status=400)
-    TVART.update({"key": unquote_plus(request.headers.get("X-Key", "")), "type": request.content_type or "image/jpeg", "data": data})
+    TVART.update({"key": unquote_plus(request.headers.get("X-Key", "")), "type": request.content_type or "image/jpeg", "data": data,
+                  "icon": request.headers.get("X-Kind") == "icon"})
     return web.json_response({"ok": True})
 
 
@@ -1389,7 +1390,13 @@ async def party_tvnow(request):
             out.update({"title": tm["title"], "sub": tm["sub"]})
         out.update({"pos": tm["pos"], "dur": tm["dur"], "pstate": tm["state"]})
         if TVART["data"] and TVART["key"] == (tm["title"] or ""):
-            out["art"] = "party/tvart?k=" + hashlib.md5(TVART["data"]).hexdigest()[:10]
+            u = "party/tvart?k=" + hashlib.md5(TVART["data"]).hexdigest()[:10]
+            if TVART.get("icon"):   # Banner/Symbol der App: nur wenn es kein Logo gibt, als Logo zeigen
+                if not out.get("logo") and not out.get("img"):
+                    out["logo"], out["dark"] = u, True
+                    out["applogo"] = True
+            else:
+                out["art"] = u
     if out.get("channel"):
         out["logo"] = await _tv_logo(session, out["channel"])
     if out and not out.get("logo") and not out.get("img"):

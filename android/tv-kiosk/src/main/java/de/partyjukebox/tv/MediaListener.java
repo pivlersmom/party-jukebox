@@ -3,6 +3,10 @@ package de.partyjukebox.tv;
 import android.content.ComponentName;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.content.pm.PackageManager;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
@@ -197,10 +201,43 @@ public class MediaListener extends NotificationListenerService {
         String key = j.optString("title");
         if (best != null && !key.equals(lastArtKey)) {
             byte[] img = null;
+            boolean icon = false;
             if (art != null) img = jpeg(art);
             else if (artUri != null) img = download(artUri);
-            if (img == null || sendArt(base + "/party/tvart", img, key)) lastArtKey = key;
+            if (img == null) {   // App liefert kein Bild (z. B. Disney+) → Banner bzw. Symbol der App selbst
+                Bitmap b = appImage(best.getPackageName());
+                if (b != null) { img = png(b); icon = true; }
+            }
+            if (img == null || sendArt(base + "/party/tvart", img, key, icon)) lastArtKey = key;
         }
+    }
+
+    /** TV-Banner der App (das breite Bild im Startmenü), sonst ihr Symbol. */
+    private Bitmap appImage(String pkg) {
+        try {
+            PackageManager pm = getPackageManager();
+            Drawable d = pm.getApplicationBanner(pkg);
+            if (d == null) d = pm.getApplicationIcon(pkg);
+            if (d instanceof BitmapDrawable && ((BitmapDrawable) d).getBitmap() != null) return ((BitmapDrawable) d).getBitmap();
+            int w = Math.max(1, Math.min(640, d.getIntrinsicWidth() > 0 ? d.getIntrinsicWidth() : 320));
+            int hh = Math.max(1, Math.min(640, d.getIntrinsicHeight() > 0 ? d.getIntrinsicHeight() : 180));
+            Bitmap b = Bitmap.createBitmap(w, hh, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(b);
+            d.setBounds(0, 0, w, hh);
+            d.draw(c);
+            return b;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** PNG behält die Transparenz von App-Symbolen. */
+    private static byte[] png(Bitmap b) {
+        int w = b.getWidth(), hh = b.getHeight(), m = Math.max(w, hh);
+        Bitmap s = m > 640 ? Bitmap.createScaledBitmap(b, w * 640 / m, hh * 640 / m, true) : b;
+        ByteArrayOutputStream o = new ByteArrayOutputStream();
+        s.compress(Bitmap.CompressFormat.PNG, 100, o);
+        return o.toByteArray();
     }
 
     /** Bild verkleinern (max. 600 px) und als JPEG verpacken. */
@@ -227,7 +264,7 @@ public class MediaListener extends NotificationListenerService {
         }
     }
 
-    private static boolean sendArt(String url, byte[] img, String key) {
+    private static boolean sendArt(String url, byte[] img, String key, boolean icon) {
         HttpURLConnection c = null;
         try {
             c = (HttpURLConnection) new URL(url).openConnection();
@@ -235,7 +272,8 @@ public class MediaListener extends NotificationListenerService {
             c.setReadTimeout(8000);
             c.setRequestMethod("POST");
             c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "image/jpeg");
+            c.setRequestProperty("Content-Type", icon ? "image/png" : "image/jpeg");
+            if (icon) c.setRequestProperty("X-Kind", "icon");
             c.setRequestProperty("X-Key", java.net.URLEncoder.encode(key, "UTF-8"));
             try (OutputStream o = c.getOutputStream()) { o.write(img); }
             return c.getResponseCode() / 100 == 2;
