@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.175
+- App-Meldungen: Tiefschlaf ist nur noch ein Hinweis, kein Problem.
+- Player 3.9.62: große „Verspätung“ direkt nach Tiefschlaf wird als Neuausrichtung gemeldet, nicht als Hänger.
+
 ## 0.1.174
 - Fix: TV-Ton wird erkannt, auch wenn MA „spielt“ ohne Titel und mit leerer Warteschlange meldet (Mini-Player war weg).
 

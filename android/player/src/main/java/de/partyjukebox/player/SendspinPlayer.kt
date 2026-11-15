@@ -656,6 +656,7 @@ object SendspinPlayer {
         private val samples = ArrayDeque<Sample>()
         @Volatile var offset = 0L; private set     // MA-Uhr minus Handy-Uhr (µs)
         @Volatile var ready = false; private set
+        @Volatile var jumpedAt = 0L; private set     // wann zuletzt nach Tiefschlaf neu abgeglichen (Handy-Uhr, µs)
 
         /* neue Verbindung zum selben MA: alte Messwerte weg, aber die bisherige Abweichung gilt weiter,
            bis neue da sind – so kann der Puffer nach einem Funkloch nahtlos weiterspielen */
@@ -672,7 +673,7 @@ object SendspinPlayer {
             val rtt = (cr - ct) - (st - sr)
             val off = ((sr - ct) + (st - cr)) / 2
             if (ready && abs(off - offset) > 500_000 && rtt < 2_000_000) {
-                if (++jumps >= 2) { samples.clear(); jumps = 0; AppLog.add("Uhr neu abgeglichen (Sprung " + ((off - offset) / 1000) + " ms)") }
+                if (++jumps >= 2) { samples.clear(); jumps = 0; jumpedAt = System.nanoTime() / 1000; AppLog.add("Uhr neu abgeglichen (Sprung " + ((off - offset) / 1000) + " ms)") }
             } else jumps = 0
             samples.addLast(Sample(rtt, off))
             while (samples.size > 20) samples.removeFirst()
@@ -1073,7 +1074,15 @@ object SendspinPlayer {
                          */
                         if (ats.framePosition != stallPos) { stallPos = ats.framePosition; stallSince = nowUs() }
                         if (nowUs() - stallSince > 3_000_000 || abs(err) > 20_000_000) {
-                            AppLog.add("Ausgabe hängt (Verspätung " + (err / 1000) + " ms, Position steht) – neu aufbauen")
+                            /*
+                             * Lernkarte: nach Tiefschlaf ist die riesige "Verspätung" kein Hänger
+                             * Die Uhr wurde gerade neu abgeglichen – die laufende Ausgabe rechnete noch mit dem alten Takt.
+                             * Dann einfach neu ausrichten und nur als Hinweis melden, nicht als Fehler.
+                             */
+                            if (nowUs() - clock.jumpedAt < 15_000_000 && nowUs() - stallSince <= 3_000_000)
+                                AppLog.add("Takt nach Tiefschlaf neu ausgerichtet (" + (err / 1000) + " ms)")
+                            else
+                                AppLog.add("Ausgabe hängt (Verspätung " + (err / 1000) + " ms, Position steht) – neu aufbauen")
                             stallSince = nowUs()
                             rebuildSoon(); lastFix = nowUs()
                             continue
