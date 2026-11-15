@@ -660,18 +660,12 @@ header > .setbtn{justify-self:end}
 .epbar i{display:block;height:100%;border-radius:2px;background:var(--grad)}
 .epbar.done i{background:var(--dim2)}
 
-/* Musik/TV-Umschalter im Lautstärke-Bereich, direkt hinter Gruppe/Lautsprecher */
-.vbot{display:flex;align-items:center;justify-content:center;gap:10px}
-.vbot .vg{width:auto;flex:0 1 auto;min-width:0}
-.vtv{flex:none;display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:0;padding:2px 0 0;color:var(--dim);font-family:inherit}
-.vtv[hidden]{display:none}
-.vtv i{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--card2)}
-.vtv small{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--dim2);line-height:1}
-.vtv svg,.vmt svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.vtv.on{color:var(--a2)}.vtv.on i{box-shadow:0 0 0 1.5px var(--a2) inset}
-.vmt.on{color:var(--a2);box-shadow:0 0 0 1.5px var(--a2) inset}
-.vtv:active i,.vmt:active{transform:scale(.9)}
-.vm{grid-template-columns:minmax(70px,30%) 1fr 30px 28px}
-.vmt{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;border:0;background:var(--card2);color:var(--dim)}
+/* Musik/TV-Umschalter in der Lautsprecher-Liste (vor dem Haken) */
+.prow .ptv{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:4px;color:var(--dim)}
+.prow .ptv i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--card2)}
+.prow .ptv svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.prow .ptv small{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--dim2);line-height:1}
+.prow .ptv.on{color:var(--a2)}.prow .ptv.on i{box-shadow:0 0 0 1.5px var(--a2) inset}
+.prow .ptv:active i{transform:scale(.9)}
 #v-now .prog.tvm{visibility:hidden}
 #v-now .prog.tvl .sl{pointer-events:none}

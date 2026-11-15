@@ -500,10 +500,6 @@ function renderVol() {
   vg.classList.toggle("open", !!S.memOpen);
   $("#vGrp").classList.toggle("tap", g.isGroup && v != null);
   renderMembers(p, g);
-  { const tb = tvBoxOf(p), bt = $("#vTv"), show = !!tb && !(S.memOpen && g.isGroup);
-    bt.hidden = !show;
-    if (show) { const on = isTvSource(tb); bt.classList.toggle("on", on); bt.dataset.id = tb.player_id;
-      if (bt.dataset.m !== String(on)) { bt.dataset.m = String(on); bt.querySelector("svg").innerHTML = on ? ICON_TV : ICON_NOTE; setText(bt.querySelector("small"), on ? "TV" : "Music"); } } }
   box.classList.toggle("off", v == null);
   if (v == null) { setText($("#vVal"), "–"); return; }
   if (!volSl.active && Date.now() > S.vHold) { volSl.set(v / 100); setText($("#vVal"), Math.round(v)); }
@@ -511,7 +507,6 @@ function renderVol() {
 /* Gruppe aufklappen: jede Box einzeln regeln */
 const memSl = {}, memPend = {}, memHold = {};
 let memKey = "";
-$("#vTv").onclick = e => { e.stopPropagation(); if (window.PJtv) PJtv.toggle(e.currentTarget.dataset.id); };
 $("#vGrp").onclick = () => {
   const p = S.players[S.pid]; if (!p || !groupInfo(p).isGroup) return;
   S.memOpen = !S.memOpen; memKey = ""; renderVol();
@@ -530,11 +525,9 @@ function renderMembers(p, g) {
   if (key !== memKey) {
     memKey = key;
     box.innerHTML = ids.map(id => '<div class="vm" data-id="' + esc(id) + '"><span class="vmn">' + esc(pname(S.players[id]) || id) +
-      '</span><div class="sl vms"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div><b class="vmv">–</b>' +
-      (hasTvIn(S.players[id]) ? '<button class="vmt" type="button" aria-label="Musik/TV umschalten"><svg viewBox="0 0 24 24">' + ICON_NOTE + '</svg></button>' : '<i></i>') + '</div>').join("");
+      '</span><div class="sl vms"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div><b class="vmv">–</b>' + '</div>').join("");
     box.querySelectorAll(".vm").forEach(row => {
       const id = row.dataset.id, val = row.querySelector(".vmv");
-      { const tb = row.querySelector(".vmt"); if (tb) tb.onclick = () => { if (window.PJtv) PJtv.toggle(id); }; }
       memSl[id] = slider(row.querySelector(".sl"), {
         input: f => { setText(val, Math.round(f * 100)); memPend[id] = f * 100; memHold[id] = Date.now() + 2500;
           later(() => memSend(id), 200, "mv" + id); },
@@ -545,8 +538,6 @@ function renderMembers(p, g) {
   }
   box.querySelectorAll(".vm").forEach(row => {
     const id = row.dataset.id, m = S.players[id], sl = memSl[id];
-    { const tb = row.querySelector(".vmt"); if (tb) { const on = isTvSource(m); tb.classList.toggle("on", on);
-      if (tb.dataset.m !== String(on)) { tb.dataset.m = String(on); tb.querySelector("svg").innerHTML = on ? ICON_TV : ICON_NOTE; } } }
     const v = m ? m.volume_level : null;
     row.querySelector(".sl").classList.toggle("off", v == null);
     if (v == null) { setText(row.querySelector(".vmv"), "–"); return; }
@@ -849,6 +840,8 @@ function openPlayers() {
     return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic">' + ICON.speaker +
       '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +
       (src && p.player_id !== src ? '<span class="xfer" data-id="' + esc(p.player_id) + '" title="Musik hierher übergeben">⇄</span>' : "") +
+      (hasTvIn(p) ? (on => '<span class="ptv' + (on ? " on" : "") + '" data-id="' + esc(p.player_id) + '" title="Musik/TV umschalten"><i><svg viewBox="0 0 24 24">' +
+        (on ? ICON_TV : ICON_NOTE) + '</svg></i><small>' + (on ? "TV" : "Music") + '</small></span>')(isTvSource(p)) : "") +
       '<span class="chk">' + ICON.check + "</span></button>";
   }).join("");
   /* Gruppieren: weitere Lautsprecher mit dem gewählten mitspielen lassen */
@@ -873,6 +866,10 @@ function openPlayers() {
   openSheet("players", html, c => {
     c.querySelectorAll(".prow").forEach(b => {
       b.onclick = () => { const id = b.dataset.id; closeSheet(); selectPlayer(id); toast("Lautsprecher: " + pname(S.players[id])); };
+    });
+    /* Musik/TV der Box umschalten (Sonos mit TV-Eingang), Liste danach neu zeichnen */
+    c.querySelectorAll(".ptv").forEach(x => {
+      x.onclick = async ev => { ev.stopPropagation(); if (!window.PJtv) return; await PJtv.toggle(x.dataset.id); later(() => { if (sheetKind === "players") openPlayers(); }, 400, "pl"); };
     });
     /* Musik samt Warteschlange übergeben (MA: player_queues/transfer), danach den neuen Lautsprecher wählen */
     c.querySelectorAll(".xfer").forEach(x => {

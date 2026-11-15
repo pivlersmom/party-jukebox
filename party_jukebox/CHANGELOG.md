@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.160
+- Musik/TV-Umschalter jetzt in der Lautsprecher-Liste vor dem Haken (nur Boxen mit TV-Eingang).
+- TV-Modus: Laufzeit und Restzeit aus der TV-App (party/tvmedia), Balken nur ohne Meldung ausgeblendet, Spulen gesperrt.
+- Apps 0.1.11 (TV-App meldet Titel/Position/Länge der laufenden Medien-App).
+
 ## 0.1.159
 - Musik/TV-Umschalter klein und rund direkt hinter der Gruppe (Note ↔ Fernseher, darunter „Music“/„TV“).
 - Fortschrittsbalken im TV-Modus ausgeblendet.

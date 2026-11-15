@@ -297,7 +297,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     id = id || S.pid;
     const p = S.players[id], src = tvSrc(p); if (!src) return;
     try {
-      if (onTv(p)) { setTvFlag(id, false); await cmd("player_queues/play", { queue_id: qid() }); toast("🎵 Zurück zur Musik"); }
+      if (onTv(p)) { setTvFlag(id, false); await cmd("player_queues/play", { queue_id: id === S.pid ? qid() : id }); toast("🎵 Zurück zur Musik"); }
       else { await cmd("players/cmd/select_source", { player_id: id, source: src.id }); setTvFlag(id, true); toast("📺 Ton vom Fernseher"); }
     } catch (e) { toast("TV-Ton: " + ((e && e.message) || e)); }
     if (JB.renderVol) JB.renderVol();
