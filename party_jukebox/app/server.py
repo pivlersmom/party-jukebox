@@ -16,7 +16,7 @@ import hmac
 import json
 import secrets
 import socket
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, unquote_plus, urlparse
 import logging
 import os
 import re
@@ -1249,6 +1249,9 @@ async def party_presence(request):
 # Lernkarte: Die TV-App auf der Box meldet, was dort läuft (Titel, Position, Gesamtlänge) –
 # aus Androids Mediensitzungen. So kennt die Jukebox im TV-Modus Laufzeit und Restzeit.
 TVMEDIA = {}   # letzte Meldung + Empfangszeit
+TVART = {"key": "", "type": "", "data": b""}   # Bild der laufenden Sendung (Poster/Cover), von der TV-App
+TVCMD = []                                     # Befehle an die TV-App (Spulen …), abgeholt per Long-Poll
+TVCMD_EV = asyncio.Event()
 
 
 def _lan(request):
@@ -1285,10 +1288,58 @@ def _tvmedia_now():
             "sub": m.get("sub") or "", "pkg": m.get("pkg") or ""}
 
 
+async def party_tvart_post(request):
+    """TV-App schickt das Bild der laufenden Sendung (JPEG/PNG), Kopfzeile X-Key = Titel."""
+    if not (_lan(request) or is_host(request)):
+        return web.json_response({"ok": False}, status=403)
+    data = await request.read()
+    if not data or len(data) > 2 * 1024 * 1024:
+        return web.json_response({"ok": False}, status=400)
+    TVART.update({"key": unquote_plus(request.headers.get("X-Key", "")), "type": request.content_type or "image/jpeg", "data": data})
+    return web.json_response({"ok": True})
+
+
+async def party_tvart_get(request):
+    if not is_host(request):
+        raise web.HTTPForbidden()
+    if not TVART["data"]:
+        raise web.HTTPNotFound()
+    return web.Response(body=TVART["data"], content_type=TVART["type"], headers={"Cache-Control": "max-age=3600"})
+
+
+async def party_tvcmd(request):
+    """Long-Poll der TV-App: wartet bis zu 25 s auf einen Befehl (z. B. Spulen)."""
+    if not (_lan(request) or is_host(request)):
+        return web.json_response({"ok": False}, status=403)
+    if not TVCMD:
+        TVCMD_EV.clear()
+        try:
+            await asyncio.wait_for(TVCMD_EV.wait(), 25)
+        except asyncio.TimeoutError:
+            pass
+    cmds = TVCMD[:]
+    TVCMD.clear()
+    return web.json_response({"cmds": cmds})
+
+
 async def party_tvctl(request):
-    """TV-Modus: Play/Pause an der TV-Box (erste Box aus tv_box_entities, z. B. Magenta-Box)."""
+    """TV-Modus: Play/Pause an der TV-Box (erste Box aus tv_box_entities, z. B. Magenta-Box), Spulen über die TV-App."""
     if not is_host(request):
         return web.json_response({"ok": False}, status=403)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if isinstance(body, dict) and body.get("a") == "seek":
+        try:
+            pos = max(0.0, float(body.get("pos")))
+        except (TypeError, ValueError):
+            return web.json_response({"ok": False}, status=400)
+        TVCMD.append({"a": "seek", "pos": int(pos * 1000)})
+        TVCMD_EV.set()
+        if TVMEDIA:
+            TVMEDIA.update({"pos": pos * 1000, "at": time.time()})
+        return web.json_response({"ok": True})
     boxes = [x.strip() for x in str(OPT.get("tv_box_entities") or "").split(",") if x.strip()]
     if not boxes:
         return web.json_response({"ok": False, "error": "keine TV-Box eingestellt"}, status=400)
@@ -1337,6 +1388,8 @@ async def party_tvnow(request):
         elif tm["title"] and out.get("title") == out.get("app"):
             out.update({"title": tm["title"], "sub": tm["sub"]})
         out.update({"pos": tm["pos"], "dur": tm["dur"], "pstate": tm["state"]})
+        if TVART["data"] and TVART["key"] == (tm["title"] or ""):
+            out["art"] = "party/tvart?k=" + hashlib.md5(TVART["data"]).hexdigest()[:10]
     if out.get("channel"):
         out["logo"] = await _tv_logo(session, out["channel"])
     if out and not out.get("logo") and not out.get("img"):
@@ -2280,6 +2333,9 @@ def make_app():
     app.router.add_get("/party/tvnow", party_tvnow)
     app.router.add_post("/party/tvmedia", party_tvmedia)
     app.router.add_post("/party/tvctl", party_tvctl)
+    app.router.add_post("/party/tvart", party_tvart_post)
+    app.router.add_get("/party/tvart", party_tvart_get)
+    app.router.add_get("/party/tvcmd", party_tvcmd)
     app.router.add_get("/party/presence", party_presence)
     app.router.add_get("/party/switches", party_switches)
     app.router.add_post("/party/switch", party_switch)

@@ -437,7 +437,7 @@ function nowInfo() {
     tvFetch();
     const t = S.tv;
     if (t) return { title: t.title || t.app || "TV", artist: [t.sub && t.sub !== t.title ? t.sub : "", t.app && t.app !== t.title && t.app !== t.sub ? t.app : "", "TV-Ton"].filter(Boolean).join(" · "),
-      img: t.logo || t.img || "", small: t.logo || t.img || "", dur: t.dur || 0, pos: t.pos, key: "tv|" + t.title, tv: true, logo: !!t.logo, dark: !!t.dark };
+      img: t.art || t.logo || t.img || "", small: t.art || t.logo || t.img || "", dur: t.dur || 0, pos: t.pos, key: "tv|" + t.title, tv: true, logo: !t.art && !!t.logo, dark: !t.art && !!t.dark };
     return { title: "TV-Ton", artist: pname(p), img: "", small: "", dur: 0, key: "tv", tv: true };
   }
   if (ci) {
@@ -612,9 +612,14 @@ function slider(el, o) {
   return api;
 }
 const seekSl = slider($("#seek"), {
-  input: f => { if (tvPos()) return; const d = curDur(); if (d) setText($("#tCur"), fmt(f * d)); },
+  input: f => { { const tv = tvPos(); if (tv) { if (tv.d) setText($("#tCur"), fmt(f * tv.d)); return; } } const d = curDur(); if (d) setText($("#tCur"), fmt(f * d)); },
   commit: f => {
-    if (tvPos()) { tick(); return; }   // TV-Ton: Spulen geht nur an der Box
+    { const tv = tvPos(); if (tv) {   // TV-Ton: Spulen an der Box (die TV-App führt es aus)
+      if (!tv.d) { tick(); return; }
+      const pos = Math.round(f * tv.d); S.tv.pos = pos; S.tvAt = Date.now();
+      fetch("party/tvctl", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: "seek", pos }) })
+        .then(r => { if (!r.ok) toast("TV-Box nicht erreichbar"); }).catch(() => toast("TV-Box nicht erreichbar"));
+      tick(); return; } }
     const d = curDur(); if (!d || !S.qid) return;
     const pos = Math.round(f * d);
     S.tBase = pos; S.tAt = performance.now(); S.seekHold = Date.now() + 2000;
@@ -868,7 +873,7 @@ function openPlayers() {
     /* Artwork statt Lautsprecher-Symbol: nur Leader, auf denen gerade etwas läuft */
     /* TV-Ton: Sender- bzw. App-Logo (MA meldet die Box dann oft als "bereit") */
     let art = "", logo = false;
-    if (!p.synced_to && isTvSource(p)) { tvFetch(); const t = S.tv; art = (t && (t.logo || t.img)) || ""; logo = !!(t && t.logo); }
+    if (!p.synced_to && isTvSource(p)) { tvFetch(); const t = S.tv; art = (t && (t.art || t.logo || t.img)) || ""; logo = !!(t && !t.art && t.logo); }
     else if ((st === "playing" || st === "paused") && !p.synced_to) {
       if (p.player_id === S.pid) { const n = nowInfo(); art = (n && n.small) || ""; logo = !!(n && n.logo); }
       else { const q = S.qs[p.player_id]; art = (q && q.current_item && imgUrl(q.current_item, 120)) || maImg(p.current_media && p.current_media.image_url); }
