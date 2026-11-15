@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.157
+- Fix: TV-Ton-Knopf im Player wieder sichtbar, „Liste leeren“ funktioniert wieder.
+
 ## 0.1.156
 - TV-Ton wird jetzt erkannt, auch wenn die Sonos von selbst auf den Fernseher umschaltet: das Add-on fragt die Box direkt (party/sonostv) – Mini-Player zeigt dann TV-Ton
 

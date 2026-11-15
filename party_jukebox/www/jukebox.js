@@ -2252,7 +2252,8 @@ function renderItems() {
 }
 /* Liste leeren: nur kommende Titel (laufender spielt weiter) oder alles (Musik stoppt) */
 $("#qClear").onclick = () => {
-  const tv = window.PJtv && PJtv.avail(), tvOn = tv && PJtv.on();
+  let tv = false, tvOn = false;
+  try { tv = !!(window.PJtv && PJtv.avail()); tvOn = tv && PJtv.on(); } catch (e) { tv = false; }
   openSheet("qclear", (tv ? '<div class="shh">Fernseher</div><button class="row lrow tvo"><span class="rm"><span class="r1">' +
       (tvOn ? "🎵 Zurück zur Musik" : "📺 TV-Ton") + '</span><span class="r2">' + (tvOn ? "Warteschlange spielt weiter" : "Box spielt den Ton vom Fernseher") + "</span></span></button>" : "") +
     (S.items.length ? '<div class="shh">Liste leeren</div>' +
@@ -2390,7 +2391,7 @@ function setConn(c, wait) {
 /* ---------- Start ---------- */
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
 window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet,
-  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt };
+  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt, isTvSource, setTvFlag };
 renderAll();
 try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();

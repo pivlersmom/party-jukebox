@@ -6,7 +6,7 @@
 (function () {
 "use strict";
 const JB = window.JB; if (!JB) return;
-const { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast } = JB;
+const { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, isTvSource, setTvFlag } = JB;
 
 /* ---------- Teilnehmer ---------- */
 const bar = document.createElement("div");
