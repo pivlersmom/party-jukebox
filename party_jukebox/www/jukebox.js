@@ -362,9 +362,29 @@ function isTvSource(p) {
   const cm = p && p.current_media;
   if (!p) return false;
   if (p.active_source === "tv" || (cm && (cm.source_id === "tv" || cm.uri === "homeTheater-input"))) return true;
+  if (pstate(p) === "playing") return false;
+  const st = S.sonosTv[p.player_id];
+  if (st && Date.now() - st.at < 20000) return st.tv;   // die Sonos selbst gefragt (genauer als das Merken)
   const t = tvFlagAt(p.player_id);
-  return !!t && Date.now() - t < 12 * 3600e3 && pstate(p) !== "playing";
+  return !!t && Date.now() - t < 12 * 3600e3;
 }
+/* Sonos mit TV-Eingang direkt fragen (über das Add-on), solange MA "nichts läuft" meldet */
+S.sonosTv = {};
+function sonosIp(p) { const d = p && p.device_info; return d && (d.ip_address || (d.identifiers && d.identifiers.ip_address)) || ""; }
+function hasTvIn(p) { return !!(p && Array.isArray(p.source_list) && p.source_list.some(s => s && !s.passive && (s.id === "tv" || String(s.name).toLowerCase() === "tv"))); }
+function sonosTvPoll() {
+  const p = S.players[S.pid];
+  if (!p || document.hidden || !hasTvIn(p) || pstate(p) === "playing") return;
+  const ip = sonosIp(p); if (!ip) return;
+  fetch("party/sonostv?ip=" + encodeURIComponent(ip), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || j.tv == null) return;
+    const old = S.sonosTv[p.player_id];
+    S.sonosTv[p.player_id] = { tv: !!j.tv, at: Date.now() };
+    if (!j.tv && tvFlagAt(p.player_id)) setTvFlag(p.player_id, false);
+    if (!old || old.tv !== !!j.tv) later(renderAll, 50, "ra");
+  }).catch(() => {});
+}
+setInterval(sonosTvPoll, 5000);
 S.tv = null; S.tvAt = 0; S.tvBusy = false;
 function tvFetch() {
   if (S.tvBusy || Date.now() - S.tvAt < 10000) return;

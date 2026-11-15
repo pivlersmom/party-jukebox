@@ -1282,6 +1282,38 @@ async def party_tvnow(request):
     return web.json_response(out, headers={"Cache-Control": "no-store"})
 
 
+# Lernkarte: Spielt die Sonos gerade den Fernseher?
+# MA meldet den TV-Eingang nicht immer. Die Sonos selbst weiß es: über ihre lokale UPnP-Schnittstelle
+# (Port 1400) liefert GetMediaInfo die aktuelle Quelle – "x-sonos-htastream:…" = TV-Eingang (HDMI/optisch).
+SONOS_TV = {}   # ip → (Zeit, Ergebnis) – 4 s merken, damit mehrere Handys die Box nicht dauernd fragen
+
+
+async def party_sonostv(request):
+    ip = (request.query.get("ip") or "").strip()
+    if not re.fullmatch(r"(10|192\.168|172\.(1[6-9]|2\d|3[01]))(\.\d{1,3}){2,3}", ip):
+        return web.json_response({"tv": None}, status=400)
+    hit = SONOS_TV.get(ip)
+    if hit and now() - hit[0] < 4:
+        return web.json_response({"tv": hit[1]})
+    body = ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+            's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body>'
+            '<u:GetMediaInfo xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID>'
+            '</u:GetMediaInfo></s:Body></s:Envelope>')
+    tv = None
+    try:
+        async with request.app["session"].post(
+                f"http://{ip}:1400/MediaRenderer/AVTransport/Control", data=body, timeout=aiohttp.ClientTimeout(total=3),
+                headers={"Content-Type": 'text/xml; charset="utf-8"',
+                         "SOAPACTION": '"urn:schemas-upnp-org:service:AVTransport:1#GetMediaInfo"'}) as r:
+            t = await r.text()
+        m = re.search(r"<CurrentURI>([^<]*)</CurrentURI>", t)
+        tv = bool(m and m.group(1).startswith("x-sonos-htastream:"))
+    except Exception as e:
+        log.debug("Sonos %s: %s", ip, e)
+    SONOS_TV[ip] = (now(), tv)
+    return web.json_response({"tv": tv}, headers={"Cache-Control": "no-store"})
+
+
 async def party_tvimg(request):
     """Bilder für die TV-Anzeige: Senderlogo aus /local oder Bild des Cast-Players (über HA, mit Token)."""
     if not is_host(request):
@@ -2178,6 +2210,7 @@ def make_app():
     app.router.add_get("/party/dupe", party_dupe)
     app.router.add_post("/party/queue/add", queue_add_behind)
     app.router.add_get("/party/progress", party_progress)
+    app.router.add_get("/party/sonostv", party_sonostv)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)
