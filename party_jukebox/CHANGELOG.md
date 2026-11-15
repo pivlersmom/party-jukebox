@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.172
+- TV-Modus: meldet eine App nur ihren eigenen Namen als Titel (Prime Video), wird er nicht als Sendung gezeigt.
+
 ## 0.1.171
 - party/tvnow?meta=1 zeigt die Metadaten der TV-App (Fehlersuche).
 

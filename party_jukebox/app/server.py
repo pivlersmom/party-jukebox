@@ -1389,6 +1389,10 @@ async def party_tvnow(request):
                 break
     tm = _tvmedia_now()
     if tm and tm["state"] in ("playing", "paused"):
+        # Manche Apps melden statt der Sendung nur ihren Namen (Prime Video: "PrimeVideo") → kein echter Titel
+        norm = lambda x: re.sub(r"[^a-z0-9]", "", (x or "").lower())
+        if norm(tm["title"]) and norm(tm["title"]) in (norm(_appname(tm["pkg"])), norm(out.get("app"))):
+            tm["title"], tm["sub"] = "", ""
         if not out:
             app = _appname(tm["pkg"])
             out = {"title": tm["title"] or app, "sub": tm["sub"] if tm["title"] else "", "app": app}
