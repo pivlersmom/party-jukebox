@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.154
+- Start-Sound spielt auch, wenn das Handy auf lautlos/vibrieren steht (App 3.9.61, Jukebox-App 0.1.10); Grund für einen stillen Start steht in „Meldungen der App“
+
 ## 0.1.153
 - Hinweis-Leiste („Spielt jetzt: …“) animiert: fliegt federnd herein, Buchstaben erscheinen in einer Welle und schwingen aus, Ausblenden als Welle nach oben; fettere Schrift
 
