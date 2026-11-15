@@ -245,6 +245,7 @@ function onEvent(m) {
       later(renderAll, 80, "ra");
       return;
     case "queue_updated":
+      if (d) S.qs[id] = d;
       if (id === (S.qid || S.pid) && d) { if (!S.qid) S.qid = id; setQueue(d); }
       return;
     case "queue_items_updated":
@@ -259,6 +260,18 @@ function onEvent(m) {
 /* ---------- Lautsprecher ---------- */
 const pname = p => (p && (p.display_name || p.name)) || "";
 const pstate = p => (p ? (p.playback_state || p.state || "idle") : "idle");
+/* Warteschlangen aller Lautsprecher (player_queues/all + queue_updated) – MA meldet pausierte Boxen oft als "idle" */
+S.qs = {}; S.qsAt = 0;
+function loadQs(after) {
+  if (!S.ready || Date.now() - S.qsAt < 8000) return;
+  S.qsAt = Date.now();
+  cmd("player_queues/all").then(r => { (r || []).forEach(q => { if (q && q.queue_id) S.qs[q.queue_id] = q; }); if (after) after(); }).catch(() => {});
+}
+function lstate(p) {
+  const st = pstate(p); if (st === "playing" || st === "paused") return st;
+  const q = p && S.qs[p.player_id], qs = q && q.state;
+  return (qs === "playing" || qs === "paused") && q.current_item ? qs : st;
+}
 /** im Profil ausgeblendete Lautsprecher (Einstellungen → Persönlich → Lautsprecher) */
 function hiddenPlayers() { return (S.myFav && S.myFav.prefs && S.myFav.prefs.hidePlayers) || []; }
 function usable(p, all) {
@@ -389,16 +402,21 @@ function tvBoxOf(p) {
   return null;
 }
 function sonosTvPoll() {
-  const p = tvBoxOf(S.players[S.pid]);
-  if (!p || document.hidden || !hasTvIn(p) || pstate(p) === "playing") return;
-  const ip = sonosIp(p); if (!ip) return;
-  fetch("party/sonostv?ip=" + encodeURIComponent(ip), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
-    if (!j || j.tv == null) return;
-    const old = S.sonosTv[p.player_id];
-    S.sonosTv[p.player_id] = { tv: !!j.tv, at: Date.now() };
-    if (!j.tv && tvFlagAt(p.player_id)) setTvFlag(p.player_id, false);
-    if (!old || old.tv !== !!j.tv) later(renderAll, 50, "ra");
-  }).catch(() => {});
+  if (document.hidden) return;
+  const sel = tvBoxOf(S.players[S.pid]);
+  Object.values(S.players).forEach(p => {
+    if (!p || !hasTvIn(p) || p.synced_to || pstate(p) === "playing") return;
+    if (p !== sel && sheetKind !== "players" && (S.tvPollN || 0) % 3) return;   // fremde Boxen seltener, außer die Liste ist offen
+    const ip = sonosIp(p); if (!ip) return;
+    fetch("party/sonostv?ip=" + encodeURIComponent(ip), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || j.tv == null) return;
+      const old = S.sonosTv[p.player_id];
+      S.sonosTv[p.player_id] = { tv: !!j.tv, at: Date.now() };
+      if (!j.tv && tvFlagAt(p.player_id)) setTvFlag(p.player_id, false);
+      if (!old || old.tv !== !!j.tv) { later(renderAll, 50, "ra"); if (sheetKind === "players") later(openPlayers, 120, "pl"); }
+    }).catch(() => {});
+  });
+  S.tvPollN = (S.tvPollN || 0) + 1;
 }
 setInterval(sonosTvPoll, 5000);
 S.tv = null; S.tvAt = 0; S.tvBusy = false;
@@ -826,6 +844,7 @@ function thumb(url, cls) {
 document.addEventListener("error", e => { const t = e.target; if (t && t.tagName === "IMG" && t.closest(".th, .prow .pic")) { const pc = t.closest(".pic"); if (pc) pc.classList.remove("art"); t.remove(); } }, true);
 
 function openPlayers() {
+  loadQs(() => { if (sheetKind === "players") openPlayers(); });
   const list = playerList();
   /* Läuft gerade etwas (auf dem gewählten oder einem anderen Lautsprecher)? Dann kann jede Zeile die Musik übernehmen */
   const srcP = [S.players[S.pid]].concat(list).find(p => p && ["playing", "paused"].includes(pstate(p)));
@@ -835,15 +854,15 @@ function openPlayers() {
   if (!S.ready) html += '<div class="empty">Keine Verbindung zu Music Assistant</div>';
   else if (!list.length) html += '<div class="empty">Keine Lautsprecher verfügbar</div>';
   html += list.map(p => {
-    const g = groupInfo(p), st = pstate(p);
-    const sub = [st === "playing" ? "spielt" : st === "paused" ? "pausiert" : "bereit", g.isGroup ? "Gruppe · " + g.n + " Lautsprecher" : ""].filter(Boolean).join(" · ");
+    const g = groupInfo(p), st = lstate(p), tvOn = !p.synced_to && isTvSource(p);
+    const sub = [tvOn ? "TV-Ton" : st === "playing" ? "spielt" : st === "paused" ? "pausiert" : "bereit", g.isGroup ? "Gruppe · " + g.n + " Lautsprecher" : ""].filter(Boolean).join(" · ");
     /* Artwork statt Lautsprecher-Symbol: nur Leader, auf denen gerade etwas läuft */
     /* TV-Ton: Sender- bzw. App-Logo (MA meldet die Box dann oft als "bereit") */
     let art = "", logo = false;
     if (!p.synced_to && isTvSource(p)) { tvFetch(); const t = S.tv; art = (t && (t.logo || t.img)) || ""; logo = !!(t && t.logo); }
     else if ((st === "playing" || st === "paused") && !p.synced_to) {
       if (p.player_id === S.pid) { const n = nowInfo(); art = (n && n.small) || ""; logo = !!(n && n.logo); }
-      else art = maImg(p.current_media && p.current_media.image_url);
+      else { const q = S.qs[p.player_id]; art = (q && q.current_item && imgUrl(q.current_item, 120)) || maImg(p.current_media && p.current_media.image_url); }
     }
     return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic' + (art ? " art" : "") + (logo ? " lg" : "") + '">' + ICON.speaker +
       (art ? '<img loading="lazy" alt="" src="' + esc(art) + '">' : "") + '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +

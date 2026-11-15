@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.163
+- Lautsprecher-Liste: Status und Cover auch aus der Warteschlange (pausierte Boxen meldet MA als bereit); TV-Erkennung für alle Boxen mit TV-Eingang, Status „TV-Ton“.
+
 ## 0.1.162
 - Lautsprecher-Liste: im TV-Modus Sender- bzw. App-Logo statt Symbol.
 
