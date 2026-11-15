@@ -1285,6 +1285,22 @@ def _tvmedia_now():
             "sub": m.get("sub") or "", "pkg": m.get("pkg") or ""}
 
 
+async def party_tvctl(request):
+    """TV-Modus: Play/Pause an der TV-Box (erste Box aus tv_box_entities, z. B. Magenta-Box)."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    boxes = [x.strip() for x in str(OPT.get("tv_box_entities") or "").split(",") if x.strip()]
+    if not boxes:
+        return web.json_response({"ok": False, "error": "keine TV-Box eingestellt"}, status=400)
+    await ha_call(request.app["session"], "media_player", "media_play_pause", {"entity_id": boxes[0]})
+    m = TVMEDIA
+    if m:   # sofort umdrehen, die TV-App bestätigt ein paar Sekunden später
+        cur = _tvmedia_now()
+        if cur:
+            m.update({"pos": cur["pos"] * 1000, "at": time.time(), "state": "paused" if m.get("state") == "playing" else "playing"})
+    return web.json_response({"ok": True})
+
+
 async def party_tvnow(request):
     if not is_host(request):
         return web.json_response({"ok": False}, status=403)
@@ -2263,6 +2279,7 @@ def make_app():
     app.router.add_get("/party/host", host_get)
     app.router.add_get("/party/tvnow", party_tvnow)
     app.router.add_post("/party/tvmedia", party_tvmedia)
+    app.router.add_post("/party/tvctl", party_tvctl)
     app.router.add_get("/party/presence", party_presence)
     app.router.add_get("/party/switches", party_switches)
     app.router.add_post("/party/switch", party_switch)

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.165
+- TV-Modus: Play/Pause steuert die TV-Box (party/tvctl) statt die Musik zu starten; Zustand von der TV-App; Musik-Knöpfe und Modi ausgeblendet.
+
 ## 0.1.164
 - Lautsprecher-Liste: Symbol hinter Cover/Logo ausgeblendet.
 

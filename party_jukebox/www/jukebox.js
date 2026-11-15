@@ -368,6 +368,7 @@ function timeUpdate(v) {
 }
 function isPlaying() {
   if (Date.now() < S.ppHold) return S.ppWant;
+  if (tvPos()) return S.tv.pstate === "playing";   // TV-Modus: Zustand der TV-Box
   return ((S.q && S.q.state) || pstate(S.players[S.pid])) === "playing";
 }
 /* TV-Ton (z. B. Soundbar am Fernseher): Sender, Sendung bzw. App vom Add-on (/party/tvnow) statt alter Warteschlange */
@@ -585,6 +586,7 @@ function tick() {
   /* TV-Modus: Restzeit statt Gesamtlänge; ohne Meldung der TV-App Balken ausblenden */
   setText($("#tDur"), d ? (n.tv ? "-" + fmt(Math.max(0, d - t)) : fmt(d)) : (n ? "Live" : ""));
   { const pg = document.querySelector("#v-now .prog"); if (pg) { pg.classList.toggle("tvm", !!(n && n.tv && n.pos == null)); pg.classList.toggle("tvl", !!(n && n.tv)); } }
+  { const vn = $("#v-now"); if (vn) vn.classList.toggle("tvmode", !!(n && n.tv)); }
   $("#mini").style.setProperty("--f", d ? (t / d).toFixed(4) : 0);
 }
 setInterval(tick, 500);
@@ -655,6 +657,13 @@ function qc(c, args) {
     .then(() => true, e => { toast("Music Assistant: " + errText(e)); return false; });
 }
 function togglePlay() {
+  if (tvPos()) {   // TV-Modus: Film/Sendung an der Box anhalten bzw. weiter (nicht die Musik starten)
+    const t = S.tv, x = tvPos();
+    t.pos = x.t; S.tvAt = Date.now(); t.pstate = t.pstate === "playing" ? "paused" : "playing";
+    renderNow(); renderMini();
+    fetch("party/tvctl", { method: "POST" }).then(r => { if (!r.ok) toast("TV-Box nicht erreichbar"); }).catch(() => toast("TV-Box nicht erreichbar"));
+    return;
+  }
   S.ppWant = !isPlaying(); S.ppHold = Date.now() + 2500; renderNow(); renderMini();
   qc("play_pause").then(ok => { if (!ok) { S.ppHold = 0; renderNow(); renderMini(); } });
 }
