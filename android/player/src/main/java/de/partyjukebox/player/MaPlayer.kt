@@ -243,19 +243,33 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             Library.playEpisode(this, uri)
             return done()
         }
+        /*
+         * Lernkarte: Pause vom Auto direkt nach dem Überspringen
+         * Android Auto schickt beim Songwechsel manchmal ein "Pause" hinterher. MA kann den Handy-Player nicht
+         * pausieren und stoppt ihn dann ganz → Wiedergabe brach ab. In den ersten 4 s nach Weiter/Zurück im Auto ignorieren.
+         */
+        if (!playWhenReady && carMode && System.currentTimeMillis() - skipAt < 4000) {
+            AppLog.add("Pause vom Auto direkt nach dem Überspringen ignoriert")
+            invalidateState(); return done()
+        }
+        if (!playWhenReady) AppLog.i("MaPlayer", "Pause-Befehl von Android" + if (carMode) " (Auto)" else "")
         playing = playWhenReady  // sofort anzeigen, MA bestätigt beim nächsten Abfragen
         queueCmd(if (playWhenReady) "play" else "pause")
         return done()
     }
 
-    override fun handleStop(): ListenableFuture<*> { queueCmd("stop"); return done() }
+    @Volatile private var skipAt = 0L   // letzter Weiter/Zurück-Befehl (für die Pause-Sperre im Auto)
+    /** Neuer Stream vom Handy-Player (auch bei Weiter aus der Jukebox-Seite) → gilt wie Überspringen */
+    fun noteStreamStart() { skipAt = System.currentTimeMillis() }
+
+    override fun handleStop(): ListenableFuture<*> { AppLog.add("Stopp-Befehl von Android" + if (carMode) " (Auto)" else ""); queueCmd("stop"); return done() }
 
     override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
         val q = playerId()
         if (showSuggestion()) { suggestDismissed = true; invalidateState(); return done() }   // Vorschlag wegwischen
         when (seekCommand) {
-            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> queueCmd("next")
-            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> queueCmd("previous")
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> { skipAt = System.currentTimeMillis(); queueCmd("next") }
+            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> { skipAt = System.currentTimeMillis(); queueCmd("previous") }
             Player.COMMAND_SEEK_TO_MEDIA_ITEM -> {
                 // Titel aus der Warteschlange antippen (Uhr, Android Auto)
                 val id = entries.distinctBy { it.id }.getOrNull(mediaItemIndex)?.id

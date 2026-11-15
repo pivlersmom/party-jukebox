@@ -609,6 +609,7 @@ object SendspinPlayer {
                 p.optLong("server_transmitted"), nowUs())
             "stream/start" -> p.optJSONObject("player")?.let {
                 lastStreamStart = System.currentTimeMillis()
+                MaPlayer.instance?.noteStreamStart()
                 // Lernkarte: Stille ab Stream-Start neu zählen. Sonst galt "schon nachgefragt" noch von der Pause davor –
                 // kam nach ▶ dann gar keine Musik (z. B. nach Gemini), merkte die Überwachung das nie → kein Ton.
                 checkedSilence = -1L
@@ -796,6 +797,7 @@ object SendspinPlayer {
             val t = makeTrack()
             track = t
             underrunBase = 0
+            h?.removeCallbacks(focusOff)
             requestFocus()
             applyVolume()
             val g = ++gen
@@ -887,8 +889,16 @@ object SendspinPlayer {
             dec = null; curCodec = ""; curHeader = ""
             val t = track; track = null
             try { t?.pause(); t?.flush(); t?.release() } catch (e: Exception) { }
-            abandonFocus()
+            /*
+             * Lernkarte: Fokus beim Überspringen behalten
+             * Beim Weiterschalten beendet MA den Stream und startet sofort einen neuen. Gaben wir dabei den
+             * Audio-Fokus ab, hielt Android Auto die App für "fertig" und schickte Pause – MA stoppte dann ganz
+             * (Wiedergabe brach ab, wenn man direkt nach Songstart übersprang). Jetzt: erst nach 8 s ohne neuen Stream abgeben.
+             */
+            h?.removeCallbacks(focusOff); h?.postDelayed(focusOff, 8000)
         }
+
+        private val focusOff = Runnable { if (!streaming()) abandonFocus() }
 
         fun applyVolume() {
             // 0–100 ist "gefühlte" Lautstärke → quadratisch auf die Verstärkung; duck = leiser bei Navi-Ansage
