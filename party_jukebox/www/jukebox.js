@@ -838,12 +838,14 @@ function openPlayers() {
     const g = groupInfo(p), st = pstate(p);
     const sub = [st === "playing" ? "spielt" : st === "paused" ? "pausiert" : "bereit", g.isGroup ? "Gruppe · " + g.n + " Lautsprecher" : ""].filter(Boolean).join(" · ");
     /* Artwork statt Lautsprecher-Symbol: nur Leader, auf denen gerade etwas läuft */
-    let art = "";
-    if ((st === "playing" || st === "paused") && !p.synced_to) {
-      if (p.player_id === S.pid) { const n = nowInfo(); art = (n && n.small) || ""; }
+    /* TV-Ton: Sender- bzw. App-Logo (MA meldet die Box dann oft als "bereit") */
+    let art = "", logo = false;
+    if (!p.synced_to && isTvSource(p)) { tvFetch(); const t = S.tv; art = (t && (t.logo || t.img)) || ""; logo = !!(t && t.logo); }
+    else if ((st === "playing" || st === "paused") && !p.synced_to) {
+      if (p.player_id === S.pid) { const n = nowInfo(); art = (n && n.small) || ""; logo = !!(n && n.logo); }
       else art = maImg(p.current_media && p.current_media.image_url);
     }
-    return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic' + (art ? " art" : "") + '">' + ICON.speaker +
+    return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic' + (art ? " art" : "") + (logo ? " lg" : "") + '">' + ICON.speaker +
       (art ? '<img loading="lazy" alt="" src="' + esc(art) + '">' : "") + '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +
       (src && p.player_id !== src ? '<span class="xfer" data-id="' + esc(p.player_id) + '" title="Musik hierher übergeben">⇄</span>' : "") +
       (hasTvIn(p) ? (on => '<span class="ptv' + (on ? " on" : "") + '" data-id="' + esc(p.player_id) + '" title="Musik/TV umschalten"><i><svg viewBox="0 0 24 24">' +

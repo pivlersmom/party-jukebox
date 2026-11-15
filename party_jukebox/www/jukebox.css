@@ -674,3 +674,4 @@ header > .setbtn{justify-self:end}
 .prow .pic.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .prow .pic.art{background:var(--card2)}
 .prow.on .pic.art{box-shadow:0 0 0 2px var(--a2)}
+.prow .pic.art.lg img{object-fit:contain;padding:6px}

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.162
+- Lautsprecher-Liste: im TV-Modus Sender- bzw. App-Logo statt Symbol.
+
 ## 0.1.161
 - Lautsprecher-Liste: Cover statt Lautsprecher-Symbol bei Leadern, auf denen etwas läuft.
 
