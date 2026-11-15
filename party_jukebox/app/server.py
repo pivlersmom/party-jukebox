@@ -1246,6 +1246,45 @@ async def party_presence(request):
     return web.json_response({"persons": out}, headers={"Cache-Control": "no-store"})
 
 
+# Lernkarte: Die TV-App auf der Box meldet, was dort läuft (Titel, Position, Gesamtlänge) –
+# aus Androids Mediensitzungen. So kennt die Jukebox im TV-Modus Laufzeit und Restzeit.
+TVMEDIA = {}   # letzte Meldung + Empfangszeit
+
+
+def _lan(request):
+    ip = (request.remote or "").strip()
+    return bool(re.match(r"(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)", ip))
+
+
+async def party_tvmedia(request):
+    if not (_lan(request) or is_host(request)):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        j = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    TVMEDIA.clear()
+    if isinstance(j, dict) and j.get("pkg"):
+        TVMEDIA.update({k: j.get(k) for k in ("pkg", "state", "pos", "dur", "speed", "title", "sub")})
+        TVMEDIA["at"] = time.time()
+    return web.json_response({"ok": True})
+
+
+def _tvmedia_now():
+    """Letzte Meldung der TV-App, Position auf jetzt hochgerechnet (nur wenn frisch)."""
+    m = TVMEDIA
+    if not m or time.time() - m.get("at", 0) > 45:
+        return None
+    pos = float(m.get("pos") or 0) / 1000
+    if m.get("state") == "playing":
+        pos += (time.time() - m["at"]) * float(m.get("speed") or 1)
+    dur = float(m.get("dur") or 0) / 1000
+    if dur > 0:
+        pos = min(pos, dur)
+    return {"pos": round(pos, 1), "dur": round(dur, 1), "state": m.get("state"), "title": m.get("title") or "",
+            "sub": m.get("sub") or "", "pkg": m.get("pkg") or ""}
+
+
 async def party_tvnow(request):
     if not is_host(request):
         return web.json_response({"ok": False}, status=403)
@@ -1274,6 +1313,14 @@ async def party_tvnow(request):
             if app:
                 out = {"title": a.get("media_title") or app, "sub": app if a.get("media_title") else (a.get("friendly_name") or ""), "app": app}
                 break
+    tm = _tvmedia_now()
+    if tm and tm["state"] in ("playing", "paused"):
+        if not out:
+            app = _appname(tm["pkg"])
+            out = {"title": tm["title"] or app, "sub": tm["sub"] if tm["title"] else "", "app": app}
+        elif tm["title"] and out.get("title") == out.get("app"):
+            out.update({"title": tm["title"], "sub": tm["sub"]})
+        out.update({"pos": tm["pos"], "dur": tm["dur"], "pstate": tm["state"]})
     if out.get("channel"):
         out["logo"] = await _tv_logo(session, out["channel"])
     if out and not out.get("logo") and not out.get("img"):
@@ -2215,6 +2262,7 @@ def make_app():
     app.router.add_post("/party/settings", party_settings_post)
     app.router.add_get("/party/host", host_get)
     app.router.add_get("/party/tvnow", party_tvnow)
+    app.router.add_post("/party/tvmedia", party_tvmedia)
     app.router.add_get("/party/presence", party_presence)
     app.router.add_get("/party/switches", party_switches)
     app.router.add_post("/party/switch", party_switch)

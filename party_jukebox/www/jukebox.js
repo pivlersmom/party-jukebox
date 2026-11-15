@@ -334,10 +334,18 @@ function setQueue(q) {
 }
 function curDur() { const n = nowInfo(); return n ? n.dur : 0; }
 function elapsed() {
+  { const tv = tvPos(); if (tv) return tv.t; }
   const q = S.q; if (!q) return 0;
   let t = S.tBase;
   if (q.state === "playing" && S.ready) t += (performance.now() - S.tAt) / 1000 * (q.playback_speed || 1);
   const d = curDur(); return d ? clamp(t, 0, d) : Math.max(0, t);
+}
+/* TV-Modus: Position/Länge meldet die TV-App auf der Box (party/tvnow → pos, dur) */
+function tvPos() {
+  const t = S.tv; if (!t || t.pos == null || !isTvSource(S.players[S.pid])) return null;
+  let x = t.pos + (t.pstate === "playing" ? (Date.now() - S.tvAt) / 1000 : 0);
+  if (t.dur) x = Math.min(x, t.dur);
+  return { t: Math.max(0, x), d: t.dur || 0 };
 }
 /* queue_time_updated ist nicht immer plausibel → nur kleine Abweichungen übernehmen, sonst frisch holen */
 function timeUpdate(v) {
@@ -410,7 +418,7 @@ function nowInfo() {
     tvFetch();
     const t = S.tv;
     if (t) return { title: t.title || t.app || "TV", artist: [t.sub && t.sub !== t.title ? t.sub : "", t.app && t.app !== t.title && t.app !== t.sub ? t.app : "", "TV-Ton"].filter(Boolean).join(" · "),
-      img: t.logo || t.img || "", small: t.logo || t.img || "", dur: 0, key: "tv|" + t.title, tv: true, logo: !!t.logo, dark: !!t.dark };
+      img: t.logo || t.img || "", small: t.logo || t.img || "", dur: t.dur || 0, pos: t.pos, key: "tv|" + t.title, tv: true, logo: !!t.logo, dark: !!t.dark };
     return { title: "TV-Ton", artist: pname(p), img: "", small: "", dur: 0, key: "tv", tv: true };
   }
   if (ci) {
@@ -565,8 +573,9 @@ function tick() {
   if (document.hidden) return;
   const n = nowInfo(), d = n ? n.dur : 0, t = elapsed();
   if (!seekSl.active) { setText($("#tCur"), n ? fmt(t) : "0:00"); seekSl.set(d ? t / d : 0); }
-  setText($("#tDur"), d ? fmt(d) : (n ? "Live" : ""));
-  { const pg = document.querySelector("#v-now .prog"); if (pg) pg.classList.toggle("tvm", !!(n && n.tv)); }
+  /* TV-Modus: Restzeit statt Gesamtlänge; ohne Meldung der TV-App Balken ausblenden */
+  setText($("#tDur"), d ? (n.tv ? "-" + fmt(Math.max(0, d - t)) : fmt(d)) : (n ? "Live" : ""));
+  { const pg = document.querySelector("#v-now .prog"); if (pg) { pg.classList.toggle("tvm", !!(n && n.tv && n.pos == null)); pg.classList.toggle("tvl", !!(n && n.tv)); } }
   $("#mini").style.setProperty("--f", d ? (t / d).toFixed(4) : 0);
 }
 setInterval(tick, 500);
@@ -592,8 +601,9 @@ function slider(el, o) {
   return api;
 }
 const seekSl = slider($("#seek"), {
-  input: f => { const d = curDur(); if (d) setText($("#tCur"), fmt(f * d)); },
+  input: f => { if (tvPos()) return; const d = curDur(); if (d) setText($("#tCur"), fmt(f * d)); },
   commit: f => {
+    if (tvPos()) { tick(); return; }   // TV-Ton: Spulen geht nur an der Box
     const d = curDur(); if (!d || !S.qid) return;
     const pos = Math.round(f * d);
     S.tBase = pos; S.tAt = performance.now(); S.seekHold = Date.now() + 2000;

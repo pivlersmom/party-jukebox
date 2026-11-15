@@ -674,3 +674,4 @@ header > .setbtn{justify-self:end}
 .vm{grid-template-columns:minmax(70px,30%) 1fr 30px 28px}
 .vmt{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;border:0;background:var(--card2);color:var(--dim)}
 #v-now .prog.tvm{visibility:hidden}
+#v-now .prog.tvl .sl{pointer-events:none}
