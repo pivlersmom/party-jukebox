@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.161
+- Lautsprecher-Liste: Cover statt Lautsprecher-Symbol bei Leadern, auf denen etwas läuft.
+
 ## 0.1.160
 - Musik/TV-Umschalter jetzt in der Lautsprecher-Liste vor dem Haken (nur Boxen mit TV-Eingang).
 - TV-Modus: Laufzeit und Restzeit aus der TV-App (party/tvmedia), Balken nur ohne Meldung ausgeblendet, Spulen gesperrt.

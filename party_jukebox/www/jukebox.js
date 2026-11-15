@@ -823,7 +823,7 @@ function thumb(url, cls) {
   return '<span class="th' + (cls ? " " + cls : "") + '">' + ICON.note + (url ? '<img loading="lazy" alt="" src="' + esc(url) + '">' : "") + "</span>";
 }
 /* kaputte Bilder ausblenden (Platzhalter bleibt) */
-document.addEventListener("error", e => { const t = e.target; if (t && t.tagName === "IMG" && t.closest(".th")) t.remove(); }, true);
+document.addEventListener("error", e => { const t = e.target; if (t && t.tagName === "IMG" && t.closest(".th, .prow .pic")) { const pc = t.closest(".pic"); if (pc) pc.classList.remove("art"); t.remove(); } }, true);
 
 function openPlayers() {
   const list = playerList();
@@ -837,8 +837,14 @@ function openPlayers() {
   html += list.map(p => {
     const g = groupInfo(p), st = pstate(p);
     const sub = [st === "playing" ? "spielt" : st === "paused" ? "pausiert" : "bereit", g.isGroup ? "Gruppe · " + g.n + " Lautsprecher" : ""].filter(Boolean).join(" · ");
-    return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic">' + ICON.speaker +
-      '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +
+    /* Artwork statt Lautsprecher-Symbol: nur Leader, auf denen gerade etwas läuft */
+    let art = "";
+    if ((st === "playing" || st === "paused") && !p.synced_to) {
+      if (p.player_id === S.pid) { const n = nowInfo(); art = (n && n.small) || ""; }
+      else art = maImg(p.current_media && p.current_media.image_url);
+    }
+    return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic' + (art ? " art" : "") + '">' + ICON.speaker +
+      (art ? '<img loading="lazy" alt="" src="' + esc(art) + '">' : "") + '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +
       (src && p.player_id !== src ? '<span class="xfer" data-id="' + esc(p.player_id) + '" title="Musik hierher übergeben">⇄</span>' : "") +
       (hasTvIn(p) ? (on => '<span class="ptv' + (on ? " on" : "") + '" data-id="' + esc(p.player_id) + '" title="Musik/TV umschalten"><i><svg viewBox="0 0 24 24">' +
         (on ? ICON_TV : ICON_NOTE) + '</svg></i><small>' + (on ? "TV" : "Music") + '</small></span>')(isTvSource(p)) : "") +

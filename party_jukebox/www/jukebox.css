@@ -669,3 +669,8 @@ header > .setbtn{justify-self:end}
 .prow .ptv:active i{transform:scale(.9)}
 #v-now .prog.tvm{visibility:hidden}
 #v-now .prog.tvl .sl{pointer-events:none}
+/* Lautsprecher-Liste: Cover statt Symbol, wenn dort etwas läuft */
+.prow .pic{position:relative;overflow:hidden}
+.prow .pic.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.prow .pic.art{background:var(--card2)}
+.prow.on .pic.art{box-shadow:0 0 0 2px var(--a2)}
