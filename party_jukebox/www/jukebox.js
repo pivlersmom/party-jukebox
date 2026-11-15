@@ -585,9 +585,9 @@ function tick() {
   const n = nowInfo(), d = n ? n.dur : 0, t = elapsed();
   if (!seekSl.active) { setText($("#tCur"), n ? fmt(t) : "0:00"); seekSl.set(d ? t / d : 0); }
   /* TV-Modus: Restzeit statt Gesamtlänge; ohne Meldung der TV-App Balken ausblenden */
-  setText($("#tDur"), d ? (n.tv ? "-" + fmt(Math.max(0, d - t)) : fmt(d)) : (n ? "Live" : ""));
-  { const pg = document.querySelector("#v-now .prog"); if (pg) { pg.classList.toggle("tvm", !!(n && n.tv && n.pos == null)); pg.classList.toggle("tvl", !!(n && n.tv)); } }
-  { const vn = $("#v-now"); if (vn) vn.classList.toggle("tvmode", !!(n && n.tv)); }
+  setText($("#tDur"), d ? (n.tv ? "-" + fmt(Math.max(0, d - t)) : fmt(d)) : (n && !n.tv ? "Live" : ""));
+  { const pg = document.querySelector("#v-now .prog"); if (pg) { pg.classList.toggle("tvm", !!(n && n.tv && n.pos == null)); pg.classList.toggle("tvl", !!(n && n.tv)); pg.classList.toggle("nodur", !!(n && n.tv && !d)); } }
+  { const vn = $("#v-now"); if (vn) { vn.classList.toggle("tvmode", !!(n && n.tv)); vn.classList.toggle("tvseek", !!(n && n.tv && n.pos != null)); } }
   $("#mini").style.setProperty("--f", d ? (t / d).toFixed(4) : 0);
 }
 setInterval(tick, 500);
@@ -674,8 +674,17 @@ function togglePlay() {
   qc("play_pause").then(ok => { if (!ok) { S.ppHold = 0; renderNow(); renderMini(); } });
 }
 $("#bPp").onclick = togglePlay;
-$("#bNext").onclick = () => { skipFx(); qc("next").then(ok => { if (!ok) skipFx(false); }); };
-$("#bPrev").onclick = () => { skipFx(); qc("previous").then(ok => { if (!ok) skipFx(false); }); };
+/* TV-Modus: Zurück/Weiter = 10 s zurück / 30 s vor (geht auch, wenn die App keine Länge meldet, z. B. Prime Video) */
+function tvJump(sec) {
+  const tv = tvPos(); if (!tv) return false;
+  let pos = Math.max(0, tv.t + sec); if (tv.d) pos = Math.min(pos, tv.d - 1);
+  S.tv.pos = pos; S.tvAt = Date.now(); tick();
+  fetch("party/tvctl", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: "seek", pos }) })
+    .then(r => { if (!r.ok) toast("TV-Box nicht erreichbar"); }).catch(() => toast("TV-Box nicht erreichbar"));
+  return true;
+}
+$("#bNext").onclick = () => { if (tvJump(30)) return; skipFx(); qc("next").then(ok => { if (!ok) skipFx(false); }); };
+$("#bPrev").onclick = () => { if (tvJump(-10)) return; skipFx(); qc("previous").then(ok => { if (!ok) skipFx(false); }); };
 $("#bSh").onclick = () => {
   const q = S.q; if (!q) return;
   const on = !q.shuffle_enabled; q.shuffle_enabled = on; renderNow();

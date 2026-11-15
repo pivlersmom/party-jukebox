@@ -180,6 +180,17 @@ public class MediaListener extends NotificationListenerService {
                 if (t == null && md.getDescription() != null && md.getDescription().getTitle() != null) t = md.getDescription().getTitle().toString();
                 String a = md.getString(MediaMetadata.METADATA_KEY_ARTIST);
                 if (a == null && md.getDescription() != null && md.getDescription().getSubtitle() != null) a = md.getDescription().getSubtitle().toString();
+                // Alle Metadaten mitschicken (Text kurz, Zahlen) – manche Apps (Prime Video) legen Titel/Länge in andere Felder
+                JSONObject meta = new JSONObject();
+                for (String k : md.keySet()) {
+                    String n = k.replace("android.media.metadata.", "");
+                    try {
+                        CharSequence cs = md.getText(k);
+                        if (cs != null) { String v = cs.toString(); meta.put(n, v.length() > 120 ? v.substring(0, 120) : v); continue; }
+                    } catch (Exception ignored) { }
+                    try { long v = md.getLong(k); if (v != 0) meta.put(n, v); } catch (Exception ignored) { }
+                }
+                j.put("meta", meta);
                 if (t != null) j.put("title", t);
                 if (a != null) j.put("sub", a);
                 // Bild der Sendung: Poster/Cover als Bitmap oder als Adresse

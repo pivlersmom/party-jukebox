@@ -677,3 +677,10 @@ header > .setbtn{justify-self:end}
 .prow .pic.art svg{display:none}
 /* TV-Modus: Musik-Knöpfe (Zufall, Zurück, Weiter, Wiederholen, Modi) haben keine Wirkung → ausblenden */
 #v-now.tvmode .modes,#v-now.tvmode .aqd,#v-now.tvmode #bSh,#v-now.tvmode #bPrev,#v-now.tvmode #bNext,#v-now.tvmode #bRp{visibility:hidden;pointer-events:none}
+/* TV-Modus mit TV-App: Zurück/Weiter werden zu −10 s / +30 s */
+#v-now.tvseek #bPrev,#v-now.tvseek #bNext{visibility:visible;pointer-events:auto}
+#v-now.tvseek #bPrev svg,#v-now.tvseek #bNext svg{display:none}
+#v-now.tvseek #bPrev::before,#v-now.tvseek #bNext::before{font:800 15px/1 inherit;font-family:inherit;letter-spacing:.3px}
+#v-now.tvseek #bPrev::before{content:"−10"}
+#v-now.tvseek #bNext::before{content:"+30"}
+#v-now .prog.nodur .sl{visibility:hidden}

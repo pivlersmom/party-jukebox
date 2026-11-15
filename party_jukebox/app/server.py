@@ -1250,6 +1250,7 @@ async def party_presence(request):
 # aus Androids Mediensitzungen. So kennt die Jukebox im TV-Modus Laufzeit und Restzeit.
 TVMEDIA = {}   # letzte Meldung + Empfangszeit
 TVART = {"key": "", "type": "", "data": b""}   # Bild der laufenden Sendung (Poster/Cover), von der TV-App
+TVMEDIA_LOG = {}
 TVCMD = []                                     # Befehle an die TV-App (Spulen …), abgeholt per Long-Poll
 TVCMD_EV = asyncio.Event()
 
@@ -1268,7 +1269,11 @@ async def party_tvmedia(request):
         return web.json_response({"ok": False}, status=400)
     TVMEDIA.clear()
     if isinstance(j, dict) and j.get("pkg"):
-        TVMEDIA.update({k: j.get(k) for k in ("pkg", "state", "pos", "dur", "speed", "title", "sub")})
+        TVMEDIA.update({k: j.get(k) for k in ("pkg", "state", "pos", "dur", "speed", "title", "sub", "meta")})
+        sig = f'{j.get("pkg")}|{j.get("title")}'
+        if sig != TVMEDIA_LOG.get("sig"):
+            TVMEDIA_LOG["sig"] = sig
+            log.info("TV-App meldet %s: %s", j.get("pkg"), json.dumps(j.get("meta") or {}, ensure_ascii=False)[:600])
         TVMEDIA["at"] = time.time()
     need = bool(TVMEDIA) and TVART.get("key") != (TVMEDIA.get("title") or "")
     return web.json_response({"ok": True, "needArt": need})
