@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.176
+- App-Meldungen für Pause/Stopp von Android (Player 3.9.63).
+
 ## 0.1.175
 - App-Meldungen: Tiefschlaf ist nur noch ein Hinweis, kein Problem.
 - Player 3.9.62: große „Verspätung“ direkt nach Tiefschlaf wird als Neuausrichtung gemeldet, nicht als Hänger.
