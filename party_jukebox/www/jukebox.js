@@ -26,7 +26,22 @@ function setText(el, v) { v = v == null ? "" : String(v); if (el.textContent !==
 const timers = {};
 function later(fn, ms, key) { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); }
 let toastT = null;
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2600); }
+/*
+ * Lernkarte: Hinweis-Leiste (Toast) mit Animation
+ * Die Leiste fliegt von oben federnd herein, die Buchstaben tauchen nacheinander in einer Welle auf
+ * und schwingen aus. Beim Ausblenden fliegen sie in einer Welle nach oben weg.
+ * Wörter bleiben zusammen (kein Umbruch mitten im Wort), Emojis zählen als ein Zeichen.
+ */
+function toast(msg) {
+  const t = $("#toast"), chars = Array.from(String(msg)), step = Math.min(22, 650 / Math.max(1, chars.length));
+  let i = 0;
+  t.innerHTML = String(msg).split(/(\s+)/).map(w => /^\s+$/.test(w) ? w :
+    '<span class="tw">' + Array.from(w).map(c => '<span class="tl" style="--d:' + Math.round(i++ * step) + 'ms">' + esc(c) + "</span>").join("") + "</span>").join("");
+  t.classList.remove("on", "out"); void t.offsetWidth;   // Animation neu starten
+  t.classList.add("on");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => { t.classList.add("out"); toastT = setTimeout(() => t.classList.remove("on", "out"), 700); }, 2600 + chars.length * step);
+}
 
 const ICON = {
   gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',

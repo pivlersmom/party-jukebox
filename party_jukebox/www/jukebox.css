@@ -241,9 +241,20 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;width:28px;hei
 
 /* Meldung */
 #toast{position:fixed;left:16px;right:16px;top:calc(62px + var(--st));z-index:60;max-width:420px;margin:0 auto;padding:11px 14px;border-radius:14px;
-  background:#232a40;border:1px solid var(--line);color:var(--tx);font-size:14px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5);
-  opacity:0;transform:translateY(-10px);transition:opacity .2s,transform .2s;pointer-events:none}
-#toast.on{opacity:1;transform:none}
+  background:#232a40;border:1px solid var(--line);color:var(--tx);font-size:15px;font-weight:800;letter-spacing:.01em;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(-60px) scale(.92);pointer-events:none}
+/* hereinfliegen mit leichtem Überschwingen */
+#toast.on{animation:tIn .55s cubic-bezier(.2,1.5,.4,1) both}
+#toast.out{animation:tOut .45s ease-in .25s both}
+@keyframes tIn{from{opacity:0;transform:translateY(-60px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes tOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-24px) scale(.96)}}
+#toast .tw{display:inline-block;white-space:nowrap}
+#toast .tl{display:inline-block;opacity:0}
+/* Buchstaben: Welle rein (schwingt aus), Welle raus */
+#toast.on .tl{animation:tlIn .7s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(var(--d) + .12s)}
+#toast.out .tl{animation:tlOut .35s ease-in both;animation-delay:calc(var(--d) * .5)}
+@keyframes tlIn{0%{opacity:0;transform:translateY(16px) scale(.6)}55%{opacity:1;transform:translateY(-5px) scale(1.08)}80%{transform:translateY(2px)}100%{opacity:1;transform:none}}
+@keyframes tlOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-14px)}}
 
 /* Gruppieren */
 .gsh{margin-top:18px}

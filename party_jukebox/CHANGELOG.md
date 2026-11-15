@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.153
+- Hinweis-Leiste („Spielt jetzt: …“) animiert: fliegt federnd herein, Buchstaben erscheinen in einer Welle und schwingen aus, Ausblenden als Welle nach oben; fettere Schrift
+
 ## 0.1.152
 - TV-Anzeige: feste Lautsprecher (Sonos, Numark …) haben Vorrang; Handys werden nur gezeigt, wenn kein fester Lautsprecher spielt oder pausiert ist
 
