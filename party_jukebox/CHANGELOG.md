@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.166
+- TV-Modus: Bild der Sendung (von der TV-App), Spulen am Balken.
+- Apps 0.1.12.
+- README/Anleitung aktualisiert.
+
 ## 0.1.165
 - TV-Modus: Play/Pause steuert die TV-Box (party/tvctl) statt die Musik zu starten; Zustand von der TV-App; Musik-Knöpfe und Modi ausgeblendet.
 

@@ -16,8 +16,11 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 
 ### 🎛️ Jukebox (für dich)
 - Suchen nach Titeln, Künstlern, Alben, Playlists, Radio, Podcasts und Hörbüchern. Künstler, Alben, Playlists und Podcasts lassen sich öffnen (großes Cover) und durchklicken. Unter jedem Eintrag steht die Quelle (z. B. Tidal, Spotify, TuneIn).
-- Warteschlange: Titel per Griff ≡ verschieben, entfernen, Titel als Nächstes einreihen
-- Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln.
+- Warteschlange: Titel per Griff ≡ verschieben, entfernen, als Nächstes einreihen oder **hinten anstellen** (hinter die eigenen Wünsche, automatisch ergänzte Titel bleiben dahinter). Oben steht, aus welcher Playlist bzw. welchem Album die Musik gerade kommt. Die Warteschlange ist auch direkt aus dem Player erreichbar.
+- **Sprachsuche**: 🎤 rechts im Suchfeld (auch auf der Party-Seite)
+- Eine Playlist oder ein Album abspielen ersetzt die Warteschlange
+- **Hörfortschritt** bei Podcast-Folgen und Hörbüchern („noch 12 min“, „✓ gehört“, Balken)
+- Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln. In der Lautsprecher-Liste zeigt jede Box, auf der etwas läuft, das Cover (bzw. Sender-/App-Logo beim TV-Ton).
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)
 - **Startseite** wie bei Spotify: Zuletzt gespielt, Favoriten (Kacheln je Art, antippen = Liste mit Suchfeld), Empfehlungen, Meine Playlists, neue Podcast-Folgen. Die Leiste unten hat Start · Suche · Warteschlange.
 - **Player zum Aufklappen**: Mini-Leiste antippen → großes Cover mit Steuerung; ⌄, nach unten wischen oder Zurück klappt ihn zu
@@ -26,8 +29,8 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Ein Podcast zeigt seine Folgen (neueste zuerst, mit Datum und „gehört“)
 - **Mehrere Personen**: oben auf der Startseite die Person wählen – Favoriten, Zuletzt gespielt, Empfehlungen und Playlists gehören dann zu ihr (eigene Musikquellen in Music Assistant)
 - Teilnehmer-Laufband: wer gerade auf der Party ist
-- **Liste leeren & TV-Ton**: schwebender Knopf in der Warteschlange – kommende Titel oder alles entfernen; bei Lautsprechern mit TV-Eingang (z. B. Sonos Beam) auch auf den Fernseher-Ton umschalten und zurück
-- In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik
+- **Liste leeren**: schwebender Knopf in der Warteschlange – kommende Titel oder alles entfernen
+- In der Android-App: Player in der Benachrichtigung und auf dem Sperrbildschirm, Lautstärketasten regeln die Musik, Start-Sound, **Update direkt aus der App**
 
 | Suche | Album geöffnet | Warteschlange |
 |:---:|:---:|:---:|
@@ -41,6 +44,14 @@ Gäste scannen den QR-Code auf dem Fernseher und können:
 
 ### 📺 TV-Anzeige
 Aktueller Song mit Songtext (zeitgenau), Warteschlange, „Als Nächstes“, QR-Code, neue Gäste, Getränke-Ranking und Nachschub-Hinweise.
+
+### 🔈 TV-Ton (Soundbar mit TV-Eingang, z. B. Sonos Beam)
+- In der **Lautsprecher-Liste** hat jede Box mit TV-Eingang einen Umschalter **♪ Music / 📺 TV**
+- Die Jukebox erkennt den TV-Ton auch, wenn die Soundbar von selbst umschaltet (sie fragt die Sonos direkt)
+- Im Player stehen dann Sender bzw. App, Sendung und Bild statt eines Songs; Musik-Knöpfe werden ausgeblendet
+- **Mit der TV-App auf der TV-Box** (Android TV / Google TV): Bild der Sendung, Laufzeit und **Restzeit**, **Play/Pause** und **Spulen** am Balken. Dafür braucht die TV-App einmalig den Zugriff auf Mediensitzungen – per ADB:
+  `adb shell cmd notification allow_listener de.partyjukebox.tv/de.partyjukebox.tv.MediaListener`
+  Für Play/Pause die Box unter `tv_box_entities` eintragen (siehe Optionen).
 
 ### ⚙️ Einstellungen direkt in der Jukebox
 Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info**:
@@ -89,6 +100,10 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `script_wish` / `script_boost` / `script_drink` | Optionale HA-Skripte, z. B. Lichteffekte – fertige Vorlagen im Ordner [`lichteffekte`](lichteffekte/) |
 | `skip_votes` | Song überspringen, wenn die Mehrheit der Gäste 👎 stimmt |
 | `drinks` | Getränkeliste, je Zeile `Name|Emoji|Satz` (z. B. `Bier|🍺|ein Bier`) |
+| `tv_cast_entity` | Optional: Cast-Player der TV-Box – liefert Sender und Sendung für den TV-Ton |
+| `tv_box_entities` | Optional: weitere Player der TV-Box (Android TV, Fire TV …), mit Komma getrennt – App-Name; der erste wird für Play/Pause im TV-Modus genutzt |
+| `tv_logo_index` / `tv_logo_dir` | Optional: Senderlogos unter `/local` (JS-Datei `{"sendername": "datei.png"}` und Ordner der Logos) |
+| `app_update_repo` / `app_update_token` | Optional: eigene App-Builds aus einem GitHub-Repo anbieten (Token nur bei privatem Repo). Leer lassen = Apps aus diesem Add-on |
 
 Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter ⚙ ein.
 
@@ -96,12 +111,12 @@ Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter �
 
 | | iPhone / iPad | Android | Fernseher |
 |---|---|---|---|
-| **Jukebox** | Safari → `…:8099/jukebox.html` → Teilen → *Zum Home-Bildschirm* | Jukebox-APK oder Chrome → *App installieren* | – |
+| **Jukebox** | Safari → `…:8099/jukebox.html` → Teilen → *Zum Home-Bildschirm* | Jukebox-APK (aktualisiert sich selbst) oder Chrome → *App installieren* | – |
 | **Party-Seite** | QR-Code vom TV scannen | QR-Code vom TV scannen | – |
 | **TV-Anzeige** | – | – | Android-TV-Box / Fire TV mit TV-APK, oder Browser auf `…:8099/tv.html` |
 
 **Fernseher im Detail**
-- **Android TV / Google TV / Fire TV** (auch Sony, Philips, TCL …): TV-App (APK) installieren – startet automatisch, bleibt an.
+- **Android TV / Google TV / Fire TV** (auch Sony, Philips, TCL …): TV-App (APK) installieren – startet automatisch, bleibt an, holt sich Updates selbst. Optional meldet sie, was auf der Box läuft (siehe TV-Ton).
 - **Samsung (Tizen):** eigene App im Ordner [`tizen-tv`](tizen-tv/) – Installation über den Entwicklermodus, Anleitung dort. Oder einfach den Browser.
 - **LG (webOS) und alle anderen:** im Browser des Fernsehers `http://<IP>:8099/tv.html` öffnen, **OK / Enter = Vollbild**.
 - Günstige Alternative für jeden Fernseher: ein Streaming-Stick (Fire TV / Google TV) am HDMI-Anschluss mit der TV-App.

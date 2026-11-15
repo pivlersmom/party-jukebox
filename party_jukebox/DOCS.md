@@ -100,3 +100,7 @@ Spielt eine Soundbar (z. B. Sonos Beam) den Ton vom Fernseher, kann die Jukebox 
 - **TV-Ton – Cast-Player:** Cast-Player des TV-Geräts (z. B. einer TV-Box). Liefert Sender und Sendung bzw. App und Titel.
 - **TV-Ton – weitere Player:** z. B. Android-TV- oder Fire-TV-Player, mit Komma getrennt – für den App-Namen.
 - **Senderlogos (optional):** eine JS-Datei unter /local mit `{"sendername": "datei.png"}` und der Ordner der Logos.
+- **Laufzeit, Restzeit, Bild, Play/Pause, Spulen:** TV-App auf der TV-Box installieren und einmalig per ADB freigeben:
+  `adb shell cmd notification allow_listener de.partyjukebox.tv/de.partyjukebox.tv.MediaListener`
+  Play/Pause geht an den ersten Player unter „TV-Ton – weitere Player“.
+- Umschalten Musik ↔ TV: in der Lautsprecher-Liste der Knopf ♪/📺 bei der Box mit TV-Eingang.
