@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.174
+- Fix: TV-Ton wird erkannt, auch wenn MA „spielt“ ohne Titel und mit leerer Warteschlange meldet (Mini-Player war weg).
+
 ## 0.1.173
 - TV-Modus: Banner der App von der Box auch bei Prime Video; hat Vorrang vor Logos aus dem Netz.
 

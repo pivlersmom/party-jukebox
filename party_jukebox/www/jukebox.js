@@ -332,7 +332,7 @@ function setQueue(q) {
   const prev = S.q;
   S.q = q || null;
   // Musik läuft wieder aus der Warteschlange → TV-Modus vorbei (kurze Schonfrist nach dem Umschalten)
-  if (q && q.state === "playing" && S.pid && tvFlagAt(S.pid) && Date.now() - tvFlagAt(S.pid) > 15000) setTvFlag(S.pid, false);
+  if (q && q.state === "playing" && q.current_item && S.pid && tvFlagAt(S.pid) && Date.now() - tvFlagAt(S.pid) > 15000) setTvFlag(S.pid, false);
   if (q && Date.now() > S.seekHold) {
     let t = +q.elapsed_time || 0;
     const skew = Date.now() / 1000 - (+q.elapsed_time_last_updated || 0);
@@ -380,11 +380,15 @@ function isPlaying() {
  */
 function tvFlagAt(pid) { try { return +localStorage.getItem("pj_tv_" + pid) || 0; } catch (e) { return 0; } }
 function setTvFlag(pid, on) { try { if (on) localStorage.setItem("pj_tv_" + pid, String(Date.now())); else localStorage.removeItem("pj_tv_" + pid); } catch (e) {} }
+/* Läuft wirklich Musik? MA meldet bei TV-Eingang manchmal "playing" ohne Titel und mit leerer Warteschlange */
+function musicPlaying(p) {
+  return pstate(p) === "playing" && !!(p.current_media && (p.current_media.title || p.current_media.uri));
+}
 function isTvSource(p) {
   const cm = p && p.current_media;
   if (!p) return false;
   if (p.active_source === "tv" || (cm && (cm.source_id === "tv" || cm.uri === "homeTheater-input"))) return true;
-  if (pstate(p) === "playing") return false;
+  if (musicPlaying(p)) return false;
   const st = S.sonosTv[p.player_id];
   if (st && Date.now() - st.at < 20000) return st.tv;   // die Sonos selbst gefragt (genauer als das Merken)
   const t = tvFlagAt(p.player_id);
@@ -406,7 +410,7 @@ function sonosTvPoll() {
   if (document.hidden) return;
   const sel = tvBoxOf(S.players[S.pid]);
   Object.values(S.players).forEach(p => {
-    if (!p || !hasTvIn(p) || p.synced_to || pstate(p) === "playing") return;
+    if (!p || !hasTvIn(p) || p.synced_to || musicPlaying(p)) return;
     if (p !== sel && sheetKind !== "players" && (S.tvPollN || 0) % 3) return;   // fremde Boxen seltener, außer die Liste ist offen
     const ip = sonosIp(p); if (!ip) return;
     fetch("party/sonostv?ip=" + encodeURIComponent(ip), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
