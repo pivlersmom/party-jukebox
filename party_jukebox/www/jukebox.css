@@ -647,6 +647,11 @@ header > .setbtn{justify-self:end}
 .modes .mside .mw{flex:0 1 52px;min-width:34px}
 .modes .mside .mw .mbtn{width:100%}
 .modes .mmid .mw{max-width:100%}
+.modes .mmid{gap:8px}
+.modes .mw.tvw.off{display:none}
+.modes .mbtn.tvb{width:44px}
+.modes .mbtn.tvb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.modes .mbtn.tvb.on{color:var(--a2);box-shadow:0 0 0 2px var(--a2) inset}
 .modes{align-items:start}
 /* Übergänge: Dauer-Regler im Pop-up */
 .xfd{display:flex;align-items:center;gap:12px;margin:0 6px}

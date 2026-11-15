@@ -318,6 +318,8 @@ async function refreshQueue(force) {
 function setQueue(q) {
   const prev = S.q;
   S.q = q || null;
+  // Musik läuft wieder aus der Warteschlange → TV-Modus vorbei (kurze Schonfrist nach dem Umschalten)
+  if (q && q.state === "playing" && S.pid && tvFlagAt(S.pid) && Date.now() - tvFlagAt(S.pid) > 15000) setTvFlag(S.pid, false);
   if (q && Date.now() > S.seekHold) {
     let t = +q.elapsed_time || 0;
     const skew = Date.now() / 1000 - (+q.elapsed_time_last_updated || 0);
@@ -348,9 +350,20 @@ function isPlaying() {
   return ((S.q && S.q.state) || pstate(S.players[S.pid])) === "playing";
 }
 /* TV-Ton (z. B. Soundbar am Fernseher): Sender, Sendung bzw. App vom Add-on (/party/tvnow) statt alter Warteschlange */
+/*
+ * Lernkarte: TV-Ton merken
+ * Music Assistant meldet den TV-Eingang der Sonos nicht immer (Box spielt TV, MA sagt "idle").
+ * Darum merkt sich die Jukebox selbst, wenn sie auf TV-Ton umgeschaltet hat (pro Box, 12 Stunden).
+ * Startet danach wieder Musik aus der Warteschlange, ist der TV-Modus vorbei.
+ */
+function tvFlagAt(pid) { try { return +localStorage.getItem("pj_tv_" + pid) || 0; } catch (e) { return 0; } }
+function setTvFlag(pid, on) { try { if (on) localStorage.setItem("pj_tv_" + pid, String(Date.now())); else localStorage.removeItem("pj_tv_" + pid); } catch (e) {} }
 function isTvSource(p) {
   const cm = p && p.current_media;
-  return !!p && (p.active_source === "tv" || (cm && (cm.source_id === "tv" || cm.uri === "homeTheater-input")));
+  if (!p) return false;
+  if (p.active_source === "tv" || (cm && (cm.source_id === "tv" || cm.uri === "homeTheater-input"))) return true;
+  const t = tvFlagAt(p.player_id);
+  return !!t && Date.now() - t < 12 * 3600e3 && pstate(p) !== "playing";
 }
 S.tv = null; S.tvAt = 0; S.tvBusy = false;
 function tvFetch() {
@@ -499,6 +512,8 @@ function renderBadge() {
   const q = S.q, b = $("#qBadge");
   const n = q && typeof q.items === "number" ? Math.max(0, q.items - ((q.current_index == null ? -1 : q.current_index) + 1)) : 0;
   b.hidden = !n; setText(b, n > 99 ? "99+" : n);
+  // "Liste leeren"-Knopf (enthält auch TV-Ton) auch bei leerer Warteschlange zeigen, wenn die Box einen TV-Eingang hat
+  { const qc = $("#qClear"); if (qc) qc.hidden = !(S.items && S.items.length) && !(window.PJtv && PJtv.avail()); }
 }
 let miniUrl = null;
 function renderMini() {

@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.155
+- TV-Ton: eigener 📺-Knopf im aufgeklappten Player (bei Boxen mit TV-Eingang); „Liste leeren“ mit TV-Ton auch bei leerer Warteschlange sichtbar
+- Jukebox merkt sich das Umschalten auf TV-Ton selbst (MA meldet den TV-Eingang der Sonos nicht immer) – Mini-Player zeigt dann TV-Ton mit „Zurück zur Musik“
+
 ## 0.1.154
 - Start-Sound spielt auch, wenn das Handy auf lautlos/vibrieren steht (App 3.9.61, Jukebox-App 0.1.10); Grund für einen stillen Start steht in „Meldungen der App“
 
