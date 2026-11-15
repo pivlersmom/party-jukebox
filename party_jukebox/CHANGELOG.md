@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.168
+- TV-App 0.1.14: Banner der laufenden App wirklich lesbar; Bild wird nach Add-on-Neustart erneut geschickt.
+
 ## 0.1.167
 - TV-Modus: liefert eine App kein Bild (z. B. Disney+), zeigt die Jukebox das Banner bzw. Symbol der App von der TV-Box.
 - Apps 0.1.13.
