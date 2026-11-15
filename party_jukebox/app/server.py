@@ -1291,7 +1291,7 @@ def _tvmedia_now():
     if dur > 0:
         pos = min(pos, dur)
     return {"pos": round(pos, 1), "dur": round(dur, 1), "state": m.get("state"), "title": m.get("title") or "",
-            "sub": m.get("sub") or "", "pkg": m.get("pkg") or ""}
+            "sub": m.get("sub") or "", "pkg": m.get("pkg") or "", "meta": m.get("meta") or {}}
 
 
 async def party_tvart_post(request):
@@ -1395,6 +1395,8 @@ async def party_tvnow(request):
         elif tm["title"] and out.get("title") == out.get("app"):
             out.update({"title": tm["title"], "sub": tm["sub"]})
         out.update({"pos": tm["pos"], "dur": tm["dur"], "pstate": tm["state"]})
+        if request.query.get("meta"):
+            out["meta"] = tm["meta"]
         if TVART["data"] and TVART["key"] == (tm["title"] or ""):
             u = "party/tvart?k=" + hashlib.md5(TVART["data"]).hexdigest()[:10]
             if TVART.get("icon"):   # Banner/Symbol der App: nur wenn es kein Logo gibt, als Logo zeigen

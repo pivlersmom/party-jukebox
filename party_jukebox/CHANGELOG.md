@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.171
+- party/tvnow?meta=1 zeigt die Metadaten der TV-App (Fehlersuche).
+
 ## 0.1.170
 - TV-Modus: −10 s / +30 s (auch ohne Länge, z. B. Prime Video); ohne Länge nur die Laufzeit.
 - TV-App meldet alle Metadaten (Protokoll), Apps 0.1.15.
