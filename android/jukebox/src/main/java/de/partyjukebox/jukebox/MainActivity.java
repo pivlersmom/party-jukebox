@@ -106,11 +106,11 @@ public class MainActivity extends Activity {
     /*
      * Lernkarte: Start-Sound
      * Beim Start einmal Bass-Wumms + jubelndes Publikum (Medien-Lautstärke, etwas leiser).
-     * Still bleibt es, wenn schon Musik läuft oder das Handy auf lautlos/vibrieren steht.
+     * Still bleibt es, wenn schon Musik läuft.
      */
     private void playStartSound() {
         android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
-        if (am == null || am.isMusicActive() || am.getRingerMode() != android.media.AudioManager.RINGER_MODE_NORMAL) return;
+        if (am == null || am.isMusicActive()) return;   // lautlos/vibrieren betrifft nur Klingeltöne – Medien-Lautstärke gilt
         try {
             final android.media.MediaPlayer mp = new android.media.MediaPlayer();
             mp.setAudioAttributes(new android.media.AudioAttributes.Builder()

@@ -93,15 +93,16 @@ public class MainActivity extends Activity {
      * Lernkarte: Start-Sound
      * Beim echten App-Start (Splash) einmal der Start-Sound (Bass-Wumms + jubelndes Publikum) –
      * über die Medien-Lautstärke, etwas leiser.
-     * Still bleibt es, wenn: abgeschaltet (Einstellungen), schon Musik läuft, Android Auto verbunden ist
-     * oder das Handy auf lautlos/vibrieren steht.
+     * Still bleibt es, wenn: abgeschaltet (Einstellungen), schon Musik läuft oder Android Auto verbunden ist.
+     * (Lautlos/Vibrieren zählt nicht – das betrifft Klingeltöne, nicht Medien; die Medien-Lautstärke gilt.)
      */
     private void playStartSound(){
-        if (!Endpoint.prefs(this).getBoolean("start_sound", true)) return;
+        if (!Endpoint.prefs(this).getBoolean("start_sound", true)) { AppLog.INSTANCE.add("Start-Sound: abgeschaltet"); return; }
         AudioManager am = getSystemService(AudioManager.class);
-        if (am == null || am.isMusicActive() || am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) return;
+        if (am == null) return;
+        if (am.isMusicActive()) { AppLog.INSTANCE.add("Start-Sound: still, weil schon Musik läuft"); return; }
         MaPlayer p = MaPlayer.instance;
-        if (p != null && p.getCarMode()) return;
+        if (p != null && p.getCarMode()) { AppLog.INSTANCE.add("Start-Sound: still (Android Auto)"); return; }
         try {
             final android.media.MediaPlayer mp = new android.media.MediaPlayer();
             mp.setAudioAttributes(new android.media.AudioAttributes.Builder()
