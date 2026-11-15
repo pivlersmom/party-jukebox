@@ -196,7 +196,11 @@ public class MediaListener extends NotificationListenerService {
         String sig = j.optString("pkg") + "|" + j.optString("state") + "|" + j.optString("title") + "|" + j.optLong("dur");
         long nowMs = SystemClock.elapsedRealtime();
         if (sig.equals(lastSig) && nowMs - lastSent < 20000) return;
-        if (send(base + "/party/tvmedia", j.toString())) { lastSig = sig; lastSent = nowMs; }
+        String r = send(base + "/party/tvmedia", j.toString());
+        if (r != null) {
+            lastSig = sig; lastSent = nowMs;
+            if (r.contains("\"needArt\": true")) lastArtKey = null;   // Add-on hat kein Bild (z. B. nach Neustart) → nochmal schicken
+        }
         // Bild nur bei neuem Titel schicken
         String key = j.optString("title");
         if (best != null && !key.equals(lastArtKey)) {
@@ -284,7 +288,8 @@ public class MediaListener extends NotificationListenerService {
         }
     }
 
-    private static boolean send(String url, String body) {
+    /** Schickt JSON, liefert die Antwort (oder null bei Fehler). */
+    private static String send(String url, String body) {
         HttpURLConnection c = null;
         try {
             c = (HttpURLConnection) new URL(url).openConnection();
@@ -294,9 +299,9 @@ public class MediaListener extends NotificationListenerService {
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/json");
             try (OutputStream o = c.getOutputStream()) { o.write(body.getBytes(StandardCharsets.UTF_8)); }
-            return c.getResponseCode() / 100 == 2;
+            return c.getResponseCode() / 100 == 2 ? readAll(c.getInputStream()) : null;
         } catch (Exception e) {
-            return false;
+            return null;
         } finally {
             if (c != null) c.disconnect();
         }

@@ -1270,7 +1270,8 @@ async def party_tvmedia(request):
     if isinstance(j, dict) and j.get("pkg"):
         TVMEDIA.update({k: j.get(k) for k in ("pkg", "state", "pos", "dur", "speed", "title", "sub")})
         TVMEDIA["at"] = time.time()
-    return web.json_response({"ok": True})
+    need = bool(TVMEDIA) and TVART.get("key") != (TVMEDIA.get("title") or "")
+    return web.json_response({"ok": True, "needArt": need})
 
 
 def _tvmedia_now():
