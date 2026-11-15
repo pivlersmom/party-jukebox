@@ -373,6 +373,7 @@ S.sonosTv = {};
 function sonosIp(p) { const d = p && p.device_info; return d && (d.ip_address || (d.identifiers && d.identifiers.ip_address)) || ""; }
 function hasTvIn(p) { return !!(p && Array.isArray(p.source_list) && p.source_list.some(s => s && !s.passive && (s.id === "tv" || String(s.name).toLowerCase() === "tv"))); }
 /* Box mit TV-Eingang: der gewählte Lautsprecher oder eine Box aus seiner Gruppe */
+const ICON_TV = '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>', ICON_NOTE = '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>';
 function tvBoxOf(p) {
   if (!p) return null;
   const ids = [p.player_id].concat((p.group_members || []).filter(x => x !== p.player_id));
@@ -494,7 +495,7 @@ function renderVol() {
   { const tb = tvBoxOf(p), bt = $("#vTv"), show = !!tb && !(S.memOpen && g.isGroup);
     bt.hidden = !show;
     if (show) { const on = isTvSource(tb); bt.classList.toggle("on", on); bt.dataset.id = tb.player_id;
-      setText(bt.querySelector("span"), on ? "Zur Musik" : (g.isGroup ? "TV · " + pname(tb) : "TV-Ton")); } }
+      if (bt.dataset.m !== String(on)) { bt.dataset.m = String(on); bt.querySelector("svg").innerHTML = on ? ICON_TV : ICON_NOTE; setText(bt.querySelector("small"), on ? "TV" : "Music"); } } }
   box.classList.toggle("off", v == null);
   if (v == null) { setText($("#vVal"), "–"); return; }
   if (!volSl.active && Date.now() > S.vHold) { volSl.set(v / 100); setText($("#vVal"), Math.round(v)); }
@@ -522,7 +523,7 @@ function renderMembers(p, g) {
     memKey = key;
     box.innerHTML = ids.map(id => '<div class="vm" data-id="' + esc(id) + '"><span class="vmn">' + esc(pname(S.players[id]) || id) +
       '</span><div class="sl vms"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div><b class="vmv">–</b>' +
-      (hasTvIn(S.players[id]) ? '<button class="vmt" type="button" aria-label="TV-Ton"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>' : '<i></i>') + '</div>').join("");
+      (hasTvIn(S.players[id]) ? '<button class="vmt" type="button" aria-label="Musik/TV umschalten"><svg viewBox="0 0 24 24">' + ICON_NOTE + '</svg></button>' : '<i></i>') + '</div>').join("");
     box.querySelectorAll(".vm").forEach(row => {
       const id = row.dataset.id, val = row.querySelector(".vmv");
       { const tb = row.querySelector(".vmt"); if (tb) tb.onclick = () => { if (window.PJtv) PJtv.toggle(id); }; }
@@ -536,7 +537,8 @@ function renderMembers(p, g) {
   }
   box.querySelectorAll(".vm").forEach(row => {
     const id = row.dataset.id, m = S.players[id], sl = memSl[id];
-    { const tb = row.querySelector(".vmt"); if (tb) tb.classList.toggle("on", isTvSource(m)); }
+    { const tb = row.querySelector(".vmt"); if (tb) { const on = isTvSource(m); tb.classList.toggle("on", on);
+      if (tb.dataset.m !== String(on)) { tb.dataset.m = String(on); tb.querySelector("svg").innerHTML = on ? ICON_TV : ICON_NOTE; } } }
     const v = m ? m.volume_level : null;
     row.querySelector(".sl").classList.toggle("off", v == null);
     if (v == null) { setText(row.querySelector(".vmv"), "–"); return; }
@@ -564,6 +566,7 @@ function tick() {
   const n = nowInfo(), d = n ? n.dur : 0, t = elapsed();
   if (!seekSl.active) { setText($("#tCur"), n ? fmt(t) : "0:00"); seekSl.set(d ? t / d : 0); }
   setText($("#tDur"), d ? fmt(d) : (n ? "Live" : ""));
+  { const pg = document.querySelector("#v-now .prog"); if (pg) pg.classList.toggle("tvm", !!(n && n.tv)); }
   $("#mini").style.setProperty("--f", d ? (t / d).toFixed(4) : 0);
 }
 setInterval(tick, 500);

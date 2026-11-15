@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.159
+- Musik/TV-Umschalter klein und rund direkt hinter der Gruppe (Note ↔ Fernseher, darunter „Music“/„TV“).
+- Fortschrittsbalken im TV-Modus ausgeblendet.
+
 ## 0.1.158
 - TV-Ton-Knopf sitzt jetzt im Lautstärke-Bereich bei der Box mit TV-Eingang (auch in der aufgeklappten Gruppe); aus Modus-Zeile und „Liste leeren“ entfernt.
 
