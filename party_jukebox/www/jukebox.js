@@ -420,6 +420,7 @@ function sonosTvPoll() {
   S.tvPollN = (S.tvPollN || 0) + 1;
 }
 setInterval(sonosTvPoll, 5000);
+setTimeout(sonosTvPoll, 1500); setTimeout(sonosTvPoll, 3000);   // beim Öffnen gleich nachsehen, nicht erst nach 5 s
 S.tv = null; S.tvAt = 0; S.tvBusy = false;
 function tvFetch() {
   if (S.tvBusy || Date.now() - S.tvAt < 10000) return;

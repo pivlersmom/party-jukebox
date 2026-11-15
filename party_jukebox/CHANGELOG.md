@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.169
+- TV-Ton beim Öffnen der Jukebox schneller erkannt.
+
 ## 0.1.168
 - TV-App 0.1.14: Banner der laufenden App wirklich lesbar; Bild wird nach Add-on-Neustart erneut geschickt.
 
