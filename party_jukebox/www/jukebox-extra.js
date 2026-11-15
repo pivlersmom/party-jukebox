@@ -280,29 +280,28 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     '<span class="mw"><button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button><small>Song-Radio</small></span>' +
     '<span class="mw"><button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button><small>Übergang</small></span></span>' +
     '<span class="mmid"><span class="mw"><button class="aq" id="mAq" hidden></button><small>Qualität</small></span>' +
-    '<span class="mw tvw"><button class="mbtn tvb" id="mTv" aria-label="TV-Ton" hidden><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><small>TV-Ton</small></span></span>' +
+    '</span>' +
     '<span class="mside r"><span class="mw"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button><small>AI DJ</small></span>' +
     '<span class="mw"><button class="mbtn auto" id="mAuto" aria-label="Autoplay"><svg viewBox="0 0 32 16"><path d="M16 8c-3-4-5.5-6-8.5-6a6 6 0 0 0 0 12c3 0 5.5-2 8.5-6s5.5-6 8.5-6a6 6 0 0 1 0 12c-3 0-5.5-2-8.5-6z"/></svg></button><small>Autoplay</small></span></span>';
   meta.after(row);
   const det = document.createElement("div"); det.className = "aqd"; row.after(det);
   const bF = row.querySelector("#mFade"), bQ = row.querySelector("#mAq"), bD = row.querySelector("#mDj"), bA = row.querySelector("#mAuto"), bR = row.querySelector("#mRadio");
-  const bT = row.querySelector("#mTv");
 
   /* TV-Ton: Lautsprecher mit TV-Eingang (z. B. Sonos Beam) auf den Fernseher umschalten – nochmal tippen = zurück zur Musik */
   const tvSrc = p => p && Array.isArray(p.source_list) && p.source_list.find(s => s && !s.passive && (s.id === "tv" || String(s.name).toLowerCase() === "tv"));
   const onTv = p => isTvSource(p);   // inkl. "selbst umgeschaltet" (MA meldet TV nicht immer)
   /* TV-Ton: liegt im Menü des Mülleimers (Warteschlange) – jukebox.js fragt hier nach */
-  window.PJtv = { avail: () => !!tvSrc(S.players[S.pid]), on: () => onTv(S.players[S.pid]) };
-  window.PJtv.toggle = async () => {
-    const p = S.players[S.pid], src = tvSrc(p); if (!src) return;
+  /* TV-Ton pro Box (Knopf sitzt im Lautstärke-Bereich, jukebox.js) – nochmal tippen = zurück zur Musik */
+  window.PJtv = { avail: id => !!tvSrc(S.players[id || S.pid]), on: id => onTv(S.players[id || S.pid]) };
+  window.PJtv.toggle = async id => {
+    id = id || S.pid;
+    const p = S.players[id], src = tvSrc(p); if (!src) return;
     try {
-      if (onTv(p)) { setTvFlag(S.pid, false); await cmd("player_queues/play", { queue_id: qid() }); toast("🎵 Zurück zur Musik"); }
-      else { await cmd("players/cmd/select_source", { player_id: S.pid, source: src.id }); setTvFlag(S.pid, true); toast("📺 Ton vom Fernseher"); }
+      if (onTv(p)) { setTvFlag(id, false); await cmd("player_queues/play", { queue_id: qid() }); toast("🎵 Zurück zur Musik"); }
+      else { await cmd("players/cmd/select_source", { player_id: id, source: src.id }); setTvFlag(id, true); toast("📺 Ton vom Fernseher"); }
     } catch (e) { toast("TV-Ton: " + ((e && e.message) || e)); }
-    paint();
+    if (JB.renderVol) JB.renderVol();
   };
-
-  bT.onclick = () => window.PJtv.toggle();
 
   /* Song-Radio: ab dem laufenden Titel endlos ähnliche Musik (ersetzt die kommenden Titel, 2× tippen) */
   const radioKey = id => "pj_radio_" + id;
@@ -475,11 +474,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     det.textContent = a && aqOpen ? a.long : ""; det.classList.toggle("on", !!(a && aqOpen));
     const id = qid(), dj = id && djStatus[id];
     bD.hidden = !djAvail; bD.classList.toggle("on", !!dj); bD.title = dj ? "AI DJ · " + hostName(dj) : "AI DJ";
-    const pl = S.players[S.pid], tvA = window.PJtv && PJtv.avail(), tvO = tvA && PJtv.on();
-    bT.hidden = !tvA; bT.classList.toggle("on", !!tvO);
-    bT.parentNode.classList.toggle("off", !tvA);
-    { const sm = bT.parentNode.querySelector("small"); if (sm) sm.textContent = tvO ? "Zur Musik" : "TV-Ton"; }
-    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden && bT.hidden);
+    row.classList.toggle("empty", bF.hidden && bQ.hidden && bD.hidden && bA.hidden && bR.hidden);
   }
   let lastQ = "", n = 0;
   setInterval(() => {

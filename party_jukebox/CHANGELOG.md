@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.158
+- TV-Ton-Knopf sitzt jetzt im Lautstärke-Bereich bei der Box mit TV-Eingang (auch in der aufgeklappten Gruppe); aus Modus-Zeile und „Liste leeren“ entfernt.
+
 ## 0.1.157
 - Fix: TV-Ton-Knopf im Player wieder sichtbar, „Liste leeren“ funktioniert wieder.
 

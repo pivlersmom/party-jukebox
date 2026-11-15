@@ -372,8 +372,15 @@ function isTvSource(p) {
 S.sonosTv = {};
 function sonosIp(p) { const d = p && p.device_info; return d && (d.ip_address || (d.identifiers && d.identifiers.ip_address)) || ""; }
 function hasTvIn(p) { return !!(p && Array.isArray(p.source_list) && p.source_list.some(s => s && !s.passive && (s.id === "tv" || String(s.name).toLowerCase() === "tv"))); }
+/* Box mit TV-Eingang: der gewählte Lautsprecher oder eine Box aus seiner Gruppe */
+function tvBoxOf(p) {
+  if (!p) return null;
+  const ids = [p.player_id].concat((p.group_members || []).filter(x => x !== p.player_id));
+  for (const id of ids) if (hasTvIn(S.players[id])) return S.players[id];
+  return null;
+}
 function sonosTvPoll() {
-  const p = S.players[S.pid];
+  const p = tvBoxOf(S.players[S.pid]);
   if (!p || document.hidden || !hasTvIn(p) || pstate(p) === "playing") return;
   const ip = sonosIp(p); if (!ip) return;
   fetch("party/sonostv?ip=" + encodeURIComponent(ip), { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => {
@@ -484,6 +491,10 @@ function renderVol() {
   vg.classList.toggle("open", !!S.memOpen);
   $("#vGrp").classList.toggle("tap", g.isGroup && v != null);
   renderMembers(p, g);
+  { const tb = tvBoxOf(p), bt = $("#vTv"), show = !!tb && !(S.memOpen && g.isGroup);
+    bt.hidden = !show;
+    if (show) { const on = isTvSource(tb); bt.classList.toggle("on", on); bt.dataset.id = tb.player_id;
+      setText(bt.querySelector("span"), on ? "Zur Musik" : (g.isGroup ? "TV · " + pname(tb) : "TV-Ton")); } }
   box.classList.toggle("off", v == null);
   if (v == null) { setText($("#vVal"), "–"); return; }
   if (!volSl.active && Date.now() > S.vHold) { volSl.set(v / 100); setText($("#vVal"), Math.round(v)); }
@@ -491,6 +502,7 @@ function renderVol() {
 /* Gruppe aufklappen: jede Box einzeln regeln */
 const memSl = {}, memPend = {}, memHold = {};
 let memKey = "";
+$("#vTv").onclick = e => { e.stopPropagation(); if (window.PJtv) PJtv.toggle(e.currentTarget.dataset.id); };
 $("#vGrp").onclick = () => {
   const p = S.players[S.pid]; if (!p || !groupInfo(p).isGroup) return;
   S.memOpen = !S.memOpen; memKey = ""; renderVol();
@@ -509,9 +521,11 @@ function renderMembers(p, g) {
   if (key !== memKey) {
     memKey = key;
     box.innerHTML = ids.map(id => '<div class="vm" data-id="' + esc(id) + '"><span class="vmn">' + esc(pname(S.players[id]) || id) +
-      '</span><div class="sl vms"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div><b class="vmv">–</b></div>').join("");
+      '</span><div class="sl vms"><div class="tr"><div class="fill"></div></div><div class="knob"></div></div><b class="vmv">–</b>' +
+      (hasTvIn(S.players[id]) ? '<button class="vmt" type="button" aria-label="TV-Ton"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>' : '<i></i>') + '</div>').join("");
     box.querySelectorAll(".vm").forEach(row => {
       const id = row.dataset.id, val = row.querySelector(".vmv");
+      { const tb = row.querySelector(".vmt"); if (tb) tb.onclick = () => { if (window.PJtv) PJtv.toggle(id); }; }
       memSl[id] = slider(row.querySelector(".sl"), {
         input: f => { setText(val, Math.round(f * 100)); memPend[id] = f * 100; memHold[id] = Date.now() + 2500;
           later(() => memSend(id), 200, "mv" + id); },
@@ -522,6 +536,7 @@ function renderMembers(p, g) {
   }
   box.querySelectorAll(".vm").forEach(row => {
     const id = row.dataset.id, m = S.players[id], sl = memSl[id];
+    { const tb = row.querySelector(".vmt"); if (tb) tb.classList.toggle("on", isTvSource(m)); }
     const v = m ? m.volume_level : null;
     row.querySelector(".sl").classList.toggle("off", v == null);
     if (v == null) { setText(row.querySelector(".vmv"), "–"); return; }
@@ -533,7 +548,6 @@ function renderBadge() {
   const n = q && typeof q.items === "number" ? Math.max(0, q.items - ((q.current_index == null ? -1 : q.current_index) + 1)) : 0;
   b.hidden = !n; setText(b, n > 99 ? "99+" : n);
   // "Liste leeren"-Knopf (enthält auch TV-Ton) auch bei leerer Warteschlange zeigen, wenn die Box einen TV-Eingang hat
-  { const qc = $("#qClear"); if (qc) qc.hidden = !(S.items && S.items.length) && !(window.PJtv && PJtv.avail()); }
 }
 let miniUrl = null;
 function renderMini() {
@@ -2248,19 +2262,14 @@ function renderItems() {
       '<span class="ib grip' + (i >= minDragIdx() ? "" : " off") + '" aria-label="Ziehen zum Verschieben">' + ICON.grip + "</span></div>";
   }).join("");
   box.innerHTML = html;
-  $("#qClear").hidden = !S.items.length && !(window.PJtv && PJtv.avail());
+  $("#qClear").hidden = !S.items.length;
 }
 /* Liste leeren: nur kommende Titel (laufender spielt weiter) oder alles (Musik stoppt) */
 $("#qClear").onclick = () => {
-  let tv = false, tvOn = false;
-  try { tv = !!(window.PJtv && PJtv.avail()); tvOn = tv && PJtv.on(); } catch (e) { tv = false; }
-  openSheet("qclear", (tv ? '<div class="shh">Fernseher</div><button class="row lrow tvo"><span class="rm"><span class="r1">' +
-      (tvOn ? "🎵 Zurück zur Musik" : "📺 TV-Ton") + '</span><span class="r2">' + (tvOn ? "Warteschlange spielt weiter" : "Box spielt den Ton vom Fernseher") + "</span></span></button>" : "") +
-    (S.items.length ? '<div class="shh">Liste leeren</div>' +
+  openSheet("qclear", '<div class="shh">Liste leeren</div>' +
     '<button class="row lrow act" data-o="next"><span class="rm"><span class="r1">Kommende Titel entfernen</span><span class="r2">Der laufende Titel spielt weiter</span></span></button>' +
-    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>' : ""),
-    c => { c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); clearQueue(b.dataset.o === "all"); }; });
-      const t = c.querySelector(".tvo"); if (t) t.onclick = () => { closeSheet(); PJtv.toggle(); }; });
+    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>',
+    c => c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); clearQueue(b.dataset.o === "all"); }; }));
 };
 async function clearQueue(all) {
   if (all) { if (await qc("clear")) { S.items = []; renderItems(); toast("Warteschlange geleert"); } return; }
@@ -2391,7 +2400,7 @@ function setConn(c, wait) {
 /* ---------- Start ---------- */
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
 window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet,
-  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt, isTvSource, setTvFlag };
+  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt, isTvSource, setTvFlag, renderVol };
 renderAll();
 try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();
