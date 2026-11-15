@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.173
+- TV-Modus: Banner der App von der Box auch bei Prime Video; hat Vorrang vor Logos aus dem Netz.
+
 ## 0.1.172
 - TV-Modus: meldet eine App nur ihren eigenen Namen als Titel (Prime Video), wird er nicht als Sendung gezeigt.
 

@@ -1391,6 +1391,7 @@ async def party_tvnow(request):
     if tm and tm["state"] in ("playing", "paused"):
         # Manche Apps melden statt der Sendung nur ihren Namen (Prime Video: "PrimeVideo") → kein echter Titel
         norm = lambda x: re.sub(r"[^a-z0-9]", "", (x or "").lower())
+        raw = tm["title"] or ""   # Schlüssel des Bildes von der TV-App
         if norm(tm["title"]) and norm(tm["title"]) in (norm(_appname(tm["pkg"])), norm(out.get("app"))):
             tm["title"], tm["sub"] = "", ""
         if not out:
@@ -1401,10 +1402,10 @@ async def party_tvnow(request):
         out.update({"pos": tm["pos"], "dur": tm["dur"], "pstate": tm["state"]})
         if request.query.get("meta"):
             out["meta"] = tm["meta"]
-        if TVART["data"] and TVART["key"] == (tm["title"] or ""):
+        if TVART["data"] and TVART["key"] == raw:
             u = "party/tvart?k=" + hashlib.md5(TVART["data"]).hexdigest()[:10]
-            if TVART.get("icon"):   # Banner/Symbol der App: nur wenn es kein Logo gibt, als Logo zeigen
-                if not out.get("logo") and not out.get("img"):
+            if TVART.get("icon"):   # Banner/Symbol der App von der Box: zuverlässiger als das Logo aus dem Netz
+                if not out.get("img") and not out.get("channel"):
                     out["logo"], out["dark"] = u, True
                     out["applogo"] = True
             else:
