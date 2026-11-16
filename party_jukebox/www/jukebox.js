@@ -803,6 +803,7 @@ const LOG_RULES = [
   [/Sprung: zu (spät|früh) (\d+)/, m => ["w", "Ton war " + (m[1] === "spät" ? "zu spät" : "zu früh") + " (" + secDE(m[2]) + " s) – zurechtgerückt"]],
   [/Nachlauf \+(\d+)/, m => ["i", "Kurzen Hänger ohne Lücke ausgeglichen (+" + secDE(m[1]) + " s)"]],
   [/Uhr neu abgeglichen/, () => ["i", "Handy war im Tiefschlaf – Takt neu abgeglichen"]],
+  [/Andere App hat den Ton übernommen \((.*)\)/, m => ["w", "Andere App hat den Ton übernommen (" + m[1] + ") – Musik pausiert"]],
   [/Pause vom Auto direkt nach dem Überspringen ignoriert/, () => ["i", "Pause vom Auto nach dem Überspringen ignoriert – spielt weiter"]],
   [/Stopp-Befehl von Android/, () => ["w", "Android hat „Stopp“ geschickt"]],
   [/Pause-Befehl von Android/, () => ["i", "Android hat „Pause“ geschickt"]],

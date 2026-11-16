@@ -797,6 +797,7 @@ object SendspinPlayer {
             val t = makeTrack()
             track = t
             underrunBase = 0
+            lostToOther = false
             h?.removeCallbacks(focusOff)
             requestFocus()
             applyVolume()
@@ -922,7 +923,30 @@ object SendspinPlayer {
          * wäre die Musik für immer stumm, obwohl MA weiterspielt. Darum: nach 15 s selbst nochmal anfragen –
          * aber nicht während eines Telefonats.
          */
+        /** Fokus endgültig an eine andere App verloren → erst wieder beim nächsten Abspielen anfragen */
+        @Volatile private var lostToOther = false
+
+        /** Was spielt gerade sonst noch? (Android verrät nur die Art, nicht die App) */
+        private fun othersPlaying(): String {
+            if (Build.VERSION.SDK_INT < 26) return "?"
+            return try {
+                val am = app.getSystemService(AudioManager::class.java) ?: return "?"
+                val u = am.activePlaybackConfigurations.map {
+                    when (it.audioAttributes.usage) {
+                        android.media.AudioAttributes.USAGE_MEDIA -> "Medien"
+                        android.media.AudioAttributes.USAGE_GAME -> "Spiel"
+                        android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION -> "Gespräch"
+                        android.media.AudioAttributes.USAGE_ASSISTANT, android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE -> "Ansage"
+                        android.media.AudioAttributes.USAGE_NOTIFICATION, android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE -> "Benachrichtigung"
+                        else -> "Art " + it.audioAttributes.usage
+                    }
+                }
+                if (u.isEmpty()) "nichts hörbar" else u.joinToString(", ")
+            } catch (e: Exception) { "?" }
+        }
+
         fun focusCheck() {
+            if (lostToOther) return
             if (duck >= 1f || Build.VERSION.SDK_INT < 26) return
             if (System.currentTimeMillis() - duckSince < 15_000) return
             duckSince = System.currentTimeMillis()
@@ -1027,6 +1051,8 @@ object SendspinPlayer {
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> { duck = 0f; duckSince = System.currentTimeMillis() }               // Anruf o. Ä.
                 AudioManager.AUDIOFOCUS_LOSS -> {                                // andere Musik-App übernimmt
                     duck = 0f
+                    lostToOther = true   // nicht selbst zurückholen (sonst Ping-Pong mit der anderen App)
+                    AppLog.add("Andere App hat den Ton übernommen (" + othersPlaying() + ") – pausiere")
                     pauseInMa()
                     // Fokus ganz abgeben: beim nächsten Abspielen fragt resume() neu an (sonst bliebe es stumm)
                     h?.post { abandonFocus(); duck = 0f }

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.177
+- App-Meldung, wenn eine andere App den Ton übernimmt (Player 3.9.64: kein Fokus-Ping-Pong mehr).
+
 ## 0.1.176
 - App-Meldungen für Pause/Stopp von Android (Player 3.9.63).
 
