@@ -164,9 +164,16 @@ class JukeboxService : MediaLibraryService() {
         if (n != cars) {
             if (n == 0 && cars > 0) AppLog.add("Android Auto weg (ohne Abmeldung) – Auto-Modus aus")
             cars = n
-            MaPlayer.instance?.carMode = n > 0
+        }
+        val on = carNow(n)
+        if (MaPlayer.instance?.carMode != on) {
+            MaPlayer.instance?.carMode = on
+            AppLog.add(if (on) "Auto-Modus an" else "Auto-Modus aus (Android Auto verbunden, aber nicht im Auto)")
         }
     }
+
+    /** Im Auto = Android Auto verbunden UND es läuft eine Projektion (sonst nur Hintergrund-Verbindung zuhause) */
+    private fun carNow(n: Int): Boolean = n > 0 && (CarState.projecting(this) ?: true)
     private val carTick = object : Runnable { override fun run() { carRecount(); main.postDelayed(this, 60_000) } }
 
     @Suppress("DEPRECATION")
@@ -283,7 +290,7 @@ class JukeboxService : MediaLibraryService() {
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             if (isCar(controller)) { main.removeCallbacks(carTick); main.postDelayed(carTick, 60_000) }
-            if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = true; refreshHome() }
+            if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = carNow(cars); refreshHome() }
             val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).add(backCmd).add(fwdCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(cmds)

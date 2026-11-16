@@ -102,7 +102,8 @@ public class MainActivity extends Activity {
         if (am == null) return;
         if (am.isMusicActive()) { AppLog.INSTANCE.add("Start-Sound: still, weil schon Musik läuft"); return; }
         MaPlayer p = MaPlayer.instance;
-        if (p != null && p.getCarMode()) { AppLog.INSTANCE.add("Start-Sound: still (Android Auto)"); return; }
+        Boolean proj = CarState.INSTANCE.projecting(this);
+        if (p != null && p.getCarMode() && !Boolean.FALSE.equals(proj)) { AppLog.INSTANCE.add("Start-Sound: still (Android Auto)"); return; }
         try {
             final android.media.MediaPlayer mp = new android.media.MediaPlayer();
             mp.setAudioAttributes(new android.media.AudioAttributes.Builder()

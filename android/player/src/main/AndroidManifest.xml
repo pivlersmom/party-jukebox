@@ -12,6 +12,11 @@
     <!-- darf fragen, ob die App vom Akku-Sparen ausgenommen wird (Handy-Player im Auto) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <permission android:name="${applicationId}.permission.CONTROL" android:protectionLevel="signature"/>
+    <!-- Android Auto fragen dürfen, ob gerade ins Auto projiziert wird (CarState.kt) -->
+    <queries>
+        <provider android:authorities="androidx.car.app.connection"/>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:label="@string/app_name"
