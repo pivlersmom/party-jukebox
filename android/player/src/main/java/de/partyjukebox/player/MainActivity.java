@@ -379,7 +379,12 @@ public class MainActivity extends Activity {
         /** Jukebox-Seite → Einstellungen: Adressen ändern / Auto-Einstellungen lesen und speichern */
         @JavascriptInterface public void openSetup(){ runOnUiThread(() -> askSetup()); }
         @JavascriptInterface public String getCarPrefs(){ return CarPrefs.get(MainActivity.this); }
-        @JavascriptInterface public void setCarPrefs(String json){ CarPrefs.set(MainActivity.this, json); }
+        @JavascriptInterface public void setCarPrefs(String json){
+            CarPrefs.set(MainActivity.this, json);
+            // VPN eingeschaltet → einmalig fragen, ob wir WireGuard steuern dürfen
+            if (json.contains("\"vpn\":true") && Wireguard.installed(MainActivity.this) && !Wireguard.allowed(MainActivity.this))
+                runOnUiThread(() -> requestPermissions(new String[]{ Wireguard.PERM }, 77));
+        }
         @JavascriptInterface public void checkUpdate(){ runOnUiThread(() -> Updater.check(MainActivity.this, true)); }
         @JavascriptInterface public String getAppLog(){ AppLog.init(MainActivity.this); return AppLog.recent(); }
         @JavascriptInterface public String getAppVersion(){ return BuildConfig.VERSION_NAME+" ("+BuildConfig.VERSION_CODE+")"; }

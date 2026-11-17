@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.178
+- Einstellungen → Auto: „Unterwegs VPN nach Hause (WireGuard)“ (Player 3.9.66).
+- Player 3.9.66: unterwegs größerer Ausgabepuffer (1,5 s) und ruhigere Takt-Regelung.
+
 ## 0.1.177
 - App-Meldung, wenn eine andere App den Ton übernimmt (Player 3.9.64: kein Fokus-Ping-Pong mehr).
 

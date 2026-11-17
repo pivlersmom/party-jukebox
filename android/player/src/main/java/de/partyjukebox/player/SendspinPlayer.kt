@@ -279,6 +279,31 @@ object SendspinPlayer {
     }
 
     /** gerade im WLAN/LAN? Sonst ist "zuhause" ausgeschlossen (spart die 2-s-Prüfung) */
+    @Volatile private var vpnByUs = false
+    @Volatile private var vpnTriedAt = 0L
+    private fun vpnTunnel() = prefs().getString("vpn_tunnel", "") ?: ""
+
+    /** Läuft gerade irgendein VPN? */
+    private fun vpnActive(): Boolean {
+        if (Build.VERSION.SDK_INT < 23) return false
+        val cm = app.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+        @Suppress("DEPRECATION")
+        return cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true }
+    }
+
+    /** Hängt das Handy im WLAN zuhause? (WLAN-Adresse im selben Netz wie Home Assistant, z. B. 192.168.178.x) */
+    private fun homeWifi(host: String): Boolean {
+        if (Build.VERSION.SDK_INT < 23 || !host.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+"))) return false
+        val prefix = host.substringBeforeLast(".") + "."
+        val cm = app.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+        @Suppress("DEPRECATION")
+        return cm.allNetworks.any { n ->
+            val nc = cm.getNetworkCapabilities(n) ?: return@any false
+            nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) && !nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) &&
+                (cm.getLinkProperties(n)?.linkAddresses?.any { it.address.hostAddress?.startsWith(prefix) == true } == true)
+        }
+    }
+
     private fun onWifi(): Boolean {
         if (Build.VERSION.SDK_INT < 23) return true
         val cm = app.getSystemService(android.net.ConnectivityManager::class.java) ?: return true
@@ -293,11 +318,26 @@ object SendspinPlayer {
         linkDown = false
         if (Build.VERSION.SDK_INT >= 23) linkNet = try { app.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork } catch (e: Exception) { null }
         val host = Endpoint.LOCAL.substringAfter("://").substringBefore(":").substringBefore("/")
+        // Wieder im WLAN zuhause → selbst eingeschaltetes VPN wieder aus (sonst liefe alles durch den Tunnel)
+        if (vpnByUs && homeWifi(host) && System.currentTimeMillis() - vpnTriedAt > 60_000) {
+            vpnByUs = false; vpnTriedAt = System.currentTimeMillis()
+            if (Wireguard.set(app, vpnTunnel(), false)) { retry(2500); return }
+        }
         if (onWifi() && Endpoint.reachable(Endpoint.LOCAL + "config.js", 2000)) {
             viaCloud = false
             AppLog.i(TAG, "Verbinde direkt (zuhause)")
             WsLink(http, Request.Builder().url("ws://$host:$PORT/sendspin").build(), "direkt", listener).also { ws = it }.start()
             return
+        }
+        /*
+         * Lernkarte: unterwegs erst das VPN nach Hause probieren
+         * Mit dem WireGuard-Tunnel ist Music Assistant direkt erreichbar – gleichmäßiger als über die Cloud
+         * (weniger Takt-Korrekturen, weniger Aussetzer). Klappt es nicht innerhalb von 2 min, bleibt es bei Nabu Casa.
+         */
+        if (prefs().getBoolean("vpn_auto", false) && vpnTunnel().isNotEmpty() && !vpnActive() &&
+            System.currentTimeMillis() - vpnTriedAt > 120_000) {
+            vpnTriedAt = System.currentTimeMillis()
+            if (Wireguard.set(app, vpnTunnel(), true)) { vpnByUs = true; retry(4000); return }
         }
         viaCloud = true
         val rid = prefs().getString("ma_rid", "") ?: ""
@@ -720,8 +760,12 @@ object SendspinPlayer {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(chMask)
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
-                // ca. 500 ms: hält kurze Aussetzer des Handys aus (Android Auto, Navi); die Zeitstempel gleichen das aus
-                .setBufferSizeInBytes(maxOf(min * 2, rate * frameBytes / 2))
+                /*
+                 * Ausgabepuffer: zuhause ca. 0,5 s, unterwegs (Nabu Casa/WebRTC) 1,5 s.
+                 * Unterwegs schwankt der Takt-Abgleich stärker; mit größerem Puffer läuft der Lautsprecher nicht leer,
+                 * wenn das Handy kurz nicht nachliefert. Die Zeitstempel gleichen die längere Strecke aus.
+                 */
+                .setBufferSizeInBytes(maxOf(min * 2, rate * frameBytes * (if (viaCloud) 3 else 1) / 2))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
             routedId = -1
@@ -1153,7 +1197,9 @@ object SendspinPlayer {
                             // Nachlauf langsam abbauen, solange genug im Puffer liegt (→ err wird positiv → etwas schneller)
                             if (slack > 0 && bufferedMs() > 2500) slack = maxOf(0L, slack - 5_000L)
                             // zu spät (err > 0) → etwas schneller spielen; Totzone 15 ms, damit es nicht ständig pendelt
-                            val adj = if (abs(err) < 15_000) 0.0 else (err / 8_000_000.0).coerceIn(-0.005, 0.005)
+                            // unterwegs größere Totzone: der Takt-Abgleich übers Internet zittert, häufiges Umstellen der Geschwindigkeit kann knacken
+                            val dz = if (viaCloud) 60_000 else 15_000
+                            val adj = if (abs(err) < dz) 0.0 else (err / 8_000_000.0).coerceIn(-0.005, 0.005)
                             val want = Math.round(rate * (1 + adj)).toInt()
                             try { if (t.playbackRate != want) t.playbackRate = want } catch (e: Exception) { }
                         }

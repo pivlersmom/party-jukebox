@@ -9,6 +9,7 @@ import org.json.JSONObject
  *  - pod_suggest: im Auto die neueste Podcast-Folge vorschlagen
  *  - rtc: unterwegs per WebRTC statt über Nabu Casa verbinden (Standard: aus)
  *  - startSound: Start-Sound beim App-Start (Standard: an)
+ *  - vpn / vpnTunnel: unterwegs automatisch den WireGuard-Tunnel nach Hause einschalten (Standard: aus)
  * Fehlt etwas, wird einmalig eine frühere Zuordnung übernommen, falls der Build eine mitbringt (siehe Legacy).
  */
 object CarPrefs {
@@ -34,7 +35,10 @@ object CarPrefs {
 
     @JvmStatic fun get(c: Context): String = JSONObject().put("me", mePerson(c)).put("podSuggest", podSuggest(c))
         .put("rtc", Endpoint.prefs(c).getBoolean("ss_rtc", false))
-        .put("startSound", Endpoint.prefs(c).getBoolean("start_sound", true)).toString()
+        .put("startSound", Endpoint.prefs(c).getBoolean("start_sound", true))
+        .put("vpn", Endpoint.prefs(c).getBoolean("vpn_auto", false))
+        .put("vpnTunnel", Endpoint.prefs(c).getString("vpn_tunnel", "") ?: "")
+        .put("vpnApp", Wireguard.installed(c)).put("vpnAllowed", Wireguard.allowed(c)).toString()
 
     @JvmStatic fun set(c: Context, json: String) {
         val o = try { JSONObject(json) } catch (e: Exception) { return }
@@ -43,6 +47,8 @@ object CarPrefs {
         if (o.has("podSuggest")) e.putBoolean("pod_suggest", o.optBoolean("podSuggest"))
         if (o.has("rtc")) e.putBoolean("ss_rtc", o.optBoolean("rtc"))   // gilt ab der nächsten Verbindung
         if (o.has("startSound")) e.putBoolean("start_sound", o.optBoolean("startSound"))
+        if (o.has("vpn")) e.putBoolean("vpn_auto", o.optBoolean("vpn"))
+        if (o.has("vpnTunnel")) e.putString("vpn_tunnel", o.optString("vpnTunnel").trim())
         e.apply()
     }
 }

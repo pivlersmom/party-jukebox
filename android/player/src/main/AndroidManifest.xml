@@ -15,7 +15,10 @@
     <!-- Android Auto fragen dürfen, ob gerade ins Auto projiziert wird (CarState.kt) -->
     <queries>
         <provider android:authorities="androidx.car.app.connection"/>
+        <!-- WireGuard-App: VPN nach Hause automatisch einschalten (Wireguard.kt) -->
+        <package android:name="com.wireguard.android"/>
     </queries>
+    <uses-permission android:name="com.wireguard.android.permission.CONTROL_TUNNELS"/>
 
     <application
         android:allowBackup="false"
