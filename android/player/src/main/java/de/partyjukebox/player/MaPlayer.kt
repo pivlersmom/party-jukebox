@@ -268,8 +268,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         val q = playerId()
         if (showSuggestion()) { suggestDismissed = true; invalidateState(); return done() }   // Vorschlag wegwischen
         when (seekCommand) {
-            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> { skipAt = System.currentTimeMillis(); queueCmd("next") }
-            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> { skipAt = System.currentTimeMillis(); queueCmd("previous") }
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> { skipAt = System.currentTimeMillis(); if (!radioSkip(1)) queueCmd("next") }
+            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> { skipAt = System.currentTimeMillis(); if (!radioSkip(-1)) queueCmd("previous") }
             Player.COMMAND_SEEK_TO_MEDIA_ITEM -> {
                 // Titel aus der Warteschlange antippen (Uhr, Android Auto)
                 val id = entries.distinctBy { it.id }.getOrNull(mediaItemIndex)?.id
@@ -494,6 +494,32 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             (0 until a.length()).mapNotNull { a.optJSONObject(it) }.associate { it.optString("id") to it.optString("state") }
         }
     } catch (e: Exception) { null }
+
+    /*
+     * Lernkarte: Weiter/Zurück beim Radio = nächster Lieblingssender
+     * Ein Radiosender hat keinen "nächsten Titel". Läuft Radio und man drückt (im Auto, in der Benachrichtigung)
+     * Weiter oder Zurück, spielt der nächste bzw. vorige favorisierte Sender (alphabetisch, im Kreis).
+     */
+    private fun radioSkip(dir: Int): Boolean {
+        val mi = curEntry?.mi ?: return false
+        if (mi.optString("media_type") != "radio") return false
+        val q = playerId(); if (q.isEmpty()) return false
+        busyAt = System.currentTimeMillis()
+        val curName = mi.optString("name"); val curUri = mi.optString("uri"); val curId = mi.optString("item_id")
+        ma.send("music/radios/library_items", o("favorite" to true, "limit" to 100, "order_by" to "sort_name")) { r, _ ->
+            val a = r as? JSONArray
+            val favs = (0 until (a?.length() ?: 0)).mapNotNull { a?.optJSONObject(it) }.filter { it.optString("uri").isNotEmpty() }
+            if (favs.isEmpty()) { queueCmd(if (dir > 0) "next" else "previous"); return@send }
+            var i = favs.indexOfFirst { it.optString("uri") == curUri || (curId.isNotEmpty() && it.optString("item_id") == curId && curUri.startsWith("library://")) }
+            if (i < 0) i = favs.indexOfFirst { it.optString("name").equals(curName, true) }
+            val next = favs[((if (i < 0) (if (dir > 0) -1 else 0) else i) + dir + favs.size) % favs.size]
+            AppLog.add("Radio: " + (if (dir > 0) "nächster" else "voriger") + " Lieblingssender → " + next.optString("name"))
+            val play = { ma.send("player_queues/play_media", o("queue_id" to q, "media" to next.optString("uri"), "option" to "replace")) { _, _ -> refreshSoon() } }
+            if (q == PhonePlayer.playerId(ctx) && !SendspinPlayer.isConnected()) { SendspinPlayer.wake(ctx, "Radio weiter"); SendspinPlayer.whenReady { play() } }
+            else play()
+        }
+        return true
+    }
 
     fun queueCmd(c: String) {
         val q = playerId(); if (q.isEmpty()) return

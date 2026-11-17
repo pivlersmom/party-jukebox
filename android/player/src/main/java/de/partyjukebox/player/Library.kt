@@ -56,6 +56,24 @@ object Library {
         return a
     }
 
+    /** Radio-Anbieter (TuneIn, Radio Browser …) einmal von MA holen und an einen Konto-Filter anhängen */
+    @Volatile private var radioProv: List<String>? = null
+    private fun withRadio(a: JSONObject, done: (JSONObject) -> Unit) {
+        val pv = a.optJSONArray("providers") ?: return done(a)
+        radioProv?.let { l -> l.forEach { pv.put(it) }; return done(a) }
+        ma().send("providers", null) { r, _ ->
+            val l = mutableListOf<String>()
+            (r as? JSONArray)?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val p = arr.optJSONObject(i) ?: continue
+                    val id = p.optString("instance_id").ifEmpty { p.optString("lookup_key") }
+                    if (id.isNotEmpty() && Regex("radio|tunein|builtin", RegexOption.IGNORE_CASE).containsMatchIn(p.optString("domain") + " " + id)) l.add(id)
+                }
+            }
+            radioProv = l; l.forEach { pv.put(it) }; done(a)
+        }
+    }
+
     // ---------------------------------------------------------------- Zwischenspeicher
     private val PRELOAD = listOf("pl", "fav", "rec", "art", "alb", "radio", "pod", "book", "air")
     private val cache = HashMap<String, List<MediaItem>>()
@@ -175,7 +193,10 @@ object Library {
                 "book" -> lib("music/audiobooks/library_items", o("limit" to 200, "order_by" to "sort_name"), false, out)
                 "pl" -> lib("music/playlists/library_items", o("limit" to 150, "order_by" to "sort_name"), true, out)
                 "fav" -> lib("music/tracks/library_items", o("favorite" to true, "limit" to 150), false, out)
-                "rec" -> ma().send("music/recently_played_items", withProfile(o("limit" to 40), "providers")) { r, _ -> out(items(r, false)) }
+                // wie in der Jukebox: was die Person gestartet hat, inkl. Radiosender/Podcasts (Radio-Anbieter trotz Konto-Filter)
+                "rec" -> withRadio(withProfile(o("limit" to 40, "fully_played_only" to false, "user_initiated_only" to true,
+                    "always_include_media_types" to JSONArray().put("radio").put("podcast").put("podcast_episode").put("audiobook")), "providers")) { a ->
+                    ma().send("music/recently_played_items", a) { r, _ -> out(items(r, false)) } }
                 "air" -> ma().send("ai_radio/stations/list", null) { r, _ ->
                     val a = r as? JSONArray ?: (r as? JSONObject)?.optJSONArray("stations") ?: JSONArray()
                     out((0 until a.length()).mapNotNull { i ->

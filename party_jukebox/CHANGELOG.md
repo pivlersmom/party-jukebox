@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.179
+- „Zuletzt gespielt“ zeigt auch Radiosender (Radio-Anbieter trotz Konto-Filter).
+- Radio: Weiter/Zurück spielt den nächsten/vorigen Lieblingssender (Jukebox und Player 3.9.67 / Android Auto).
+
 ## 0.1.178
 - Einstellungen → Auto: „Unterwegs VPN nach Hause (WireGuard)“ (Player 3.9.66).
 - Player 3.9.66: unterwegs größerer Ausgabepuffer (1,5 s) und ruhigere Takt-Regelung.

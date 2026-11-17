@@ -687,8 +687,23 @@ function tvJump(sec) {
     .then(r => { if (!r.ok) toast("TV-Box nicht erreichbar"); }).catch(() => toast("TV-Box nicht erreichbar"));
   return true;
 }
-$("#bNext").onclick = () => { if (tvJump(30)) return; skipFx(); qc("next").then(ok => { if (!ok) skipFx(false); }); };
-$("#bPrev").onclick = () => { if (tvJump(-10)) return; skipFx(); qc("previous").then(ok => { if (!ok) skipFx(false); }); };
+/* Radio: Weiter/Zurück = nächster/voriger Lieblingssender (alphabetisch, im Kreis) */
+function radioJump(dir) {
+  const ci = S.q && S.q.current_item, mi = ci && ci.media_item;
+  if (!mi || mi.media_type !== "radio") return false;
+  cmd("music/radios/library_items", { favorite: true, limit: 100, order_by: "sort_name" }).then(r => {
+    const f = (r || []).filter(x => x && x.uri);
+    if (!f.length) return qc(dir > 0 ? "next" : "previous");
+    let i = f.findIndex(x => x.uri === mi.uri);
+    if (i < 0) i = f.findIndex(x => (x.name || "").toLowerCase() === (mi.name || "").toLowerCase());
+    const n = f[((i < 0 ? (dir > 0 ? -1 : 0) : i) + dir + f.length) % f.length];
+    toast("📻 " + n.name);
+    return cmdP("player_queues/play_media", { queue_id: S.qid || S.pid, media: n.uri, option: "replace" });
+  }).catch(e => toast("Nicht möglich: " + errText(e)));
+  return true;
+}
+$("#bNext").onclick = () => { if (tvJump(30) || radioJump(1)) return; skipFx(); qc("next").then(ok => { if (!ok) skipFx(false); }); };
+$("#bPrev").onclick = () => { if (tvJump(-10) || radioJump(-1)) return; skipFx(); qc("previous").then(ok => { if (!ok) skipFx(false); }); };
 $("#bSh").onclick = () => {
   const q = S.q; if (!q) return;
   const on = !q.shuffle_enabled; q.shuffle_enabled = on; renderNow();
@@ -1314,7 +1329,10 @@ const unent = t => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&q
 S.provName = {};
 function loadProviders() {
   cmd("providers", {}, 15000).then(l => {
-    (l || []).forEach(p => { const id = p.instance_id || p.lookup_key; if (id) S.provName[id] = p.name || p.domain || id; });
+    (l || []).forEach(p => { const id = p.instance_id || p.lookup_key; if (id) S.provName[id] = p.name || p.domain || id;
+      // Radio-Anbieter merken: Radiosender sollen in „Zuletzt gespielt“ trotz Konto-Filter erscheinen
+      if (id && /radio|tunein|builtin/i.test((p.domain || "") + " " + id)) { S.radioProv = S.radioProv || []; if (!S.radioProv.includes(id)) S.radioProv.push(id); } });
+    if (S.home) loadRecent();
     if (S.favMode && !(S.nav && S.nav.length)) paintFav();
   }).catch(() => {});
 }
@@ -1605,8 +1623,8 @@ function loadPodRec(pods) {
 /* Zuletzt gespielt: nur was DIESE Person gestartet hat (Playlist/Album statt jedes einzelnen Titels) */
 function loadRecent() {
   const pv = profProv("provider"), uid = (prof() || {}).user_id || S.me;
-  const rp = Object.assign({ limit: 30, user_initiated_only: true, fully_played_only: false, always_include_media_types: ["podcast", "podcast_episode", "audiobook"] },
-    uid ? { userid: uid } : {}, pv.provider ? { providers: pv.provider } : {});
+  const rp = Object.assign({ limit: 30, user_initiated_only: true, fully_played_only: false, always_include_media_types: ["podcast", "podcast_episode", "audiobook", "radio"] },
+    uid ? { userid: uid } : {}, pv.provider ? { providers: pv.provider.concat(S.radioProv || []) } : {});
   cmd("music/recently_played_items", rp, 20000).catch(() => cmdP("music/recently_played_items", { limit: 20 }, 20000))
     .then(r => { const seen = new Set(), old = (S.home.recent || []).map(x => x.uri).join();
       S.home.recent = (r || []).filter(x => x && x.uri && !seen.has(x.uri) && seen.add(x.uri)).slice(0, 20);
