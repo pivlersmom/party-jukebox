@@ -260,6 +260,7 @@ public class MainActivity extends Activity {
         super.onResume();
         MaPlayer.uiVisible = true; MaPlayer.poke();
         SendspinPlayer.wake(this, "App geöffnet");   // Handy-Lautsprecher aus dem Leerlauf holen
+        Wireguard.homeCheck(this);   // zuhause? → selbst eingeschalteten VPN-Tunnel wieder aus
         if (resumedOnce) loadJukebox(false); else resumedOnce = true;
         if (PhonePlayer.enabled(this)) askBatteryExemption(false);
         Updater.check(this, false);   // neue Version? (höchstens alle 6 h)

@@ -279,7 +279,6 @@ object SendspinPlayer {
     }
 
     /** gerade im WLAN/LAN? Sonst ist "zuhause" ausgeschlossen (spart die 2-s-Prüfung) */
-    @Volatile private var vpnByUs = false
     @Volatile private var vpnTriedAt = 0L
     private fun vpnTunnel() = prefs().getString("vpn_tunnel", "") ?: ""
 
@@ -319,8 +318,8 @@ object SendspinPlayer {
         if (Build.VERSION.SDK_INT >= 23) linkNet = try { app.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork } catch (e: Exception) { null }
         val host = Endpoint.LOCAL.substringAfter("://").substringBefore(":").substringBefore("/")
         // Wieder im WLAN zuhause → selbst eingeschaltetes VPN wieder aus (sonst liefe alles durch den Tunnel)
-        if (vpnByUs && homeWifi(host) && System.currentTimeMillis() - vpnTriedAt > 60_000) {
-            vpnByUs = false; vpnTriedAt = System.currentTimeMillis()
+        if (Wireguard.byUs(app) && homeWifi(host) && System.currentTimeMillis() - vpnTriedAt > 60_000 && Wireguard.atHome(app)) {
+            vpnTriedAt = System.currentTimeMillis()
             if (Wireguard.set(app, vpnTunnel(), false)) { retry(2500); return }
         }
         if (onWifi() && Endpoint.reachable(Endpoint.LOCAL + "config.js", 2000)) {
@@ -337,7 +336,7 @@ object SendspinPlayer {
         if (prefs().getBoolean("vpn_auto", false) && vpnTunnel().isNotEmpty() && !vpnActive() &&
             System.currentTimeMillis() - vpnTriedAt > 120_000) {
             vpnTriedAt = System.currentTimeMillis()
-            if (Wireguard.set(app, vpnTunnel(), true)) { vpnByUs = true; retry(4000); return }
+            if (Wireguard.set(app, vpnTunnel(), true)) { retry(4000); return }
         }
         viaCloud = true
         val rid = prefs().getString("ma_rid", "") ?: ""

@@ -39,6 +39,7 @@ class JukeboxService : MediaLibraryService() {
     override fun onCreate() {
         AppLog.init(this)
         super.onCreate()
+        Wireguard.watch(this)   // Heim-WLAN erkennen → selbst eingeschalteten VPN-Tunnel abschalten
         CrashLog.install(this)
         Library.app = applicationContext
         AppLog.add("Medien-Dienst gestartet · Benachrichtigungen " +
