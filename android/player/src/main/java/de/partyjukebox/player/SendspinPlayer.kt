@@ -161,6 +161,8 @@ object SendspinPlayer {
     private fun sleep() {
         if (!running) return
         AppLog.add("Leerlauf 10 min – Handy-Lautsprecher schläft (Akku)")
+        // selbst eingeschaltetes VPN wieder aus – wird ohne Nutzung nicht gebraucht
+        if (Wireguard.byUs(app)) Wireguard.set(app, vpnTunnel(), false)
         AppLog.flush()
         stop()
         asleep = true
@@ -280,6 +282,13 @@ object SendspinPlayer {
 
     /** gerade im WLAN/LAN? Sonst ist "zuhause" ausgeschlossen (spart die 2-s-Prüfung) */
     @Volatile private var vpnTriedAt = 0L
+    @Volatile private var vpnWait = 0
+
+    /** Wird die App gerade genutzt? (Musik läuft/soll weiterlaufen, Auto, App im Vordergrund) */
+    private fun inUse() = audio.active() || resumeWanted || MaPlayer.instance?.carMode == true || MaPlayer.uiVisible
+
+    /** VPN gewünscht: Schalter in den Einstellungen an, Tunnelname gesetzt und App in Benutzung */
+    private fun vpnWanted() = prefs().getBoolean("vpn_auto", false) && vpnTunnel().isNotEmpty() && inUse()
     private fun vpnTunnel() = prefs().getString("vpn_tunnel", "") ?: ""
 
     /** Läuft gerade irgendein VPN? */
@@ -333,11 +342,17 @@ object SendspinPlayer {
          * Mit dem WireGuard-Tunnel ist Music Assistant direkt erreichbar – gleichmäßiger als über die Cloud
          * (weniger Takt-Korrekturen, weniger Aussetzer). Klappt es nicht innerhalb von 2 min, bleibt es bei Nabu Casa.
          */
-        if (prefs().getBoolean("vpn_auto", false) && vpnTunnel().isNotEmpty() && !vpnActive() &&
-            System.currentTimeMillis() - vpnTriedAt > 120_000) {
+        // nur wenn die App gerade wirklich genutzt wird (Musik, Auto, App offen) – sonst bleibt das VPN aus
+        if (vpnWanted() && !vpnActive() && System.currentTimeMillis() - vpnTriedAt > 120_000) {
             vpnTriedAt = System.currentTimeMillis()
-            if (Wireguard.set(app, vpnTunnel(), true)) { retry(4000); return }
+            if (Wireguard.set(app, vpnTunnel(), true)) { vpnWait = 0; retry(4000); return }
         }
+        // VPN an, aber Heimnetz noch nicht erreichbar: der Tunnel braucht nach Funkloch/Einschalten ein paar Sekunden
+        if (vpnWanted() && vpnActive() && !homeWifi(host) && vpnWait < 3) {
+            if (vpnWait++ == 0) AppLog.i(TAG, "Warte auf VPN-Tunnel …")
+            h?.removeCallbacksAndMessages(null); h?.postDelayed({ connect() }, 3000); return
+        }
+        vpnWait = 0
         viaCloud = true
         val rid = prefs().getString("ma_rid", "") ?: ""
         // Unterwegs: Standard ist Nabu Casa (robuster bei WLAN ↔ Mobilfunk). WebRTC nur, wenn eingeschaltet –
@@ -572,11 +587,12 @@ object SendspinPlayer {
             audio.focusCheck()
             // Leerlauf: 10 min keine Musik, kein Auto, App zu → schlafen legen (Akku)
             val now = System.currentTimeMillis()
-            if (audio.active() || resumeWanted || MaPlayer.instance?.carMode == true || MaPlayer.uiVisible) busyAt = now
+            if (inUse()) busyAt = now
             else if (now - busyAt > 600_000L) { h?.post { sleep() }; return }
             // alle 30 s ein Zustandsbericht ins Fern-Log – nur während Musik läuft
             if (++logTick % 6 == 0 && (audio.active() || audio.streaming())) AppLog.add("Status: " + (if (connected) "verbunden" else "GETRENNT") + " · " + format() +
                 " · Puffer " + audio.bufferedMs() + " ms · Uhr " + clock.offset + " µs")
+            if (logTick % 24 == 0) vpnCheck()
             if (connected && !audio.streaming()) { checkNoStream(); return }
             // Lernkarte: Kommt 10 s nichts, ist das nur ein Problem, wenn der Puffer fast leer ist. MA schickt oft das
             // Ende eines Titels auf einmal (bis 30 s Vorrat) – dann ist Funkstille normal. Früher: Neuverbinden +
@@ -598,6 +614,26 @@ object SendspinPlayer {
             }
         }
         h?.postDelayed({ tick() }, 5000)
+    }
+
+    /*
+     * Lernkarte: unterwegs alle 2 min aufs VPN schauen
+     * Läuft die Musik über Nabu Casa (z. B. weil der Tunnel im Funkloch nicht zustande kam oder die App
+     * erst später benutzt wurde), wird das VPN nachträglich eingeschaltet. Steht der Tunnel und ist das
+     * Heimnetz darüber erreichbar, wechselt die App auf die direkte Verbindung.
+     */
+    private fun vpnCheck() {
+        if (!viaCloud || !connected || !vpnWanted()) return
+        if (!vpnActive()) {
+            if (System.currentTimeMillis() - vpnTriedAt > 120_000) { vpnTriedAt = System.currentTimeMillis(); Wireguard.set(app, vpnTunnel(), true) }
+            return
+        }
+        if (!Endpoint.reachable(Endpoint.LOCAL + "config.js", 3000)) return
+        val l = ws ?: return
+        AppLog.i(TAG, "VPN-Tunnel steht – wechsle auf direkte Verbindung")
+        if (audio.active() || audio.streaming()) resumeWanted = true
+        retryMs = 1000
+        l.close("vpn")
     }
 
     private fun msg(type: String, payload: JSONObject) = JSONObject().put("type", type).put("payload", payload).toString()
