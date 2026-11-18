@@ -283,6 +283,7 @@ object SendspinPlayer {
     /** gerade im WLAN/LAN? Sonst ist "zuhause" ausgeschlossen (spart die 2-s-Prüfung) */
     @Volatile private var vpnTriedAt = 0L
     @Volatile private var vpnWait = 0
+    @Volatile private var vpnRestarts = 0
 
     /** Wird die App gerade genutzt? (Musik läuft/soll weiterlaufen, Auto, App im Vordergrund) */
     private fun inUse() = audio.active() || resumeWanted || MaPlayer.instance?.carMode == true || MaPlayer.uiVisible
@@ -333,7 +334,8 @@ object SendspinPlayer {
         }
         if (onWifi() && Endpoint.reachable(Endpoint.LOCAL + "config.js", 2000)) {
             viaCloud = false
-            AppLog.i(TAG, "Verbinde direkt (zuhause)")
+            vpnRestarts = 0
+            AppLog.i(TAG, if (vpnActive() && !homeWifi(host)) "Verbinde direkt (über VPN)" else "Verbinde direkt (zuhause)")
             WsLink(http, Request.Builder().url("ws://$host:$PORT/sendspin").build(), "direkt", listener).also { ws = it }.start()
             return
         }
@@ -343,7 +345,9 @@ object SendspinPlayer {
          * (weniger Takt-Korrekturen, weniger Aussetzer). Klappt es nicht innerhalb von 2 min, bleibt es bei Nabu Casa.
          */
         // nur wenn die App gerade wirklich genutzt wird (Musik, Auto, App offen) – sonst bleibt das VPN aus
-        if (vpnWanted() && !vpnActive() && System.currentTimeMillis() - vpnTriedAt > 120_000) {
+        // Lernkarte: nie im Funkloch einschalten – WireGuard löst die DuckDNS-Adresse nur beim Start auf.
+        // Klappt das nicht, bleibt der Tunnel "an", baut aber nie eine Verbindung auf (so passiert 05:12 und 15:17).
+        if (vpnWanted() && !vpnActive() && hasNet() && System.currentTimeMillis() - vpnTriedAt > 120_000) {
             vpnTriedAt = System.currentTimeMillis()
             if (Wireguard.set(app, vpnTunnel(), true)) { vpnWait = 0; retry(4000); return }
         }
@@ -628,7 +632,16 @@ object SendspinPlayer {
             if (System.currentTimeMillis() - vpnTriedAt > 120_000) { vpnTriedAt = System.currentTimeMillis(); Wireguard.set(app, vpnTunnel(), true) }
             return
         }
-        if (!Endpoint.reachable(Endpoint.LOCAL + "config.js", 3000)) return
+        if (!Endpoint.reachable(Endpoint.LOCAL + "config.js", 3000)) {
+            // Tunnel an, aber kein Weg nach Hause (z. B. im Funkloch eingeschaltet) → einmal aus und wieder an
+            if (Wireguard.byUs(app) && vpnRestarts < 3) {
+                vpnRestarts++
+                AppLog.i(TAG, "VPN ohne Verbindung nach Hause – Tunnel neu starten")
+                Wireguard.set(app, vpnTunnel(), false)
+                h?.postDelayed({ if (running && vpnWanted()) Wireguard.set(app, vpnTunnel(), true) }, 3000)
+            }
+            return
+        }
         val l = ws ?: return
         AppLog.i(TAG, "VPN-Tunnel steht – wechsle auf direkte Verbindung")
         if (audio.active() || audio.streaming()) resumeWanted = true

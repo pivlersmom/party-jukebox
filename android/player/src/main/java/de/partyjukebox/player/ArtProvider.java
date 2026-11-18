@@ -38,14 +38,21 @@ public class ArtProvider extends ContentProvider {
         String u = uri.getQueryParameter("u");
         // nur Bilder der eigenen Jukebox
         if (u == null || !(u.startsWith("https://") || (!Endpoint.LOCAL.isEmpty() && u.startsWith(Endpoint.LOCAL)))) throw new FileNotFoundException();
-        File dir = new File(getContext().getCacheDir(), "art");
+        File dir = new File(getContext().getCacheDir(), "art2");   // neuer Ordner: alte, evtl. kaputte Cover verwerfen
         if (!dir.exists()) dir.mkdirs();
         File f = new File(dir, hash(u.replaceFirst("^https?://[^/]+(/api/hassio_ingress/[^/]+)?/", "")) + ".img");
+        /*
+         * Lernkarte: nur ein Download gleichzeitig
+         * Android Auto, Medienkarte und Uhr fragen dasselbe Cover oft gleichzeitig an. Schrieben zwei Downloads
+         * in dieselbe Zwischendatei, kürzte der zweite sie mittendrin – Länge und Bild-Ende stimmten trotzdem,
+         * aber in der Mitte fehlten Daten (rosa Fläche, bunte Streifen). Darum: Sperre + eigene Zwischendatei.
+         */
+        synchronized (ArtProvider.class) {
         if (f.exists() && !complete(f)) f.delete();   // halb geladenes Cover von früher wegwerfen
         if (!f.exists() || f.length() == 0) {
             Exception last = null;
             for (int tries = 0; tries < 2 && !f.exists(); tries++) {   // ein zweiter Versuch bei Abbruch (Funkloch)
-                File tmp = new File(dir, f.getName() + ".tmp");
+                File tmp = new File(dir, f.getName() + "." + System.nanoTime() + ".tmp");
                 try {
                     HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
                     c.setConnectTimeout(6000); c.setReadTimeout(8000);
@@ -65,6 +72,7 @@ public class ArtProvider extends ContentProvider {
                 catch (Exception e) { tmp.delete(); last = e; }
             }
             if (!f.exists()) throw new FileNotFoundException(String.valueOf(last));
+        }
         }
         return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
     }
