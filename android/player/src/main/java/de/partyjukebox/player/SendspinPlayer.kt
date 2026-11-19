@@ -177,6 +177,8 @@ object SendspinPlayer {
         if (running) {
             // läuft, ist aber gerade getrennt (z. B. nach Funkloch) → nicht auf den nächsten Versuch warten
             if (!connected) h?.post { if (!connected) { AppLog.add("Neu verbinden: $why"); retryMs = 3000; retry(100) } }
+            // schon über Nabu Casa verbunden (z. B. Android Auto kam erst danach) → VPN jetzt nachholen
+            else h?.postDelayed({ if (running) vpnCheck() }, 2000)
             return
         }
         AppLog.add("Aufgeweckt: $why")
@@ -354,7 +356,7 @@ object SendspinPlayer {
         // VPN an, aber Heimnetz noch nicht erreichbar: der Tunnel braucht nach Funkloch/Einschalten ein paar Sekunden
         if (vpnWanted() && vpnActive() && !homeWifi(host) && vpnWait < 3) {
             if (vpnWait++ == 0) AppLog.i(TAG, "Warte auf VPN-Tunnel …")
-            h?.removeCallbacksAndMessages(null); h?.postDelayed({ connect() }, 3000); return
+            clearPending(); h?.postDelayed({ connect() }, 3000); return
         }
         vpnWait = 0
         viaCloud = true
@@ -388,10 +390,21 @@ object SendspinPlayer {
 
     @Volatile private var noNetLogged = false
 
+    /*
+     * Lernkarte: Wartende Aufgaben löschen – aber den Wächter behalten
+     * Vor einem neuen Verbindungsversuch werden alle wartenden Aufgaben gelöscht (sonst liefen zwei Versuche
+     * gleichzeitig). Dabei wurde früher auch der Wächter (alle 5 s) mitgelöscht und kam nie wieder: nach dem
+     * ersten Funkloch gab es keine Status-Zeilen, keine VPN-Prüfung und keinen Leerlauf-Schlaf mehr.
+     */
+    private fun clearPending() {
+        h?.removeCallbacksAndMessages(null)
+        if (watchdogOn) { watchdogOn = false; startWatchdog() }
+    }
+
     private fun retry(ms: Long = retryMs) {
         connected = false
         if (!running) return
-        h?.removeCallbacksAndMessages(null)
+        clearPending()
         h?.postDelayed({ connect() }, ms)
         retryMs = (retryMs * 2).coerceAtMost(30000)
     }
@@ -629,7 +642,11 @@ object SendspinPlayer {
     private fun vpnCheck() {
         if (!viaCloud || !connected || !vpnWanted()) return
         if (!vpnActive()) {
-            if (System.currentTimeMillis() - vpnTriedAt > 120_000) { vpnTriedAt = System.currentTimeMillis(); Wireguard.set(app, vpnTunnel(), true) }
+            if (hasNet() && System.currentTimeMillis() - vpnTriedAt > 120_000) {
+                vpnTriedAt = System.currentTimeMillis()
+                // nach dem Einschalten gleich nachsehen, ob der Tunnel steht (nicht erst in 2 min)
+                if (Wireguard.set(app, vpnTunnel(), true)) h?.postDelayed({ if (running) vpnCheck() }, 8000)
+            }
             return
         }
         if (!Endpoint.reachable(Endpoint.LOCAL + "config.js", 3000)) {
