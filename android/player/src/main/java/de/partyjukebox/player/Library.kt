@@ -739,9 +739,10 @@ object Library {
     private fun playUri(player: MaPlayer, uri: String?) {
         val q = player.playerId()
         if (q.isEmpty() || uri.isNullOrEmpty()) return
-        // Ganze Listen ersetzen die Warteschlange, einzelne Titel werden nur eingeschoben
+        // Ganze Listen ersetzen die Warteschlange, einzelne Titel werden nur eingeschoben.
+        // Radio läuft endlos – was dahinter stünde, käme nie dran → ebenfalls ersetzen
         val typ = uri.substringAfter("://").substringBefore("/")
-        val opt = if (typ in listOf("playlist", "album", "artist", "podcast", "audiobook")) "replace" else "play"
+        val opt = if (typ in listOf("playlist", "album", "artist", "podcast", "audiobook", "radio")) "replace" else "play"
         ma().send("player_queues/play_media", withProfile(o("queue_id" to q, "media" to uri, "option" to opt), null)) { _, e ->
             if (e != null) Log.w(TAG, "Abspielen: $e")
             player.refreshSoon()

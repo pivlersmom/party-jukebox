@@ -2275,8 +2275,8 @@ async function playFrom(list, it) {
   toast("▶ " + unent(list.name) + " ab „" + unent(it.name) + "“ · " + whereName()); skipFx();
 }
 /* Ganze Listen (Playlist, Album, Künstler, Podcast, Hörbuch) ersetzen beim Abspielen die Warteschlange,
-   einzelne Titel werden nur eingeschoben */
-const LIST_TYPES = ["playlist", "album", "artist", "podcast", "audiobook"];
+   einzelne Titel werden nur eingeschoben. Radio läuft endlos – was dahinter stünde, käme nie dran → auch ersetzen */
+const LIST_TYPES = ["playlist", "album", "artist", "podcast", "audiobook", "radio"];
 /* Hinten anstellen: übers Add-on – es setzt den Titel hinter die eigenen Songs, Autoplay-Titel bleiben dahinter.
    Klappt das nicht (z. B. altes Add-on), normal bei MA anhängen. */
 async function addBehind(it) {

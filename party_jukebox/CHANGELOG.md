@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.181
+- Radiosender starten ersetzt die Warteschlange (Radio läuft endlos, der Rest käme nie dran). Auch im Player 3.9.73.
+
 ## 0.1.180
 - Neue App-Version: Benachrichtigung über die HA-App (auch im Autodisplay) an die Handys aus dem Podcast-Push. Option `app_update_package` = App-Kennung, damit Antippen die App öffnet.
 - Player 3.9.69–3.9.72: VPN nur bei Nutzung, wartet auf den Tunnel, wechselt nachträglich auf direkt; über VPN im Mobilfunk großer Puffer; Wächter überlebt Neuverbinden; Cover-Download ohne Kollision.
