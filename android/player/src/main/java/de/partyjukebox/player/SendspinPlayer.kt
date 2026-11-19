@@ -216,6 +216,12 @@ object SendspinPlayer {
      * Unterwegs ist mehr Puffer nötig (Mobilfunk schwankt), darum "viaCloud".
      */
     @Volatile private var viaCloud = false
+    /*
+     * Lernkarte: "unterwegs" ist nicht dasselbe wie "über die Cloud"
+     * Über das VPN ist die Verbindung zwar direkt, läuft aber trotzdem über Mobilfunk – mit denselben Schwankungen.
+     * Darum gelten großer Puffer und "Nachlauf statt Sprung" auch dort (sonst: Dauer-Stottern mit leerem Puffer).
+     */
+    @Volatile private var mobile = false
 
     /*
      * Reihenfolge der Wege:
@@ -336,6 +342,7 @@ object SendspinPlayer {
         }
         if (onWifi() && Endpoint.reachable(Endpoint.LOCAL + "config.js", 2000)) {
             viaCloud = false
+            mobile = vpnActive() && !homeWifi(host)
             vpnRestarts = 0
             AppLog.i(TAG, if (vpnActive() && !homeWifi(host)) "Verbinde direkt (über VPN)" else "Verbinde direkt (zuhause)")
             WsLink(http, Request.Builder().url("ws://$host:$PORT/sendspin").build(), "direkt", listener).also { ws = it }.start()
@@ -360,6 +367,7 @@ object SendspinPlayer {
         }
         vpnWait = 0
         viaCloud = true
+        mobile = true
         val rid = prefs().getString("ma_rid", "") ?: ""
         // Unterwegs: Standard ist Nabu Casa (robuster bei WLAN ↔ Mobilfunk). WebRTC nur, wenn eingeschaltet –
         // oder wenn es gar keine Adresse für unterwegs gibt (dann geht nur WebRTC).
@@ -682,7 +690,7 @@ object SendspinPlayer {
                 .put("supported_formats", JSONArray().put(fmt("flac", 48000)).put(fmt("flac", 44100)).put(fmt("pcm", 48000)).put(fmt("pcm", 44100)))
                 // Puffer wie in der offiziellen MA-App: Sekunden × Datenmenge des "schwersten" Formats (PCM 48 kHz =
                 // 192 000 Byte/s). MA schickt höchstens 30 s voraus → unterwegs 30 s, zuhause 10 s.
-                .put("buffer_capacity", (if (viaCloud) 30 else 10) * 192_000))
+                .put("buffer_capacity", (if (mobile) 30 else 10) * 192_000))
         w.send(msg("client/hello", p))
     }
 
@@ -691,7 +699,7 @@ object SendspinPlayer {
         val pl = JSONObject().put("volume", volume).put("muted", muted)
             .put("output_delay_ms", 0)
             // unterwegs (Nabu Casa, Mobilfunk) mehr Vorlauf und Puffer, damit nichts abreißt
-            .put("required_lead_time_ms", if (viaCloud) 3000 else 500).put("min_buffer_ms", if (viaCloud) 8000 else 1500)
+            .put("required_lead_time_ms", if (mobile) 3000 else 500).put("min_buffer_ms", if (mobile) 8000 else 1500)
             .put("supported_commands", JSONArray().put("volume").put("mute"))
         ws?.send(msg("client/state", JSONObject().put("available", true).put("player", pl)))
     }
@@ -830,7 +838,7 @@ object SendspinPlayer {
                  * Unterwegs schwankt der Takt-Abgleich stärker; mit größerem Puffer läuft der Lautsprecher nicht leer,
                  * wenn das Handy kurz nicht nachliefert. Die Zeitstempel gleichen die längere Strecke aus.
                  */
-                .setBufferSizeInBytes(maxOf(min * 2, rate * frameBytes * (if (viaCloud) 3 else 1) / 2))
+                .setBufferSizeInBytes(maxOf(min * 2, rate * frameBytes * (if (mobile) 3 else 1) / 2))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
             routedId = -1
@@ -1239,7 +1247,7 @@ object SendspinPlayer {
                          * Jetzt: Wiedergabe minimal schneller/langsamer (höchstens ±0,5 %, nicht hörbar),
                          * bis die Abweichung weg ist. Nur bei großen Abweichungen (Funkloch) wird gesprungen.
                          */
-                        val hard = if (viaCloud) 1_500_000L else 200_000L
+                        val hard = if (mobile) 1_500_000L else 200_000L
                         /*
                          * Lernkarte: unterwegs lieber später als mit Lücke
                          * Kommt im Mobilfunk etwas verspätet an, sprang die Wiedergabe früher nach vorn → hörbarer Aussetzer.
@@ -1247,7 +1255,7 @@ object SendspinPlayer {
                          * etwas später spielen: die Verspätung wird als "Nachlauf" gemerkt, es geht lückenlos weiter.
                          * Erst ab 15 s Nachlauf wird wirklich gesprungen. Mit vollem Puffer holt er langsam (0,5 %) auf.
                          */
-                        if (viaCloud && err > hard && slack + err < 15_000_000L) {
+                        if (mobile && err > hard && slack + err < 15_000_000L) {
                             slack += err
                             AppLog.add("Nachlauf +" + (err / 1000) + " ms (jetzt " + (slack / 1000) + " ms) – keine Lücke")
                         } else if (abs(err) > hard) {
@@ -1263,7 +1271,7 @@ object SendspinPlayer {
                             if (slack > 0 && bufferedMs() > 2500) slack = maxOf(0L, slack - 5_000L)
                             // zu spät (err > 0) → etwas schneller spielen; Totzone 15 ms, damit es nicht ständig pendelt
                             // unterwegs größere Totzone: der Takt-Abgleich übers Internet zittert, häufiges Umstellen der Geschwindigkeit kann knacken
-                            val dz = if (viaCloud) 60_000 else 15_000
+                            val dz = if (mobile) 60_000 else 15_000
                             val adj = if (abs(err) < dz) 0.0 else (err / 8_000_000.0).coerceIn(-0.005, 0.005)
                             val want = Math.round(rate * (1 + adj)).toInt()
                             try { if (t.playbackRate != want) t.playbackRate = want } catch (e: Exception) { }
