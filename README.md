@@ -104,6 +104,7 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `tv_box_entities` | Optional: weitere Player der TV-Box (Android TV, Fire TV …), mit Komma getrennt – App-Name; der erste wird für Play/Pause im TV-Modus genutzt |
 | `tv_logo_index` / `tv_logo_dir` | Optional: Senderlogos unter `/local` (JS-Datei `{"sendername": "datei.png"}` und Ordner der Logos) |
 | `app_update_repo` / `app_update_token` | Optional: eigene App-Builds aus einem GitHub-Repo anbieten (Token nur bei privatem Repo). Leer lassen = Apps aus diesem Add-on |
+| `app_update_package` | Optional: App-Kennung (z. B. `de.partyjukebox.player`). Bei neuer App-Version kommt eine Benachrichtigung über die HA-App (Handys aus dem Podcast-Push); Antippen öffnet die App |
 
 Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter ⚙ ein.
 

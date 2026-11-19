@@ -372,6 +372,33 @@ async def _app_release(session):
     return data
 
 
+async def appupdate_push_loop(app):
+    """Neue App-Version → einmal pro Version eine Benachrichtigung über die HA-App (Handy, Uhr, Autodisplay).
+    Empfänger: alle Handys, die für den Podcast-Push eingetragen sind. Installiert wird am Handy (Android verlangt das)."""
+    session = app["session"]
+    await asyncio.sleep(90)
+    while True:
+        try:
+            d = await _app_release(session)
+            ver = (d or {}).get("version") or ""
+            svcs = sorted({str(c.get("notify") or "") for c in podpush_cfg().values() if str(c.get("notify") or "").startswith("notify.")})
+            if ver and (d or {}).get("assets") and svcs and FAVS.get("_appupd_pushed") != ver:
+                data = {"tag": "pj_appupdate", "car_ui": True, "channel": "App-Update",
+                        "notification_icon": "mdi:cellphone-arrow-down", "color": "#E040FB", "icon_url": POD_ICON}
+                pkg = str(OPT.get("app_update_package") or "").strip()
+                if pkg:
+                    data["clickAction"] = "app://" + pkg   # Antippen öffnet die App – dort erscheint das Update
+                for svc in svcs:
+                    await ha_call(session, "notify", svc.split(".", 1)[1], {
+                        "title": "Jukebox-Update " + ver, "message": "Neue Version verfügbar – App am Handy öffnen und installieren.", "data": data})
+                FAVS["_appupd_pushed"] = ver
+                _save_favs()
+                log.info("App-Update %s: Benachrichtigung an %d Handy(s)", ver, len(svcs))
+        except Exception as e:
+            log.info("App-Update-Push: %s", e)
+        await asyncio.sleep(900)
+
+
 async def party_appupdate(request):
     """Neueste App-Version: {"ok", "version", "assets": [{name, size}]}"""
     if not is_host(request):
@@ -2321,6 +2348,7 @@ async def on_startup(app):
     app["rooms"] = asyncio.create_task(rooms_loop(app))
     app["partykeep"] = asyncio.create_task(party_keep_loop(app))
     app["podpush"] = asyncio.create_task(podpush_loop(app))
+    app["appupd_push"] = asyncio.create_task(appupdate_push_loop(app))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
     app["autowatch"] = asyncio.create_task(autoplay_watch_loop(app))
 
