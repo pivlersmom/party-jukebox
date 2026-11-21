@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.2.1
+- Player: Titel antippen öffnet „Zur Playlist“. Die Auswahl ist nach Speicherort gruppiert und zeigt nur passende Dienste (Tidal-Titel → Tidal-Playlists oder Jukebox/MA), je mit „Neue Playlist“.
+- Jukebox-Playlists (Music Assistant) erscheinen in den Playlist-Listen aller Profile.
+
 ## 0.2.0
 - Eigene Playlists: neue Playlist anlegen (Start → „＋ Neue Playlist“), Titel über das Titel-Menü oder den ＋-Knopf im Player hinzufügen, Warteschlange als Playlist speichern, Titel aus eigenen Playlists entfernen.
 - Versionsnummern ab jetzt: neue Funktion = mittlere Stelle, Fehlerkorrektur = letzte Stelle.

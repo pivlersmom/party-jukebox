@@ -57,7 +57,10 @@ body.blocked .view{display:none!important}
 .nphead #npAdd{flex:none;width:38px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--tx)}
 .nphead #npAdd svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 #v-now.tvmode #npAdd{visibility:hidden}
-.plist{max-height:42vh;overflow-y:auto;margin-top:8px}
+.plist{max-height:56vh;overflow-y:auto;margin-top:4px}
+.plist .plnewb{height:44px;justify-content:flex-start;padding:0 14px;font-size:15px}
+.plist .plnewb svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+#v-now .meta{cursor:pointer}
 .nphead #npQ{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:var(--tx)}
 .nphead #npQ svg{width:24px;height:24px}
 .nphead #npSpk{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border-radius:999px;font-size:13px;font-weight:700;color:var(--dim)}

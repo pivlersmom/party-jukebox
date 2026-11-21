@@ -766,6 +766,7 @@ function closePlayer(silent) {
 $("#npClose").onclick = () => closePlayer();
 $("#npSpk").onclick = () => $("#plBtn").click();
 $("#npAdd").onclick = () => plCurrent();   // laufenden Titel in eine Playlist
+document.querySelector("#v-now .meta").onclick = () => { if (!$("#v-now").classList.contains("tvmode")) plCurrent(); };   // Titel antippen = dasselbe
 $("#npQ").onclick = () => { closePlayer(); showTab("queue"); S.qFromPlayer = true; };   // Warteschlange direkt aus dem Player
 /* Zurück aus der Warteschlange: dorthin, wo man vorher war (aufgeklappter Player, Start oder Suche) */
 $("#qBack").onclick = () => {
@@ -1333,7 +1334,7 @@ function loadProviders() {
     S.plProv = [];
     (l || []).forEach(p => { const id = p.instance_id || p.lookup_key; if (id) S.provName[id] = p.name || p.domain || id;
       // Anbieter, bei denen man Playlists anlegen kann (Spotify, Tidal, MA-eigene Playlists …)
-      if (id && p.type === "music" && (p.supported_features || []).some(f => String(f).indexOf("playlist_create") === 0)) S.plProv.push({ id, name: p.name || p.domain || id, builtin: /builtin/i.test((p.domain || "") + id) });
+      if (id && p.type === "music" && (p.supported_features || []).some(f => String(f).indexOf("playlist_create") === 0)) S.plProv.push({ id, name: p.name || p.domain || id, domain: p.domain || "", builtin: /builtin/i.test((p.domain || "") + id) });
       // Radio-Anbieter merken: Radiosender sollen in „Zuletzt gespielt“ trotz Konto-Filter erscheinen
       if (id && /radio|tunein|builtin/i.test((p.domain || "") + " " + id)) { S.radioProv = S.radioProv || []; if (!S.radioProv.includes(id)) S.radioProv.push(id); } });
     if (S.home) loadRecent();
@@ -1565,7 +1566,7 @@ async function renderFav() {
   });
   // Zuletzt gespielt
   // Meine Playlists
-  cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, pv), 20000)
+  cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, plPv(pv)), 20000)
     .then(r => { S.home.pl = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
   // Empfehlungen (max. 4 Reihen)
   // Empfehlungen im Namen der gewählten Person (ihr Hörverhalten) und nur aus ihren Musikquellen
@@ -2096,7 +2097,7 @@ async function renderHome() {
   box.innerHTML = head + '<div class="spin"></div>';
   const pv = profProv("provider");
   const [pl, fav] = await Promise.all([
-    cmdP("music/playlists/library_items", Object.assign({ limit: 60, order_by: "sort_name" }, pv), 20000).catch(() => []),
+    cmdP("music/playlists/library_items", Object.assign({ limit: 60, order_by: "sort_name" }, plPv(pv)), 20000).catch(() => []),
     cmdP("music/tracks/library_items", Object.assign({ favorite: true, limit: 40, order_by: "timestamp_added_desc" }, pv), 20000)
       .catch(() => cmdP("music/tracks/library_items", Object.assign({ favorite: true, limit: 40 }, pv), 20000)).catch(() => [])
   ]);
@@ -2271,7 +2272,7 @@ function openItem(it) {
     c.querySelectorAll(".ptarget .chip").forEach(ch => ch.onclick = () => pickTarget(ch));
     c.querySelectorAll(".act").forEach(b => {
       b.onclick = () => { closeSheet(); const o = b.dataset.o;
-        if (o === "from") playFrom(box, it); else if (o === "pl") later(() => plPick([it.uri], unent(it.name)), 260, "pl");
+        if (o === "from") playFrom(box, it); else if (o === "pl") later(() => plPick([it.uri], unent(it.name), it), 260, "pl");
         else if (o === "plrm") plRemove(n, it); else if (o) enqueue(it, o); };
     });
   });
@@ -2280,10 +2281,27 @@ function openItem(it) {
    MA kennt dafür drei Befehle: create_playlist (Name + Anbieter), add_playlist_tracks und remove_playlist_tracks
    (jeweils mit der Bibliotheks-Nummer der Playlist). Eine Playlist bei Spotify/Tidal erscheint auch in deren App,
    nimmt aber nur Titel dieses Anbieters. */
+/* Anbieter, bei denen dieses Profil Playlists anlegen kann – die MA-eigene Ablage ("Jukebox") ist immer dabei */
 function plProviders() {
   const u = prof(), f = u && Array.isArray(u.provider_filter) ? u.provider_filter : [];
-  const l = (S.plProv || []).filter(p => !f.length || f.includes(p.id));
+  const l = (S.plProv || []).filter(p => p.builtin || !f.length || f.includes(p.id));
   return l.sort((a, b) => (a.builtin ? 1 : 0) - (b.builtin ? 1 : 0));   // Konto des Profils zuerst
+}
+/* Konto-Filter des Profils um die MA-eigene Ablage ergänzen: Jukebox-Playlists sollen in den Listen auftauchen */
+function plPv(pv) {
+  if (!pv || !pv.provider) return pv || {};
+  const b = (S.plProv || []).filter(p => p.builtin).map(p => p.id).filter(id => !pv.provider.includes(id));
+  return b.length ? { provider: pv.provider.concat(b) } : pv;
+}
+const plProvLabel = p => p.builtin ? "Jukebox (Music Assistant)" : p.name;
+/* Bei welchen Musikdiensten gibt es diesen Titel? (Tidal, Spotify …) – steht in provider_mappings */
+async function plDomains(it) {
+  let m = it && it.provider_mappings;
+  if ((!m || !m.length) && it && it.uri) { try { const full = await cmd("music/item_by_uri", { uri: it.uri }, 15000); m = full && full.provider_mappings; } catch (e) {} }
+  const d = new Set();
+  (m || []).forEach(x => { if (x && x.provider_domain) d.add(x.provider_domain); if (x && x.provider_instance) d.add(x.provider_instance); });
+  if (it && it.provider && it.provider !== "library") d.add(it.provider);
+  return d;
 }
 async function plAdd(pl, uris) {
   try {
@@ -2293,38 +2311,50 @@ async function plAdd(pl, uris) {
     return true;
   } catch (e) { toast("Playlist: " + errText(e)); return false; }
 }
-/* Auswahl: in welche Playlist? (nur bearbeitbare) – oder neue anlegen */
-async function plPick(uris, label) {
+/*
+ * Auswahl: in welche Playlist? Gruppiert nach Speicherort.
+ * Ein Tidal-Titel kann in Tidal-Playlists oder in die Jukebox (MA, mischt alle Quellen) – aber nicht in eine
+ * Spotify-Playlist. Darum zeigt die Auswahl bei einem einzelnen Titel nur die passenden Dienste.
+ */
+async function plPick(uris, label, item) {
   uris = (uris || []).filter(Boolean);
   if (!uris.length) { toast("Kein Titel zum Hinzufügen"); return; }
   openSheet("plpick", '<div class="shh">Zur Playlist hinzufügen</div><div class="spin"></div>');
+  const doms = item ? await plDomains(item) : null;
+  let groups = plProviders();
+  if (doms && doms.size) groups = groups.filter(p => p.builtin || doms.has(p.id) || doms.has(p.domain));
   let l = [];
-  try { l = await cmdP("music/playlists/library_items", Object.assign({ limit: 200, order_by: "sort_name" }, profProv("provider")), 20000) || []; } catch (e) {}
+  try { l = await cmdP("music/playlists/library_items", Object.assign({ limit: 300, order_by: "sort_name" }, groups.length ? { provider: groups.map(p => p.id) } : {}), 20000) || []; } catch (e) {}
   if (sheetKind !== "plpick") return;
   l = l.filter(x => x && x.uri && x.is_editable !== false);
+  const instOf = x => (x.provider_mappings || []).map(m => m && m.provider_instance).filter(Boolean);
+  const rowOf = x => { const i = l.indexOf(x); return '<button class="row lrow" data-i="' + i + '">' + thumb(imgUrl(x, 120)) + '<span class="rm"><span class="r1">' + esc(x.name) + "</span></span></button>"; };
+  let body = "";
+  if (groups.length) groups.forEach(p => {
+    const mine = l.filter(x => instOf(x).includes(p.id));
+    body += '<div class="ptl">' + esc(plProvLabel(p)) + '</div><button class="act plnewb" data-n="' + esc(p.id) + '">' + ICON.plus + "Neue Playlist" + (p.builtin ? "" : " bei " + esc(p.name)) + "</button>" + mine.map(rowOf).join("");
+  });
+  else body = '<button class="act plnewb" data-n="-">' + ICON.plus + "Neue Playlist</button>" + l.map(rowOf).join("");
   const html = '<div class="shh">' + (uris.length === 1 ? "„" + esc(label || "Titel") + "“" : uris.length + " Titel") + " zur Playlist</div>" +
-    '<button class="act pri" data-n="1">' + ICON.plus + "Neue Playlist</button>" +
-    '<div class="plist">' + l.map((x, i) => '<button class="row lrow" data-i="' + i + '">' + thumb(imgUrl(x, 120)) + '<span class="rm"><span class="r1">' + esc(x.name) +
-      '</span><span class="r2">' + esc(provOf(x) || "Playlist") + "</span></span></button>").join("") + "</div>" +
-    '<button class="act ghost" data-n="">Abbrechen</button>';
+    '<div class="plist">' + body + '</div><button class="act ghost" data-n="">Abbrechen</button>';
   openSheet("plpick", html, c => {
     c.querySelectorAll(".row[data-i]").forEach(b => b.onclick = () => { closeSheet(); plAdd(l[+b.dataset.i], uris); });
-    c.querySelectorAll(".act").forEach(b => b.onclick = () => { closeSheet(); if (b.dataset.n) later(() => plNew(uris), 260, "pl"); });
+    c.querySelectorAll(".act").forEach(b => b.onclick = () => { const n = b.dataset.n; closeSheet(); if (n) later(() => plNew(uris, n === "-" ? "" : n), 260, "pl"); });
   });
 }
-/* Neue Playlist: Name + wo sie gespeichert wird; uris (optional) kommen gleich hinein */
-function plNew(uris) {
+/* Neue Playlist: Name + wo sie gespeichert wird (provId fest vorgegeben oder Auswahl); uris kommen gleich hinein */
+function plNew(uris, provId) {
   uris = (uris || []).filter(Boolean);
-  const pv = plProviders();
-  const html = '<div class="shh">Neue Playlist</div><input class="fi" id="plName" type="text" maxlength="80" placeholder="Name der Playlist" autocomplete="off">' +
-    (pv.length > 1 ? '<div class="ptl">Speichern bei</div><select class="fi" id="plProv">' + pv.map(p => '<option value="' + esc(p.id) + '">' + esc(p.builtin ? "Jukebox (alle Quellen mischbar)" : p.name) + "</option>").join("") + "</select>" : "") +
+  const pv = plProviders(), fix = provId && pv.find(p => p.id === provId);
+  const html = '<div class="shh">Neue Playlist' + (fix ? " · " + esc(plProvLabel(fix)) : "") + '</div><input class="fi" id="plName" type="text" maxlength="80" placeholder="Name der Playlist" autocomplete="off">' +
+    (!fix && pv.length > 1 ? '<div class="ptl">Speichern bei</div><select class="fi" id="plProv">' + pv.map(p => '<option value="' + esc(p.id) + '">' + esc(p.builtin ? "Jukebox (alle Quellen mischbar)" : p.name) + "</option>").join("") + "</select>" : "") +
     '<button class="act pri" data-o="ok">' + (uris.length ? "Anlegen und " + (uris.length === 1 ? "Titel" : uris.length + " Titel") + " hinzufügen" : "Anlegen") + "</button>" +
     '<button class="act ghost" data-o="">Abbrechen</button>';
   openSheet("plnew", html, c => {
     const inp = c.querySelector("#plName"); setTimeout(() => { try { inp.focus(); } catch (e) {} }, 300);
     const go = async () => {
       const name = inp.value.trim(); if (!name) { toast("Bitte einen Namen eingeben"); return; }
-      const sel = c.querySelector("#plProv"), prov = sel ? sel.value : (pv[0] && pv[0].id);
+      const sel = c.querySelector("#plProv"), prov = fix ? fix.id : sel ? sel.value : (pv[0] && pv[0].id);
       closeSheet();
       try {
         const pl = await cmdP("music/playlists/create_playlist", Object.assign({ name }, prov ? { provider_instance_or_domain: prov } : {}), 30000);
@@ -2353,7 +2383,7 @@ async function plRemove(n, it) {
 function plCurrent() {
   const ci = S.q && S.q.current_item, mi = ci && ci.media_item;
   if (!mi || mi.media_type !== "track" || !mi.uri) { toast("Nur Musiktitel lassen sich in Playlists speichern"); return; }
-  plPick([mi.uri], unent(mi.name));
+  plPick([mi.uri], unent(mi.name), mi);
 }
 async function plQueue() {
   try {
