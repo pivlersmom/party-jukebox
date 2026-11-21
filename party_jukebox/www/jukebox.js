@@ -1348,6 +1348,13 @@ function provOf(it) {
   const names = [...new Set(ids.map(id => S.provName[id] || (/^[a-z_]+$/.test(id) ? id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "")).filter(Boolean))];
   return names.slice(0, 2).join(" + ");
 }
+/* Zweite Zeile als HTML: der Anbieter (Tidal, Spotify …) steht fest am Ende und wird nie abgeschnitten –
+   bei langen Titeln kürzt nur der Text davor (…) */
+function subSpan(it) {
+  const base = subBase(it), pv = provOf(it);
+  if (!pv || base.includes(pv)) return '<span class="r2">' + esc(base || pv) + "</span>";
+  return '<span class="r2 r2p">' + (base ? '<span class="r2t">' + esc(base) + "</span>" : "") + '<span class="pvb">' + esc(pv) + "</span></span>";
+}
 function subOf(it) {
   const base = subBase(it), pv = provOf(it);
   return pv && !base.includes(pv) ? (base ? base + " · " + pv : pv) : base;
@@ -1423,7 +1430,7 @@ function renderResults() {
     arr.slice(0, max).forEach(it => {
       const i = S.sItems.push(it) - 1;
       html += '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120), it.media_type === "artist" ? "round" : "") +
-        '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>";
+        '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span>' + subSpan(it) + '' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>";
     });
     html += "</div>";
   });
@@ -1872,7 +1879,7 @@ function paintFav() {
   arr.forEach(it => {
     const i = S.sItems.push(it) - 1;
     html += '<button class="row" data-i="' + i + '" data-n="' + esc((it.name + " " + subOf(it)).toLowerCase()) + '">' + thumb(imgUrl(it, 120), t === "artist" ? "round" : "") +
-      '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>";
+      '<span class="rm"><span class="r1">' + esc(it.name) + '</span>' + subSpan(it) + '' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>";
   });
   box.innerHTML = html + "</div>";
   const q = $("#favQ");
@@ -2105,7 +2112,7 @@ async function renderHome() {
   S.sItems = [];
   const row = it => { const i = S.sItems.push(it) - 1;
     return '<button class="row" data-i="' + i + '">' + thumb(imgUrl(it, 120)) + '<span class="rm"><span class="r1">' + esc(it.name) +
-      '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>"; };
+      '</span>' + subSpan(it) + '' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>"; };
   let html = head;
   const p = (pl || []).filter(x => x && x.uri), f = (fav || []).filter(x => x && x.uri);
   if (p.length) html += '<div class="sec"><div class="sech"><span>' + (u ? "Playlists von " + esc(profName(u)) : "Playlists") + '</span><button class="bmore plnew">＋ Neue Playlist</button></div>' + p.map(row).join("") + "</div>";
@@ -2163,7 +2170,7 @@ function renderNav() {
   S.sItems = [];
   let html = '<div class="bhead"><button class="bback" aria-label="Zurück">' + ICON.back + '</button>' +
     '<button class="bfav' + (isFavIt(it) ? " on" : "") + '" aria-label="Favorit">' + ICON.heart + "</button>" + thumb(imgUrl(it, 480), "lg favable" + (art ? " round" : "")) +
-    '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span></div>' +
+    '<span class="rm"><span class="r1">' + favMark(it) + esc(it.name) + '</span>' + subSpan(it) + '' + prog(it) + '</span></div>' +
     '<div class="bacts"><button class="bact pri" data-o="play">' + ICON.play + 'Abspielen</button><button class="bact" data-o="next">' + ICON.nextup +
     'Als Nächstes</button><button class="bact" data-o="add">' + ICON.plus + 'Anstellen</button></div>' + targetRow();
   if (!d) html += '<div class="spin"></div>';
@@ -2182,8 +2189,8 @@ function renderNav() {
       tr.slice(0, max).forEach((t, k) => {
         const i = S.sItems.push(t) - 1, no = it.media_type === "album" ? (t.track_number || k + 1) : null;
         html += '<button class="row" data-i="' + i + '">' + (no != null ? '<span class="tno">' + no + "</span>" : thumb(imgUrl(t, 120))) +
-          '<span class="rm"><span class="r1">' + esc(t.name) + '</span><span class="r2">' + esc(it.media_type === "album" ? (artistsOf(t) || fmt(t.duration)) : subOf(t)) +
-          '</span></span><span class="go">' + ICON.dots + "</span></button>";
+          '<span class="rm"><span class="r1">' + esc(t.name) + '</span>' + (it.media_type === "album" ? '<span class="r2">' + esc(artistsOf(t) || fmt(t.duration)) + "</span>" : subSpan(t)) +
+          '</span><span class="go">' + ICON.dots + "</span></button>";
       });
       if (!art && tr.length > max) html += '<button class="more navmore">Weitere laden (' + max + " von " + tr.length + ")</button>";
       html += "</div>";
@@ -2260,7 +2267,7 @@ function openItem(it) {
     n.data && (n.data.tracks || []).some(x => x && x.uri === it.uri) ? n.it : null;
   const target = targetRow();
   const html = '<div class="ihead">' + thumb(imgUrl(it, 240), "lg" + (it.media_type === "artist" ? " round" : "")) +
-    '<span class="rm"><span class="r1">' + esc(it.name) + '</span><span class="r2">' + esc(subOf(it)) + "</span>" + prog(it) + "</span></div>" + target +
+    '<span class="rm"><span class="r1">' + esc(it.name) + '</span>' + subSpan(it) + "" + prog(it) + "</span></div>" + target +
     (box ? '<button class="act pri" data-o="from">' + ICON.play + (box.media_type === "podcast" ? "Podcast ab dieser Folge" : box.media_type === "album" ? "Album ab hier" : "Playlist ab hier") + "</button>" : "") +
     '<button class="act' + (box ? "" : " pri") + '" data-o="play">' + ICON.play + (box ? "Nur diesen Titel spielen" : "Jetzt spielen") + "</button>" +
     '<button class="act" data-o="next">' + ICON.nextup + "Als Nächstes</button>" +

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.2.4
+- Listen und Titel-Menü: Der Anbieter (Tidal, Spotify …) steht als kleines Schild fest am Zeilenende und wird bei langen Titeln nicht mehr abgeschnitten.
+
 ## 0.2.3
 - Playlist: Hinweis, wenn ein Titel schon in der Playlist ist (wird nicht doppelt hinzugefügt).
 

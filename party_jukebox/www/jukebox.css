@@ -692,3 +692,6 @@ header > .setbtn{justify-self:end}
 #v-now.tvseek #bNext::before{content:"+30"}
 #v-now .prog.nodur .sl{visibility:hidden}
 .qi,.qnow{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.r2.r2p{display:flex;align-items:center;gap:6px}
+.r2p .r2t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.r2p .pvb{flex:none;font-size:11px;font-weight:700;color:var(--a2);border:1px solid var(--line);border-radius:6px;padding:0 5px;line-height:16px}
