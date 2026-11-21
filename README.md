@@ -19,6 +19,7 @@ Home-Assistant-Add-on für Partys und den Alltag mit **Music Assistant**: eine J
 - Warteschlange: Titel per Griff ≡ verschieben, entfernen, als Nächstes einreihen oder **hinten anstellen** (hinter die eigenen Wünsche, automatisch ergänzte Titel bleiben dahinter). Oben steht, aus welcher Playlist bzw. welchem Album die Musik gerade kommt. Die Warteschlange ist auch direkt aus dem Player erreichbar.
 - **Sprachsuche**: 🎤 rechts im Suchfeld (auch auf der Party-Seite)
 - Eine Playlist oder ein Album abspielen ersetzt die Warteschlange
+- **Eigene Playlists**: neue Playlist anlegen (Suche → „＋ Neue Playlist“), Titel über das Titel-Menü oder den ＋-Knopf im Player hinzufügen, die Warteschlange als Playlist speichern, Titel wieder entfernen. Gespeichert wird beim Musikdienst des Profils (erscheint dann auch in dessen App) oder in Music Assistant.
 - **Hörfortschritt** bei Podcast-Folgen und Hörbüchern („noch 12 min“, „✓ gehört“, Balken)
 - Lautsprecher wählen und gruppieren; die Lautstärke regelst du für die ganze Gruppe oder für jede Box einzeln. In der Lautsprecher-Liste zeigt jede Box, auf der etwas läuft, das Cover (bzw. Sender-/App-Logo beim TV-Ton).
 - **Cover antippen** → Songtext läuft mit · **Cover lange drücken** → laufender Titel zu den Favoriten (Rahmen im Farbverlauf)

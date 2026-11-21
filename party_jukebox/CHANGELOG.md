@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.2.0
+- Eigene Playlists: neue Playlist anlegen (Start → „＋ Neue Playlist“), Titel über das Titel-Menü oder den ＋-Knopf im Player hinzufügen, Warteschlange als Playlist speichern, Titel aus eigenen Playlists entfernen.
+- Versionsnummern ab jetzt: neue Funktion = mittlere Stelle, Fehlerkorrektur = letzte Stelle.
+
 ## 0.1.181
 - Radiosender starten ersetzt die Warteschlange (Radio läuft endlos, der Rest käme nie dran). Auch im Player 3.9.73.
 

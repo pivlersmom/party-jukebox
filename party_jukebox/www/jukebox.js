@@ -765,6 +765,7 @@ function closePlayer(silent) {
 }
 $("#npClose").onclick = () => closePlayer();
 $("#npSpk").onclick = () => $("#plBtn").click();
+$("#npAdd").onclick = () => plCurrent();   // laufenden Titel in eine Playlist
 $("#npQ").onclick = () => { closePlayer(); showTab("queue"); S.qFromPlayer = true; };   // Warteschlange direkt aus dem Player
 /* Zurück aus der Warteschlange: dorthin, wo man vorher war (aufgeklappter Player, Start oder Suche) */
 $("#qBack").onclick = () => {
@@ -1329,7 +1330,10 @@ const unent = t => String(t == null ? "" : t).replace(/&amp;/g, "&").replace(/&q
 S.provName = {};
 function loadProviders() {
   cmd("providers", {}, 15000).then(l => {
+    S.plProv = [];
     (l || []).forEach(p => { const id = p.instance_id || p.lookup_key; if (id) S.provName[id] = p.name || p.domain || id;
+      // Anbieter, bei denen man Playlists anlegen kann (Spotify, Tidal, MA-eigene Playlists …)
+      if (id && p.type === "music" && (p.supported_features || []).some(f => String(f).indexOf("playlist_create") === 0)) S.plProv.push({ id, name: p.name || p.domain || id, builtin: /builtin/i.test((p.domain || "") + id) });
       // Radio-Anbieter merken: Radiosender sollen in „Zuletzt gespielt“ trotz Konto-Filter erscheinen
       if (id && /radio|tunein|builtin/i.test((p.domain || "") + " " + id)) { S.radioProv = S.radioProv || []; if (!S.radioProv.includes(id)) S.radioProv.push(id); } });
     if (S.home) loadRecent();
@@ -1465,6 +1469,7 @@ $("#sRes").onclick = e => {
   if (e.target.closest(".bfav")) { const n = S.nav[S.nav.length - 1]; if (n) toggleFav(n.it); return; }
   const tch = e.target.closest(".ptarget .chip"); if (tch) { pickTarget(tch); return; }
   const ba = e.target.closest(".bact"); if (ba) { const n = S.nav[S.nav.length - 1]; if (n) enqueue(n.it, ba.dataset.o); return; }
+  if (e.target.closest(".plnew")) { plNew([]); return; }
   const tg = e.target.closest(".bmore"); if (tg) { const n = S.nav[S.nav.length - 1]; if (n) { n.all = !n.all; renderNav(); } return; }
   const more = e.target.closest(".more"); if (more) { setFilter(more.dataset.f); return; }
   const row = e.target.closest(".row"); if (!row) return;
@@ -2102,7 +2107,8 @@ async function renderHome() {
       '</span><span class="r2">' + esc(subOf(it)) + '</span>' + prog(it) + '</span><span class="go">' + ICON.dots + "</span></button>"; };
   let html = head;
   const p = (pl || []).filter(x => x && x.uri), f = (fav || []).filter(x => x && x.uri);
-  if (p.length) html += '<div class="sec"><div class="sech"><span>' + (u ? "Playlists von " + esc(profName(u)) : "Playlists") + "</span></div>" + p.map(row).join("") + "</div>";
+  if (p.length) html += '<div class="sec"><div class="sech"><span>' + (u ? "Playlists von " + esc(profName(u)) : "Playlists") + '</span><button class="bmore plnew">＋ Neue Playlist</button></div>' + p.map(row).join("") + "</div>";
+  else html += '<div class="sec"><div class="sech"><span>Playlists</span><button class="bmore plnew">＋ Neue Playlist</button></div></div>';
   if (f.length) html += '<div class="sec"><div class="sech"><span>Lieblingssongs</span></div>' + f.map(row).join("") + "</div>";
   if (!p.length && !f.length) html += '<div class="empty">Wonach suchst du?</div>';
   box.innerHTML = html;
@@ -2258,14 +2264,106 @@ function openItem(it) {
     '<button class="act' + (box ? "" : " pri") + '" data-o="play">' + ICON.play + (box ? "Nur diesen Titel spielen" : "Jetzt spielen") + "</button>" +
     '<button class="act" data-o="next">' + ICON.nextup + "Als Nächstes</button>" +
     '<button class="act" data-o="add">' + ICON.plus + "Hinten anstellen</button>" +
+    (it.media_type === "track" ? '<button class="act" data-o="pl">' + ICON.list + "Zur Playlist hinzufügen</button>" : "") +
+    (box && box.media_type === "playlist" && box.is_editable !== false && box.provider === "library" ? '<button class="act" data-o="plrm">Aus dieser Playlist entfernen</button>' : "") +
     '<button class="act ghost" data-o="">Abbrechen</button>';
   openSheet("item", html, c => {
     c.querySelectorAll(".ptarget .chip").forEach(ch => ch.onclick = () => pickTarget(ch));
     c.querySelectorAll(".act").forEach(b => {
-      b.onclick = () => { closeSheet(); if (b.dataset.o === "from") playFrom(box, it); else if (b.dataset.o) enqueue(it, b.dataset.o); };
+      b.onclick = () => { closeSheet(); const o = b.dataset.o;
+        if (o === "from") playFrom(box, it); else if (o === "pl") later(() => plPick([it.uri], unent(it.name)), 260, "pl");
+        else if (o === "plrm") plRemove(n, it); else if (o) enqueue(it, o); };
     });
   });
 }
+/* ---------- Eigene Playlists: anlegen, Titel hinzufügen/entfernen ----------
+   MA kennt dafür drei Befehle: create_playlist (Name + Anbieter), add_playlist_tracks und remove_playlist_tracks
+   (jeweils mit der Bibliotheks-Nummer der Playlist). Eine Playlist bei Spotify/Tidal erscheint auch in deren App,
+   nimmt aber nur Titel dieses Anbieters. */
+function plProviders() {
+  const u = prof(), f = u && Array.isArray(u.provider_filter) ? u.provider_filter : [];
+  const l = (S.plProv || []).filter(p => !f.length || f.includes(p.id));
+  return l.sort((a, b) => (a.builtin ? 1 : 0) - (b.builtin ? 1 : 0));   // Konto des Profils zuerst
+}
+async function plAdd(pl, uris) {
+  try {
+    await cmdP("music/playlists/add_playlist_tracks", { db_playlist_id: pl.item_id, uris }, 120000);
+    toast((uris.length === 1 ? "Hinzugefügt zu „" : uris.length + " Titel in „") + unent(pl.name) + "“");
+    S.home = {}; S.favData = null;
+    return true;
+  } catch (e) { toast("Playlist: " + errText(e)); return false; }
+}
+/* Auswahl: in welche Playlist? (nur bearbeitbare) – oder neue anlegen */
+async function plPick(uris, label) {
+  uris = (uris || []).filter(Boolean);
+  if (!uris.length) { toast("Kein Titel zum Hinzufügen"); return; }
+  openSheet("plpick", '<div class="shh">Zur Playlist hinzufügen</div><div class="spin"></div>');
+  let l = [];
+  try { l = await cmdP("music/playlists/library_items", Object.assign({ limit: 200, order_by: "sort_name" }, profProv("provider")), 20000) || []; } catch (e) {}
+  if (sheetKind !== "plpick") return;
+  l = l.filter(x => x && x.uri && x.is_editable !== false);
+  const html = '<div class="shh">' + (uris.length === 1 ? "„" + esc(label || "Titel") + "“" : uris.length + " Titel") + " zur Playlist</div>" +
+    '<button class="act pri" data-n="1">' + ICON.plus + "Neue Playlist</button>" +
+    '<div class="plist">' + l.map((x, i) => '<button class="row lrow" data-i="' + i + '">' + thumb(imgUrl(x, 120)) + '<span class="rm"><span class="r1">' + esc(x.name) +
+      '</span><span class="r2">' + esc(provOf(x) || "Playlist") + "</span></span></button>").join("") + "</div>" +
+    '<button class="act ghost" data-n="">Abbrechen</button>';
+  openSheet("plpick", html, c => {
+    c.querySelectorAll(".row[data-i]").forEach(b => b.onclick = () => { closeSheet(); plAdd(l[+b.dataset.i], uris); });
+    c.querySelectorAll(".act").forEach(b => b.onclick = () => { closeSheet(); if (b.dataset.n) later(() => plNew(uris), 260, "pl"); });
+  });
+}
+/* Neue Playlist: Name + wo sie gespeichert wird; uris (optional) kommen gleich hinein */
+function plNew(uris) {
+  uris = (uris || []).filter(Boolean);
+  const pv = plProviders();
+  const html = '<div class="shh">Neue Playlist</div><input class="fi" id="plName" type="text" maxlength="80" placeholder="Name der Playlist" autocomplete="off">' +
+    (pv.length > 1 ? '<div class="ptl">Speichern bei</div><select class="fi" id="plProv">' + pv.map(p => '<option value="' + esc(p.id) + '">' + esc(p.builtin ? "Jukebox (alle Quellen mischbar)" : p.name) + "</option>").join("") + "</select>" : "") +
+    '<button class="act pri" data-o="ok">' + (uris.length ? "Anlegen und " + (uris.length === 1 ? "Titel" : uris.length + " Titel") + " hinzufügen" : "Anlegen") + "</button>" +
+    '<button class="act ghost" data-o="">Abbrechen</button>';
+  openSheet("plnew", html, c => {
+    const inp = c.querySelector("#plName"); setTimeout(() => { try { inp.focus(); } catch (e) {} }, 300);
+    const go = async () => {
+      const name = inp.value.trim(); if (!name) { toast("Bitte einen Namen eingeben"); return; }
+      const sel = c.querySelector("#plProv"), prov = sel ? sel.value : (pv[0] && pv[0].id);
+      closeSheet();
+      try {
+        const pl = await cmdP("music/playlists/create_playlist", Object.assign({ name }, prov ? { provider_instance_or_domain: prov } : {}), 30000);
+        if (!pl || pl.item_id == null) throw new Error("keine Antwort");
+        S.home = {}; S.favData = null;
+        if (uris.length) await plAdd(pl, uris); else toast("Playlist „" + name + "“ angelegt");
+        if (!$("#q").value.trim() && !(S.nav && S.nav.length) && !S.favMode) renderHome();
+      } catch (e) { toast("Playlist anlegen: " + errText(e)); }
+    };
+    c.querySelectorAll(".act").forEach(b => b.onclick = () => { if (b.dataset.o) go(); else closeSheet(); });
+    inp.onkeydown = e => { if (e.key === "Enter") go(); };
+  });
+}
+/* Titel aus der geöffneten Playlist entfernen (MA zählt die Plätze ab 0 bzw. liefert "position") */
+async function plRemove(n, it) {
+  const tr = (n.data && n.data.tracks) || [], idx = tr.indexOf(it);
+  const pos = it.position != null ? +it.position : idx;
+  if (pos < 0) return;
+  try {
+    await cmdP("music/playlists/remove_playlist_tracks", { db_playlist_id: n.it.item_id, positions_to_remove: [pos] }, 30000);
+    toast("Entfernt: " + unent(it.name));
+    n.data = null; renderNav(); later(() => loadNav(n), 1500, "plrm");   // MA entfernt im Hintergrund – kurz warten
+  } catch (e) { toast("Entfernen: " + errText(e)); }
+}
+/* Laufenden Titel / ganze Warteschlange in eine Playlist */
+function plCurrent() {
+  const ci = S.q && S.q.current_item, mi = ci && ci.media_item;
+  if (!mi || mi.media_type !== "track" || !mi.uri) { toast("Nur Musiktitel lassen sich in Playlists speichern"); return; }
+  plPick([mi.uri], unent(mi.name));
+}
+async function plQueue() {
+  try {
+    const r = await cmd("player_queues/items", { queue_id: S.qid, limit: 500, offset: 0 }, 30000) || [];
+    const uris = []; r.forEach(x => { const m = x && x.media_item; if (m && m.media_type === "track" && m.uri && !uris.includes(m.uri)) uris.push(m.uri); });
+    if (!uris.length) { toast("Keine Musiktitel in der Warteschlange"); return; }
+    plPick(uris);
+  } catch (e) { toast("Warteschlange: " + errText(e)); }
+}
+
 /** Name des gewählten Lautsprechers (für die Bestätigung „… · Wohnzimmer“) */
 function whereName() { const p = S.players[S.pid]; return p ? "🔈 " + pname(p) : ""; }
 /* Playlist/Album/Podcast ab einem bestimmten Titel – der Rest der Liste folgt */
@@ -2367,8 +2465,9 @@ function renderItems() {
 $("#qClear").onclick = () => {
   openSheet("qclear", '<div class="shh">Liste leeren</div>' +
     '<button class="row lrow act" data-o="next"><span class="rm"><span class="r1">Kommende Titel entfernen</span><span class="r2">Der laufende Titel spielt weiter</span></span></button>' +
-    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>',
-    c => c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); clearQueue(b.dataset.o === "all"); }; }));
+    '<button class="row lrow act" data-o="all"><span class="rm"><span class="r1">Alles leeren</span><span class="r2">Warteschlange komplett leer, Musik stoppt</span></span></button>' +
+    '<button class="row lrow act" data-o="save"><span class="rm"><span class="r1">Als Playlist speichern</span><span class="r2">Alle Titel der Warteschlange in eine Playlist</span></span></button>',
+    c => c.querySelectorAll(".act").forEach(b => { b.onclick = () => { closeSheet(); if (b.dataset.o === "save") later(plQueue, 260, "pl"); else clearQueue(b.dataset.o === "all"); }; }));
 };
 async function clearQueue(all) {
   if (all) { if (await qc("clear")) { S.items = []; renderItems(); toast("Warteschlange geleert"); } return; }
