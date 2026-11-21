@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.2.2
+- Warteschlange: Titel (oder „Läuft gerade“) lange drücken → „Zur Playlist“.
+
 ## 0.2.1
 - Player: Titel antippen öffnet „Zur Playlist“. Die Auswahl ist nach Speicherort gruppiert und zeigt nur passende Dienste (Tidal-Titel → Tidal-Playlists oder Jukebox/MA), je mit „Neue Playlist“.
 - Jukebox-Playlists (Music Assistant) erscheinen in den Playlist-Listen aller Profile.

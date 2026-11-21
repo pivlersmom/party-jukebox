@@ -2527,6 +2527,32 @@ $("#qList").onclick = async e => {
     moveUp(i);
   }
 };
+/* Lange drücken auf einen Titel der Warteschlange (oder auf „Läuft gerade“) → in eine Playlist */
+(function () {
+  const box = $("#qList"); let t = null, x0 = 0, y0 = 0, fired = false;
+  const target = e => {
+    if (e.target.closest(".ib")) return null;                       // ✕ und Griff ≡ bleiben, wie sie sind
+    if (e.target.closest(".qnow")) { const ci = S.q && S.q.current_item; return ci && ci.media_item; }
+    const row = e.target.closest(".qi"), it = row && S.items[+row.dataset.i];
+    return it && it.media_item;
+  };
+  box.addEventListener("pointerdown", e => {
+    const m = target(e); fired = false; clearTimeout(t); if (!m) return;
+    x0 = e.clientX; y0 = e.clientY;
+    t = setTimeout(() => {
+      if (drag) return;
+      fired = true;
+      if (m.media_type !== "track" || !m.uri) { toast("Nur Musiktitel lassen sich in Playlists speichern"); return; }
+      plPick([m.uri], unent(m.name), m);
+    }, 600);
+  });
+  const cancel = () => clearTimeout(t);
+  box.addEventListener("pointermove", e => { if (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10) cancel(); });
+  box.addEventListener("pointerup", cancel); box.addEventListener("pointercancel", cancel);
+  box.addEventListener("contextmenu", e => { if (target(e)) e.preventDefault(); });
+  // nach dem langen Drücken nicht auch noch den Titel abspielen
+  box.addEventListener("click", e => { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+})();
 /* ---------- Ziehen zum Verschieben (Griff ≡) ---------- */
 /* Titel, die MA schon in den Puffer geladen hat, lassen sich nicht mehr verschieben */
 function minDragIdx() {

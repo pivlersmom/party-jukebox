@@ -691,3 +691,4 @@ header > .setbtn{justify-self:end}
 #v-now.tvseek #bPrev::before{content:"−10"}
 #v-now.tvseek #bNext::before{content:"+30"}
 #v-now .prog.nodur .sl{visibility:hidden}
+.qi,.qnow{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
