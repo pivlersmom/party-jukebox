@@ -2303,10 +2303,21 @@ async function plDomains(it) {
   if (it && it.provider && it.provider !== "library") d.add(it.provider);
   return d;
 }
-async function plAdd(pl, uris) {
+/* MA überspringt Titel, die schon in der Playlist sind, stillschweigend – darum vorher nachsehen und es sagen */
+async function plAdd(pl, uris, item) {
   try {
+    let have = [];
+    try { have = await cmd("music/playlists/playlist_tracks", { item_id: String(pl.item_id), provider_instance_id_or_domain: pl.provider || "library" }, 40000) || []; } catch (e) {}
+    const hu = new Set(have.map(t => t && t.uri).filter(Boolean));
+    const key = t => (unent(t.name || "") + "|" + artistsOf(t)).toLowerCase();
+    const hk = item ? new Set(have.filter(Boolean).map(key)) : null;
+    const total = uris.length;
+    uris = uris.filter(u => !hu.has(u));
+    if (item && uris.length && hk.has(key(item))) uris = [];
+    const dup = total - uris.length;
+    if (!uris.length) { toast(total === 1 ? "Schon in „" + unent(pl.name) + "“ – nicht doppelt hinzugefügt" : "Alle " + total + " Titel sind schon in „" + unent(pl.name) + "“"); return true; }
     await cmdP("music/playlists/add_playlist_tracks", { db_playlist_id: pl.item_id, uris }, 120000);
-    toast((uris.length === 1 ? "Hinzugefügt zu „" : uris.length + " Titel in „") + unent(pl.name) + "“");
+    toast((total === 1 ? "Hinzugefügt zu „" : uris.length + " Titel in „") + unent(pl.name) + "“" + (dup ? " · " + dup + " waren schon drin" : ""));
     S.home = {}; S.favData = null;
     return true;
   } catch (e) { toast("Playlist: " + errText(e)); return false; }
@@ -2338,7 +2349,7 @@ async function plPick(uris, label, item) {
   const html = '<div class="shh">' + (uris.length === 1 ? "„" + esc(label || "Titel") + "“" : uris.length + " Titel") + " zur Playlist</div>" +
     '<div class="plist">' + body + '</div><button class="act ghost" data-n="">Abbrechen</button>';
   openSheet("plpick", html, c => {
-    c.querySelectorAll(".row[data-i]").forEach(b => b.onclick = () => { closeSheet(); plAdd(l[+b.dataset.i], uris); });
+    c.querySelectorAll(".row[data-i]").forEach(b => b.onclick = () => { closeSheet(); plAdd(l[+b.dataset.i], uris, uris.length === 1 ? item : null); });
     c.querySelectorAll(".act").forEach(b => b.onclick = () => { const n = b.dataset.n; closeSheet(); if (n) later(() => plNew(uris, n === "-" ? "" : n), 260, "pl"); });
   });
 }

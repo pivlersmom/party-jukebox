@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.2.3
+- Playlist: Hinweis, wenn ein Titel schon in der Playlist ist (wird nicht doppelt hinzugefügt).
+
 ## 0.2.2
 - Warteschlange: Titel (oder „Läuft gerade“) lange drücken → „Zur Playlist“.
 
