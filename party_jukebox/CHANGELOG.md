@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.2.5
+- Neue Playlists werden automatisch Favorit (Start → Favoriten → Playlists). „Meine Playlists“ zeigt die neuesten zuerst.
+
 ## 0.2.4
 - Listen und Titel-Menü: Der Anbieter (Tidal, Spotify …) steht als kleines Schild fest am Zeilenende und wird bei langen Titeln nicht mehr abgeschnitten.
 

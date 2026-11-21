@@ -1573,7 +1573,9 @@ async function renderFav() {
   });
   // Zuletzt gespielt
   // Meine Playlists
-  cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, plPv(pv)), 20000)
+  // neueste zuerst: eine gerade angelegte Playlist steht vorn (bei Hunderten Playlists sonst unauffindbar)
+  cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "timestamp_added_desc" }, plPv(pv)), 20000)
+    .catch(() => cmdP("music/playlists/library_items", Object.assign({ limit: 40, order_by: "sort_name" }, plPv(pv)), 20000))
     .then(r => { S.home.pl = (r || []).filter(x => x && x.uri); done(); }).catch(() => {});
   // Empfehlungen (max. 4 Reihen)
   // Empfehlungen im Namen der gewählten Person (ihr Hörverhalten) und nur aus ihren Musikquellen
@@ -2104,7 +2106,8 @@ async function renderHome() {
   box.innerHTML = head + '<div class="spin"></div>';
   const pv = profProv("provider");
   const [pl, fav] = await Promise.all([
-    cmdP("music/playlists/library_items", Object.assign({ limit: 60, order_by: "sort_name" }, plPv(pv)), 20000).catch(() => []),
+    cmdP("music/playlists/library_items", Object.assign({ limit: 60, order_by: "timestamp_added_desc" }, plPv(pv)), 20000)
+      .catch(() => cmdP("music/playlists/library_items", Object.assign({ limit: 60, order_by: "sort_name" }, plPv(pv)), 20000)).catch(() => []),
     cmdP("music/tracks/library_items", Object.assign({ favorite: true, limit: 40, order_by: "timestamp_added_desc" }, pv), 20000)
       .catch(() => cmdP("music/tracks/library_items", Object.assign({ favorite: true, limit: 40 }, pv), 20000)).catch(() => [])
   ]);
@@ -2378,7 +2381,9 @@ function plNew(uris, provId) {
         const pl = await cmdP("music/playlists/create_playlist", Object.assign({ name }, prov ? { provider_instance_or_domain: prov } : {}), 30000);
         if (!pl || pl.item_id == null) throw new Error("keine Antwort");
         S.home = {}; S.favData = null;
-        if (uris.length) await plAdd(pl, uris); else toast("Playlist „" + name + "“ angelegt");
+        // gleich als Favorit merken → steht unter Start → Favoriten → Playlists (mit Suchfeld)
+        try { await toggleFav(pl); } catch (e) {}
+        if (uris.length) await plAdd(pl, uris); else toast("Playlist „" + name + "“ angelegt (❤️ Favorit)");
         if (!$("#q").value.trim() && !(S.nav && S.nav.length) && !S.favMode) renderHome();
       } catch (e) { toast("Playlist anlegen: " + errText(e)); }
     };
