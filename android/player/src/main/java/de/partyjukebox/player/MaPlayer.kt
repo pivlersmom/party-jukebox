@@ -527,10 +527,27 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         // Handy-Lautsprecher schläft (Leerlauf)? Erst aufwecken, dann den Befehl schicken
         if (q == PhonePlayer.playerId(ctx) && !SendspinPlayer.isConnected()) {
             SendspinPlayer.wake(ctx, "Taste $c")
-            SendspinPlayer.whenReady { ma.send("player_queues/$c", o("queue_id" to q)) { _, _ -> refreshSoon() } }
+            SendspinPlayer.whenReady { if (c == "play") playOrLast(q) else ma.send("player_queues/$c", o("queue_id" to q)) { _, _ -> refreshSoon() } }
             return
         }
+        if (c == "play" && q == PhonePlayer.playerId(ctx)) { playOrLast(q); return }
         ma.send("player_queues/$c", o("queue_id" to q)) { _, _ -> refreshSoon() }
+    }
+
+    /*
+     * Lernkarte: "Play" bei leerer Warteschlange
+     * Android Auto drückt beim Verbinden von selbst auf Play. Ist die Warteschlange des Handys leer (z. B. weil die
+     * Musik beim Heimkommen ins Wohnzimmer umgezogen ist – das leert die Quelle), passierte nichts.
+     * Jetzt: dann wird das zuletzt Gehörte (Playlist, Album, Radiosender …) neu gestartet.
+     */
+    private fun playOrLast(q: String) {
+        ma.send("player_queues/get", o("queue_id" to q)) { r, _ ->
+            val n = (r as? JSONObject)?.optInt("items", -1) ?: -1
+            if (n == 0) {
+                AppLog.add("Warteschlange leer – starte das zuletzt Gehörte")
+                Library.playLast(this)
+            } else ma.send("player_queues/play", o("queue_id" to q)) { _, _ -> refreshSoon() }
+        }
     }
 
     // ---------------------------------------------------------------- Abfragen bei MA

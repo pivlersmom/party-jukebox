@@ -736,6 +736,18 @@ object Library {
 
     fun playEpisode(player: MaPlayer, uri: String?) = playUri(player, uri)
 
+    /** Das zuletzt Gehörte (wie "Zuletzt gehört": Playlist, Album, Radiosender, Podcast …) neu starten */
+    fun playLast(player: MaPlayer) {
+        withRadio(withProfile(o("limit" to 5, "fully_played_only" to false, "user_initiated_only" to true,
+            "always_include_media_types" to JSONArray().put("radio").put("podcast").put("podcast_episode").put("audiobook")), "providers")) { a ->
+            ma().send("music/recently_played_items", a) { r, _ ->
+                val l = r as? JSONArray
+                val uri = (0 until (l?.length() ?: 0)).mapNotNull { l?.optJSONObject(it)?.optString("uri") }.firstOrNull { it.isNotEmpty() }
+                if (uri == null) AppLog.add("Nichts zuletzt Gehörtes gefunden") else playUri(player, uri)
+            }
+        }
+    }
+
     private fun playUri(player: MaPlayer, uri: String?) {
         val q = player.playerId()
         if (q.isEmpty() || uri.isNullOrEmpty()) return
