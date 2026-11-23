@@ -161,6 +161,7 @@ class JukeboxService : MediaLibraryService() {
      * Darum jede Minute nachzählen, welche Auto-Verbindungen wirklich noch bestehen.
      */
     private fun carRecount() {
+        MaPlayer.carCheck = { carRecount() }
         val n = session?.connectedControllers?.count { isCar(it) } ?: 0
         if (n != cars) {
             if (n == 0 && cars > 0) AppLog.add("Android Auto weg (ohne Abmeldung) – Auto-Modus aus")
@@ -290,7 +291,15 @@ class JukeboxService : MediaLibraryService() {
 
         /** Wer sich verbindet (Android Auto, Uhr …), darf auch unseren eigenen Befehl benutzen */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            MaPlayer.carCheck = { carRecount() }
             if (isCar(controller)) { main.removeCallbacks(carTick); main.postDelayed(carTick, 60_000) }
+            /*
+             * Lernkarte: Projektion kommt oft erst Sekunden nach der Verbindung
+             * Beim Verbinden meldet Android Auto häufig noch "keine Projektion". Der Auto-Modus ging dann erst mit dem
+             * Minuten-Takt an – das automatische "Play" des Autos traf bis dahin den zuletzt gewählten Lautsprecher
+             * (z. B. das Wohnzimmer). Darum in den ersten Sekunden mehrfach nachsehen.
+             */
+            if (isCar(controller)) for (ms in longArrayOf(1000, 2500, 5000, 10_000, 20_000)) main.postDelayed({ carRecount() }, ms)
             if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = carNow(cars); refreshHome() }
             val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).add(backCmd).add(fwdCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)

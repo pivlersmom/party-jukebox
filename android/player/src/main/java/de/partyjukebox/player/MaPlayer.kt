@@ -236,6 +236,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     // ---------------------------------------------------------------- Befehle → Music Assistant
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
         if (playWhenReady && System.currentTimeMillis() < ignorePlayUntil) return done()
+        // vor dem Abspielen frisch prüfen, ob wir im Auto sind → Ziel ist dann das Handy, nicht ein Lautsprecher zuhause
+        if (playWhenReady && !carMode) try { carCheck?.invoke() } catch (e: Exception) {}
         if (playWhenReady && showSuggestion()) {
             // neue Folge abspielen
             val uri = Library.suggestion?.optString("uri").orEmpty()
@@ -717,6 +719,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     }
 
     companion object {
+        /** Vom Medien-Dienst gesetzt: "Sind wir gerade im Auto?" sofort neu prüfen (setzt carMode) */
+        @Volatile var carCheck: (() -> Unit)? = null
         /** der laufende Player (für MainActivity / Jukebox-Seite) */
         @JvmField var instance: MaPlayer? = null
         /** App-Seite gerade sichtbar? (MainActivity setzt das in onResume/onPause) */
