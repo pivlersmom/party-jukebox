@@ -476,7 +476,8 @@ class DmxLight:
         if not await self.setup():
             return
         await asyncio.sleep(12)
-        await self.test_pattern()
+        if self.enabled():                    # ausgeschaltet heißt: auch kein Testmuster
+            await self.test_pattern()
         tasks = [asyncio.create_task(self.render()), asyncio.create_task(self.keep_grouped())]
         try:
             while True:

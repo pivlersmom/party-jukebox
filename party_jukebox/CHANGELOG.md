@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.6.1
+- Licht ausgeschaltet: beim Start des Add-ons läuft auch kein Testmuster mehr.
+
 ## 0.6.0
 - **DMX: mehrere Geräte** im selben Universum (`dmx_fixtures`): Licht im Takt, Geräte nur beim Drop (z. B. Nebel) und Geräte nur bei Musik (z. B. Laser).
 - **Drop-Erkennung**: Bass einige Sekunden weg (Aufbau), dann schlagartig zurück. Beim Drop: Strobe-Kanal des Lichts für einige Sekunden, Drop-Geräte an und das Ereignis `party_jukebox_drop` in Home Assistant. Nachstellbar über `dmx_drop_build`, `dmx_drop_sensitivity`, `dmx_drop_seconds`, `dmx_drop_cooldown`, `dmx_strobe_value`; jeder Drop steht mit Messwerten im Protokoll.
