@@ -2432,6 +2432,11 @@ async def on_startup(app):
     app["partykeep"] = asyncio.create_task(party_keep_loop(app))
     app["podpush"] = asyncio.create_task(podpush_loop(app))
     app["appupd_push"] = asyncio.create_task(appupdate_push_loop(app))
+    if str(OPT.get("dmx_host") or "").strip() and OPT.get("ma_token"):
+        # DMX-Licht im Takt (Art-Net) – siehe dmxlight.py
+        from dmxlight import DmxLight
+        ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+        app["dmx"] = asyncio.create_task(DmxLight(app["session"], OPT, ma_cmds, ma_host).run())
     if str(OPT.get("viz_probe") or "").strip():
         app["viz_probe"] = asyncio.create_task(viz_probe(app, OPT.get("viz_probe")))
     app["haev"] = asyncio.create_task(ha_events_loop(app))

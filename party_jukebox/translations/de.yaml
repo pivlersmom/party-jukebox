@@ -38,6 +38,27 @@ configuration:
   tv_logo_dir:
     name: TV-Ton – Senderlogo-Ordner
     description: Optional. Ordner der Logodateien unter /local (z. B. /local/senderlogos/senderlogos).
+  dmx_host:
+    name: DMX-Licht – Adresse des Art-Net-Knotens
+    description: Optional. IP-Adresse oder Name eines Art-Net-Empfängers (z. B. ESP32 mit LuxDMX, dmx-gateway.local). Das Licht läuft dann im Takt der Musik. Leer = aus.
+  dmx_universe:
+    name: DMX-Licht – Universum
+    description: Art-Net-Universum des Knotens (meist 0).
+  dmx_channels:
+    name: DMX-Licht – Kanäle der Lampe
+    description: 'Welche DMX-Kanäle die Lampe hat, z. B. dimmer=1,r=2,g=3,b=4,w=5. Möglich: dimmer, r, g, b, w, strobe. Feste Werte als Kanal=Wert, z. B. 6=255. Leer = r=1,g=2,b=3.'
+  dmx_player:
+    name: DMX-Licht – Lautsprecher
+    description: Music-Assistant-Player (Name oder ID), dem das Licht folgt. Leer = Party-Player.
+  dmx_effect:
+    name: DMX-Licht – Effekt
+    description: beat = Puls auf jeden Schlag mit Farbwechsel · smooth = folgt der Lautstärke · color = nur Farbwechsel.
+  dmx_delay_ms:
+    name: DMX-Licht – Feinabgleich (ms)
+    description: Kommt das Licht zu früh, positive Zahl eintragen (z. B. 150); kommt es zu spät, negative Zahl.
+  viz_probe:
+    name: Diagnose Licht-Daten
+    description: Nur für die Fehlersuche. Leer lassen.
   drinks:
     name: Getränke
     description: Eine Zeile pro Getränk im Format Name|Emoji|Satz, z. B. Bier|🍺|ein Bier

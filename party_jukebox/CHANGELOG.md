@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.3.0
+- **DMX-Licht im Takt** (z. B. Spot auf eine Discokugel): Das Add-on holt Lautstärke, Bassschläge und Takt direkt aus Music Assistant und schickt sie per Art-Net an einen DMX-Knoten im Netz (z. B. ESP32 mit LuxDMX). Kein Mikrofon nötig. Einstellungen `dmx_*`, beim Start läuft ein Testmuster Rot/Grün/Blau/Weiß.
+
 ## 0.2.6
 - Diagnose-Option `viz_probe`: schreibt mit, welche Licht-/Beat-Daten Music Assistant liefert (Vorarbeit für DMX-Licht).
 

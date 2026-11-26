@@ -38,6 +38,27 @@ configuration:
   tv_logo_dir:
     name: TV audio – channel logo folder
     description: Optional. Folder of the logo files under /local.
+  dmx_host:
+    name: DMX light – Art-Net node address
+    description: Optional. IP address or name of an Art-Net receiver (e.g. ESP32 with LuxDMX, dmx-gateway.local). The light then follows the beat of the music. Empty = off.
+  dmx_universe:
+    name: DMX light – universe
+    description: Art-Net universe of the node (usually 0).
+  dmx_channels:
+    name: DMX light – fixture channels
+    description: 'DMX channels of the fixture, e.g. dimmer=1,r=2,g=3,b=4,w=5. Roles: dimmer, r, g, b, w, strobe. Fixed values as channel=value, e.g. 6=255. Empty = r=1,g=2,b=3.'
+  dmx_player:
+    name: DMX light – speaker
+    description: Music Assistant player (name or ID) the light follows. Empty = party player.
+  dmx_effect:
+    name: DMX light – effect
+    description: beat = pulse on every beat with colour change · smooth = follows loudness · color = colour change only.
+  dmx_delay_ms:
+    name: DMX light – fine tuning (ms)
+    description: Light too early → positive number (e.g. 150); too late → negative number.
+  viz_probe:
+    name: Light data diagnostics
+    description: Troubleshooting only. Leave empty.
   drinks:
     name: Drinks
     description: One line per drink in the format Name|Emoji|Phrase, e.g. Beer|🍺|a beer

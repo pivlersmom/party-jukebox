@@ -106,6 +106,12 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `tv_logo_index` / `tv_logo_dir` | Optional: Senderlogos unter `/local` (JS-Datei `{"sendername": "datei.png"}` und Ordner der Logos) |
 | `app_update_repo` / `app_update_token` | Optional: eigene App-Builds aus einem GitHub-Repo anbieten (Token nur bei privatem Repo). Leer lassen = Apps aus diesem Add-on |
 | `app_update_package` | Optional: App-Kennung (z. B. `de.partyjukebox.player`). Bei neuer App-Version kommt eine Benachrichtigung über die HA-App (Handys aus dem Podcast-Push); Antippen öffnet die App |
+| `dmx_host` | Optional: Adresse eines Art-Net-Knotens (z. B. ESP32 mit [LuxDMX](https://github.com/tombueng/LuxDMX)). Dann läuft ein DMX-Licht im Takt der Musik – die Beat-Daten kommen direkt aus Music Assistant, ohne Mikrofon. Leer = aus |
+| `dmx_universe` | Art-Net-Universum (Standard 0) |
+| `dmx_channels` | Kanäle der Lampe, z. B. `dimmer=1,r=2,g=3,b=4,w=5`; feste Werte als `6=255` |
+| `dmx_player` | Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player) |
+| `dmx_effect` | `beat` (Puls auf jeden Schlag), `smooth` (folgt der Lautstärke) oder `color` (nur Farbwechsel) |
+| `dmx_delay_ms` | Feinabgleich: positiv = Licht später, negativ = früher |
 
 Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter ⚙ ein.
 
