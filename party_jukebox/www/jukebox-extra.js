@@ -278,7 +278,8 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
   const row = document.createElement("div"); row.className = "modes";
   row.innerHTML = '<span class="mside l">' +
     '<span class="mw"><button class="mbtn radio" id="mRadio" aria-label="Song-Radio"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path class="w1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></button><small>Song-Radio</small></span>' +
-    '<span class="mw"><button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button><small>Übergang</small></span></span>' +
+    '<span class="mw"><button class="mbtn fade" id="mFade" aria-label="Übergänge"><i></i><i></i></button><small>Übergang</small></span>' +
+    '<span class="mw"><button class="mbtn light" id="mLight" aria-label="Licht im Takt" hidden><svg viewBox="0 0 24 24"><path d="M9 3h6l2 6H7z"/><path d="M12 12v2M7.5 12.5l-1.5 2M16.5 12.5l1.5 2M5 20h14"/></svg></button><small>Licht</small></span></span>' +
     '<span class="mmid"><span class="mw"><button class="aq" id="mAq" hidden></button><small>Qualität</small></span>' +
     '</span>' +
     '<span class="mside r"><span class="mw"><button class="mbtn dj" id="mDj" aria-label="AI DJ" hidden><b></b></button><small>AI DJ</small></span>' +
@@ -389,6 +390,21 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
     catch (e) { fadeHold = 0; toast("Übergänge: " + ((e && e.message) || e)); }
     paint();
   };
+
+  /* Licht im Takt (DMX/WLED): Schalter nur sichtbar, wenn im Add-on ein Licht eingerichtet ist.
+     Aus = das Add-on sendet nichts mehr; der Zustand liegt in einem HA-Helfer und lässt sich auch dort schalten. */
+  const bL = row.querySelector("#mLight");
+  let lightHold = 0;
+  const lightPaint = d => { if (!d) return; bL.hidden = !d.has; if (Date.now() > lightHold) bL.classList.toggle("on", !!d.on); bL.title = d.on ? "Licht im Takt: an" : "Licht im Takt: aus"; };
+  const lightLoad = () => fetch("party/light").then(r => r.ok ? r.json() : null).then(lightPaint).catch(() => {});
+  bL.onclick = () => {
+    const on = !bL.classList.contains("on");
+    bL.classList.toggle("on", on); lightHold = Date.now() + 5000;
+    fetch("party/light", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }) })
+      .then(r => { if (!r.ok) throw 0; toast(on ? "Licht im Takt: an" : "Licht im Takt: aus – es wird nichts mehr gesendet"); })
+      .catch(() => { lightHold = 0; toast("Licht-Schalter nicht erreichbar"); lightLoad(); });
+  };
+  lightLoad(); setInterval(() => { if (document.visibilityState === "visible") lightLoad(); }, 8000);
 
   /* Autoplay: ist die Warteschlange zu Ende, hängt Music Assistant ähnliche Titel an (eingebaut, kein Plugin) */
   let autoHold = 0, autoWant = false;

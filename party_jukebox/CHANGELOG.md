@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.5.0
+- **Schalter „Licht im Takt“**: DMX- und WLED-Licht lassen sich im laufenden Betrieb ein- und ausschalten – in der Jukebox (Knopf „Licht“ unter dem Titel) und in Home Assistant über den Helfer `input_boolean.party_jukebox_licht`, den das Add-on selbst anlegt. Aus = es wird nichts mehr gesendet und das Licht-Gerät hängt nicht mehr am Lautsprecher.
+
 ## 0.4.1
 - **Wichtig:** Hängt ein WLED-/DMX-Licht an einem Lautsprecher, sprang dessen Lautstärke beim Regeln viel zu weit hoch (bis 100 %), weil Music Assistant das Licht als Gruppenmitglied mit Lautstärke 0 mitrechnet. Jukebox und App (ab 3.10.2) regeln jetzt die echten Lautsprecher einzeln; das Licht zählt nicht mehr als Gruppenmitglied.
 

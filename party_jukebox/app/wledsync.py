@@ -144,6 +144,11 @@ class WledSync(DmxLight):
         while True:
             await asyncio.sleep(dt)
             now = time.monotonic()
+            if not self.enabled():           # ausgeschaltet: kurz Stille (WLED zeigt sonst den letzten Wert weiter), dann nichts
+                if quiet < 8:
+                    self.send(0.0)
+                quiet = max(quiet + 1, 8)
+                continue
             if not (self.playing and now - self.last_frame < 3):
                 if quiet < 8:
                     self.send(0.0)

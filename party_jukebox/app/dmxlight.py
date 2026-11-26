@@ -82,6 +82,7 @@ class DmxLight:
         self.player = str(opt.get("dmx_player") or opt.get("party_player") or "").strip()
         self.effect = str(opt.get("dmx_effect") or "beat").strip().lower()
         self.delay_us = int(opt.get("dmx_delay_ms") or 0) * 1000
+        self.enabled = lambda: True       # vom Add-on gesetzt: Schalter „Licht im Takt“ (aus = gar nichts senden)
         self.sock = None
         self.seq = 0
         # Uhr: Music Assistant zählt die Zeit anders als wir → Abstand (offset) laufend messen
@@ -138,6 +139,10 @@ class DmxLight:
         dark = 0
         while True:
             await asyncio.sleep(dt)
+            if not self.enabled():           # ausgeschaltet: KEIN Paket mehr – die Lampe gehört dann z. B. Home Assistant
+                dark = 99
+                self.env = 0.0
+                continue
             now = time.monotonic()
             active = self.playing and now - self.last_frame < 3
             if not active:
@@ -188,8 +193,23 @@ class DmxLight:
         """Das Licht-Gerät an den gewählten Lautsprecher hängen (und wieder dranhängen, falls die Gruppe aufgelöst wurde)."""
         said, tries = None, 0
         while True:
-            await asyncio.sleep(5 if said is None else min(120, 20 * max(1, tries)))   # klappt es nicht, seltener versuchen
+            # warten – aber sofort reagieren, wenn der Schalter umgelegt wird
+            wait, was = (5 if said is None else min(120, 20 * max(1, tries))), self.enabled()
+            for _ in range(int(wait)):
+                await asyncio.sleep(1)
+                if self.enabled() != was:
+                    break
             try:
+                if not self.enabled():
+                    # aus: das Licht-Gerät aus der Gruppe des Lautsprechers lösen (dann zählt es dort auch nicht mehr mit)
+                    pl = (await self.ma_cmds(self.session, [("players/all", {})]))[0] or []
+                    mine = next((x for x in pl if x.get("player_id") == self.client_id), None)
+                    if mine and (mine.get("synced_to") or mine.get("active_group")):
+                        await self.ma_cmds(self.session, [("players/cmd/ungroup", {"player_id": mine["player_id"]})])
+                    if said != "aus":
+                        said, tries = "aus", 0
+                        log.info(self.tag + ": ausgeschaltet – sendet nichts, vom Lautsprecher gelöst")
+                    continue
                 pl = (await self.ma_cmds(self.session, [("players/all", {})]))[0] or []
                 mine = next((x for x in pl if x.get("player_id") == self.client_id or x.get("name") == self.name), None)
                 want = self.player.lower()

@@ -2225,6 +2225,84 @@ async def pump(src, dst, transform=None):
             break
 
 
+# ---------------------------------------------------------------- Schalter „Licht im Takt“
+# Ein/Aus für DMX- und WLED-Licht zur Laufzeit. Der Zustand liegt in einem Helfer in Home Assistant, den das Add-on
+# selbst anlegt (input_boolean „Party-Jukebox Licht“) – so lässt er sich auch in HA-Automationen und Dashboards
+# nutzen. Ist HA nicht erreichbar, merkt sich das Add-on den Zustand selbst.
+LIGHT = {"on": bool(FAVS.get("_light_on", True)), "entity": str(FAVS.get("_light_entity") or ""), "has": False}
+
+
+def light_on():
+    return LIGHT["on"]
+
+
+async def _light_helper_create(session):
+    """Helfer über die WebSocket-Schnittstelle von Home Assistant anlegen (dafür gibt es keinen REST-Befehl)."""
+    async with session.ws_connect("ws://supervisor/core/websocket", heartbeat=20) as ws:
+        await ws.receive_json(timeout=10)                                   # auth_required
+        await ws.send_json({"type": "auth", "access_token": SUP_TOKEN})
+        if (await ws.receive_json(timeout=10)).get("type") != "auth_ok":
+            raise RuntimeError("Anmeldung abgelehnt")
+        await ws.send_json({"id": 1, "type": "input_boolean/create", "name": "Party-Jukebox Licht", "icon": "mdi:spotlight-beam"})
+        r = await ws.receive_json(timeout=10)
+        if not r.get("success"):
+            raise RuntimeError(str(r.get("error")))
+        return "input_boolean." + str((r.get("result") or {}).get("id") or "party_jukebox_licht")
+
+
+async def light_loop(app):
+    session = app["session"]
+    await asyncio.sleep(6)
+    if SUP_TOKEN:
+        try:
+            cand = [e for e in (LIGHT["entity"], "input_boolean.party_jukebox_licht") if e]
+            st = await ha_states(session, cand)
+            ent = next((e for e in cand if e in st), "")
+            if not ent:
+                ent = await _light_helper_create(session)
+                await ha_call(session, "input_boolean", "turn_on" if LIGHT["on"] else "turn_off", {"entity_id": ent})
+                log.info("Licht-Schalter: Helfer %s in Home Assistant angelegt", ent)
+            LIGHT["entity"] = ent
+            FAVS["_light_entity"] = ent
+            _save_favs()
+        except Exception as e:
+            log.info("Licht-Schalter: Helfer in Home Assistant nicht möglich (%s) – Schalter nur in der Jukebox", e)
+    while True:
+        try:
+            ent = LIGHT["entity"]
+            if ent:
+                st = (await ha_states(session, [ent])).get(ent)
+                # kurz nach dem Umschalten in der Jukebox hat HA den neuen Wert evtl. noch nicht – dann nicht zurückspringen
+                if time.monotonic() > LIGHT.get("hold", 0) and st and st.get("state") in ("on", "off") and (st["state"] == "on") != LIGHT["on"]:
+                    LIGHT["on"] = st["state"] == "on"
+                    FAVS["_light_on"] = LIGHT["on"]
+                    _save_favs()
+                    log.info("Licht-Schalter: %s (Home Assistant)", "an" if LIGHT["on"] else "aus")
+        except Exception:
+            pass
+        await asyncio.sleep(2)
+
+
+async def party_light(request):
+    """GET: Zustand · POST {on}: Licht im Takt ein/aus (nur Gastgeber)."""
+    if request.method == "POST":
+        if not is_host(request):
+            return web.json_response({"ok": False}, status=403)
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        on = bool(body.get("on")) if isinstance(body, dict) and "on" in body else not LIGHT["on"]
+        LIGHT["on"] = on
+        LIGHT["hold"] = time.monotonic() + 6
+        FAVS["_light_on"] = on
+        _save_favs()
+        log.info("Licht-Schalter: %s (Jukebox)", "an" if on else "aus")
+        if LIGHT["entity"]:
+            await ha_call(request.app["session"], "input_boolean", "turn_on" if on else "turn_off", {"entity_id": LIGHT["entity"]})
+    return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"]})
+
+
 async def viz_probe(app, spec):
     """Diagnose (Option `viz_probe`): Was liefert Music Assistant an Licht-/Beat-Daten?
     Meldet sich bei MA als reines "Licht-Gerät" an (Sendspin-Rolle visualizer@v1), hängt sich optional an einen
@@ -2436,12 +2514,20 @@ async def on_startup(app):
         # DMX-Licht im Takt (Art-Net) – siehe dmxlight.py
         from dmxlight import DmxLight
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
-        app["dmx"] = asyncio.create_task(DmxLight(app["session"], OPT, ma_cmds, ma_host).run())
+        dmx = DmxLight(app["session"], OPT, ma_cmds, ma_host)
+        dmx.enabled = light_on
+        LIGHT["has"] = True
+        app["dmx"] = asyncio.create_task(dmx.run())
     if str(OPT.get("wled_host") or "").strip() and OPT.get("ma_token"):
         # WLED im Takt über WLEDs eigenes Audio Sync – siehe wledsync.py
         from wledsync import WledSync
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
-        app["wled"] = asyncio.create_task(WledSync(app["session"], OPT, ma_cmds, ma_host).run())
+        wled = WledSync(app["session"], OPT, ma_cmds, ma_host)
+        wled.enabled = light_on
+        LIGHT["has"] = True
+        app["wled"] = asyncio.create_task(wled.run())
+    if LIGHT["has"]:
+        app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():
         app["viz_probe"] = asyncio.create_task(viz_probe(app, OPT.get("viz_probe")))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
@@ -2476,6 +2562,8 @@ def make_app():
     app.router.add_get("/party/tvnow", party_tvnow)
     app.router.add_post("/party/tvmedia", party_tvmedia)
     app.router.add_post("/party/tvctl", party_tvctl)
+    app.router.add_get("/party/light", party_light)
+    app.router.add_post("/party/light", party_light)
     app.router.add_post("/party/tvart", party_tvart_post)
     app.router.add_get("/party/tvart", party_tvart_get)
     app.router.add_get("/party/tvcmd", party_tvcmd)

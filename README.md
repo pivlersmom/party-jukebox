@@ -118,6 +118,8 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `wled_gain_db` | Empfindlichkeit, Standard 6 |
 | `wled_delay_ms` | Feinabgleich: positiv = Licht später, negativ = früher |
 
+**Licht ein/aus:** Ist ein DMX- oder WLED-Licht eingerichtet, erscheint in der Jukebox unter dem Titel der Knopf „Licht“. Zusätzlich legt das Add-on in Home Assistant den Helfer `input_boolean.party_jukebox_licht` an – damit lässt sich das Licht auch aus Automationen und Dashboards schalten. Aus heißt: Das Add-on sendet nichts mehr, die Lampe gehört wieder Home Assistant.
+
 Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter ⚙ ein.
 
 ## Geräte

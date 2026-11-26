@@ -695,3 +695,6 @@ header > .setbtn{justify-self:end}
 .r2.r2p{display:flex;align-items:center;gap:6px}
 .r2p .r2t{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .r2p .pvb{flex:none;font-size:11px;font-weight:700;color:var(--a2);border:1px solid var(--line);border-radius:6px;padding:0 5px;line-height:16px}
+.mbtn.light svg{position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mbtn.light.on{color:#ffd54f;background:rgba(255,213,79,.12);border-color:rgba(255,213,79,.45)}
+.mbtn.light.on svg{animation:djT 1.2s ease-in-out infinite}
