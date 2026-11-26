@@ -56,6 +56,21 @@ configuration:
   dmx_delay_ms:
     name: DMX light – fine tuning (ms)
     description: Light too early → positive number (e.g. 150); too late → negative number.
+  wled_host:
+    name: WLED light – address(es)
+    description: Optional. IP address(es) of WLED devices, comma separated. WLED's audio-reactive effects then get their data from Music Assistant instead of a microphone. In WLED set Usermods → AudioReactive sync mode to "Receive". Empty = off.
+  wled_port:
+    name: WLED light – port
+    description: Port from WLED's AudioReactive sync setting (default 11988).
+  wled_player:
+    name: WLED light – speaker
+    description: Music Assistant player (name or ID) the light follows. Empty = party player.
+  wled_gain_db:
+    name: WLED light – sensitivity (dB)
+    description: Default 6. Higher if effects look flat, lower if they are stuck at maximum.
+  wled_delay_ms:
+    name: WLED light – fine tuning (ms)
+    description: Light too early → positive number (e.g. 150); too late → negative number.
   viz_probe:
     name: Light data diagnostics
     description: Troubleshooting only. Leave empty.

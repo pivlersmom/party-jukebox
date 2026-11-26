@@ -112,6 +112,11 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `dmx_player` | Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player) |
 | `dmx_effect` | `beat` (Puls auf jeden Schlag), `smooth` (folgt der Lautstärke) oder `color` (nur Farbwechsel) |
 | `dmx_delay_ms` | Feinabgleich: positiv = Licht später, negativ = früher |
+| `wled_host` | Optional: IP-Adresse(n) von WLED-Geräten (Komma-getrennt). WLEDs Musik-Effekte bekommen ihre Daten dann aus Music Assistant statt von einem Mikrofon (WLED: Usermods → AudioReactive → Sync „Receive“). Leer = aus |
+| `wled_port` | Port aus WLEDs Sync-Einstellung (Standard 11988) |
+| `wled_player` | Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player) |
+| `wled_gain_db` | Empfindlichkeit, Standard 6 |
+| `wled_delay_ms` | Feinabgleich: positiv = Licht später, negativ = früher |
 
 Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter ⚙ ein.
 

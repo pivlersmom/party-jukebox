@@ -70,6 +70,10 @@ def parse_channels(text):
 
 
 class DmxLight:
+    # Diese vier Angaben überschreibt die WLED-Variante (wledsync.py)
+    client_id, name, tag = CLIENT_ID, NAME, "DMX-Licht"
+    viz = {"types": ["loudness", "beat", "peak"], "rate_max": 30}      # welche Daten wir von Music Assistant wollen
+
     def __init__(self, session, opt, ma_cmds, ma_host):
         self.session, self.ma_cmds, self.ma_host = session, ma_cmds, ma_host
         self.host = str(opt.get("dmx_host") or "").strip()
@@ -114,11 +118,11 @@ class DmxLight:
         except OSError as e:
             if self.stat.get("err") != str(e):
                 self.stat["err"] = str(e)
-                log.info("DMX-Licht: Senden an %s fehlgeschlagen: %s", self.host, e)
+                log.info(self.tag + ": Senden an %s fehlgeschlagen: %s", self.host, e)
 
     async def test_pattern(self):
         """Beim Start einmal Rot, Grün, Blau, Weiß – so sieht man sofort, ob Knoten, Universum und Kanäle stimmen."""
-        log.info("DMX-Licht: Testmuster an %s (Universum %d, Kanäle %s, fest %s)", self.host, self.universe, self.roles, self.fixed)
+        log.info(self.tag + ": Testmuster an %s (Universum %d, Kanäle %s, fest %s)", self.host, self.universe, self.roles, self.fixed)
         for rgb in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1)):
             for _ in range(16):
                 self.send(1.0, rgb)
@@ -187,14 +191,14 @@ class DmxLight:
             await asyncio.sleep(5 if said is None else min(120, 20 * max(1, tries)))   # klappt es nicht, seltener versuchen
             try:
                 pl = (await self.ma_cmds(self.session, [("players/all", {})]))[0] or []
-                mine = next((x for x in pl if x.get("player_id") == CLIENT_ID or x.get("name") == NAME), None)
+                mine = next((x for x in pl if x.get("player_id") == self.client_id or x.get("name") == self.name), None)
                 want = self.player.lower()
                 tgt = next((x for x in pl if want and (str(x.get("player_id", "")).lower() == want or str(x.get("name", "")).lower() == want)), None)
                 if not mine or not tgt:
                     msg = "Licht-Gerät in MA nicht gefunden" if not mine else "Lautsprecher „%s“ nicht gefunden (dmx_player prüfen)" % self.player
                     if said != msg:
                         said = msg
-                        log.info("DMX-Licht: %s", msg)
+                        log.info(self.tag + ": %s", msg)
                     continue
                 leader = tgt.get("synced_to") or tgt.get("player_id")
                 if mine.get("synced_to") == leader or mine.get("active_group") == leader:
@@ -207,19 +211,29 @@ class DmxLight:
                     msg = "mit „%s“ gruppiert%s" % (tgt.get("name"), "" if ok else " (MA meldet: nicht gruppierbar – Antwort %s)" % (r,))
                 if said != msg:
                     said = msg
-                    log.info("DMX-Licht: %s", msg)
+                    log.info(self.tag + ": %s", msg)
             except Exception as e:
                 if said != str(e):
                     said = str(e)
-                    log.info("DMX-Licht: Gruppieren: %s", e)
+                    log.info(self.tag + ": Gruppieren: %s", e)
+
+    def parse(self, kind, d):
+        """Nutzdaten eines Datenpakets auspacken (None = brauchen wir nicht)."""
+        if kind == T_LOUD and len(d) >= 2:
+            return struct.unpack(">H", d[:2])[0] / 65535.0
+        if kind == T_BEAT:
+            return d[0] & 1                                         # 1 = Taktanfang
+        if kind == T_PEAK:
+            return d[0] / 255.0
+        return None
 
     async def link(self):
-        viz = {"types": ["loudness", "beat", "peak"], "rate_max": 30}
+        viz = self.viz
         async with self.session.ws_connect(f"ws://{self.ma_host}:8927/sendspin", max_msg_size=0, heartbeat=30) as ws:
             sup = dict(viz)
             sup["buffer_capacity"] = 600
             await ws.send_json({"type": "client/hello", "payload": {
-                "client_id": CLIENT_ID, "name": NAME, "version": 1, "supported_roles": ["visualizer@v1"],
+                "client_id": self.client_id, "name": self.name, "version": 1, "supported_roles": ["visualizer@v1"],
                 "device_info": {"product_name": "Party-Jukebox", "manufacturer": "Party-Jukebox", "software_version": "DMX"},
                 "visualizer@v1_support": sup}})
             last_sync, n_sync, last_log = 0.0, 0, time.monotonic()
@@ -233,7 +247,7 @@ class DmxLight:
                     last_log = now
                     if self.playing and self.stat.get("n"):
                         lead = sum(self.lead) / len(self.lead) if self.lead else 0
-                        log.info("DMX-Licht: läuft · Pakete/min %s · Schläge %d · Daten kommen %d ms vor dem Ton",
+                        log.info(self.tag + ": läuft · Pakete/min %s · Schläge %d · Daten kommen %d ms vor dem Ton",
                                  self.stat["n"], self.beats, lead / 1000)
                     self.stat["n"] = {}
                     self.lead = []
@@ -247,13 +261,8 @@ class DmxLight:
                         continue
                     kind = b[0]
                     ts = struct.unpack(">q", b[1:9])[0]
-                    if kind == T_LOUD and len(b) >= 11:
-                        val = struct.unpack(">H", b[9:11])[0] / 65535.0
-                    elif kind == T_BEAT:
-                        val = b[9] & 1                              # 1 = Taktanfang
-                    elif kind == T_PEAK:
-                        val = b[9] / 255.0
-                    else:
+                    val = self.parse(kind, b[9:])
+                    if val is None:
                         continue
                     self.last_frame = now
                     self.playing = True
@@ -277,7 +286,7 @@ class DmxLight:
                         self.rtts.append((rtt, off))
                         self.offset = min(self.rtts)[1]             # die Messung mit der kürzesten Laufzeit ist die genaueste
                     elif t == "server/hello":
-                        log.info("DMX-Licht: bei Music Assistant angemeldet (%s)", ",".join(p.get("active_roles") or []))
+                        log.info(self.tag + ": bei Music Assistant angemeldet (%s)", ",".join(p.get("active_roles") or []))
                         await ws.send_json({"type": "client/state", "payload": {"available": True, "visualizer": viz}})
                     elif t == "group/update" and "playback_state" in p:
                         self.playing = p.get("playback_state") == "playing"
@@ -286,20 +295,26 @@ class DmxLight:
                         if t == "stream/end":
                             self.playing = False
                     elif t == "stream/start":
-                        log.info("DMX-Licht: Datenstrom %s", json.dumps(p.get("visualizer") or p, ensure_ascii=False)[:300])
+                        log.info(self.tag + ": Datenstrom %s", json.dumps(p.get("visualizer") or p, ensure_ascii=False)[:300])
                 elif m.type in (WSMsgType.CLOSE, WSMsgType.CLOSED, WSMsgType.ERROR):
                     return
 
-    async def run(self):
+    async def setup(self):
+        """Ausgang vorbereiten. False = Einstellungen unbrauchbar, Funktion bleibt aus."""
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.setblocking(False)
             self.host = (await asyncio.get_running_loop().getaddrinfo(self.host, 6454, family=socket.AF_INET))[0][4][0]
         except Exception as e:
-            log.info("DMX-Licht: Adresse „%s“ nicht erreichbar: %s", self.host, e)
-            return
+            log.info(self.tag + ": Adresse „%s“ nicht erreichbar: %s", self.host, e)
+            return False
         if not self.roles and not self.fixed:
-            log.info("DMX-Licht: dmx_channels ist leer oder ungültig – aus")
+            log.info(self.tag + ": dmx_channels ist leer oder ungültig – aus")
+            return False
+        return True
+
+    async def run(self):
+        if not await self.setup():
             return
         await asyncio.sleep(12)
         await self.test_pattern()
@@ -308,11 +323,11 @@ class DmxLight:
             while True:
                 try:
                     await self.link()
-                    log.info("DMX-Licht: Verbindung zu Music Assistant beendet – neuer Versuch in 10 s")
+                    log.info(self.tag + ": Verbindung zu Music Assistant beendet – neuer Versuch in 10 s")
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
-                    log.info("DMX-Licht: Verbindung zu Music Assistant: %s – neuer Versuch in 10 s", e)
+                    log.info(self.tag + ": Verbindung zu Music Assistant: %s – neuer Versuch in 10 s", e)
                 self.playing = False
                 await asyncio.sleep(10)
         finally:

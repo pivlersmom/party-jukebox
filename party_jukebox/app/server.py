@@ -2437,6 +2437,11 @@ async def on_startup(app):
         from dmxlight import DmxLight
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
         app["dmx"] = asyncio.create_task(DmxLight(app["session"], OPT, ma_cmds, ma_host).run())
+    if str(OPT.get("wled_host") or "").strip() and OPT.get("ma_token"):
+        # WLED im Takt über WLEDs eigenes Audio Sync – siehe wledsync.py
+        from wledsync import WledSync
+        ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+        app["wled"] = asyncio.create_task(WledSync(app["session"], OPT, ma_cmds, ma_host).run())
     if str(OPT.get("viz_probe") or "").strip():
         app["viz_probe"] = asyncio.create_task(viz_probe(app, OPT.get("viz_probe")))
     app["haev"] = asyncio.create_task(ha_events_loop(app))

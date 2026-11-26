@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.4.0
+- **WLED im Takt ohne Mikrofon**: Das Add-on schickt WLEDs eigenes „Audio Sync“-Signal, gefüllt mit Lautstärke, Spektrum und Bassschlägen aus Music Assistant. Die eingebauten Musik-Effekte von WLED laufen damit passend zur Musik; An/Aus, Helligkeit und Effekt bleiben in WLED bzw. Home Assistant steuerbar. Einstellungen `wled_*`.
+
 ## 0.3.1
 - DMX-Licht: Bei Musikpause sendet das Add-on nichts mehr – WLED & Co. lassen sich dann wieder normal (z. B. über Home Assistant) steuern.
 
