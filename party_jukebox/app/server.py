@@ -2317,7 +2317,14 @@ async def party_light(request):
         if LIGHT["entity"]:
             # homeassistant.turn_on/off schaltet jeden Typ (input_boolean, switch, light …)
             await ha_call(request.app["session"], "homeassistant", "turn_on" if on else "turn_off", {"entity_id": LIGHT["entity"]})
-    return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"]})
+    # Welchem Lautsprecher folgt das Licht? (Die Jukebox zeigt den Schalter in der Lautsprecherliste genau dort.)
+    follow = set()
+    if str(OPT.get("dmx_host") or "").strip():
+        follow.add(str(OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
+    if str(OPT.get("wled_host") or "").strip():
+        follow.add(str(OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
+    return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"],
+                              "follow": sorted(x for x in follow if x)})
 
 
 async def viz_probe(app, spec):

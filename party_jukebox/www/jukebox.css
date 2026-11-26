@@ -698,3 +698,4 @@ header > .setbtn{justify-self:end}
 .mbtn.light svg{position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .mbtn.light.on{color:#ffd54f;background:rgba(255,213,79,.12);border-color:rgba(255,213,79,.45)}
 .mbtn.light.on svg{animation:djT 1.2s ease-in-out infinite}
+.prow .ptv.plt.on{color:#ffd54f}.prow .ptv.plt.on i{box-shadow:0 0 0 1.5px #ffd54f inset}

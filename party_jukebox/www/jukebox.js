@@ -283,6 +283,34 @@ function usable(p, all) {
 function playerList() { return Object.values(S.players).filter(p => usable(p)).sort((a, b) => pname(a).localeCompare(pname(b), "de")); }
 function leaderOf(id) { const p = S.players[id]; return p && p.synced_to && S.players[p.synced_to] ? p.synced_to : id; }
 const slug = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+/* ---------- Licht im Takt (DMX/WLED): Schalter in der Lautsprecherliste ----------
+   Das Add-on kennt den Zustand (und spiegelt ihn in einen HA-Helfer). Aus = es wird nichts mehr gesendet. */
+const ICON_LIGHT = '<path d="M9 3h6l2 6H7z"/><path d="M12 12v2M7.5 12.5l-1.5 2M16.5 12.5l1.5 2M5 20h14"/>';
+S.light = { has: false, on: false, follow: [] };
+let lightHold = 0;
+function lightLoad() {
+  return fetch("party/light").then(r => r.ok ? r.json() : null).then(d => {
+    if (!d) return;
+    const was = JSON.stringify(S.light);
+    S.light = { has: !!d.has, on: Date.now() < lightHold ? S.light.on : !!d.on, follow: d.follow || [] };
+    if (was !== JSON.stringify(S.light) && sheetKind === "players") openPlayers();
+  }).catch(() => {});
+}
+/** Folgt das Licht diesem Lautsprecher? (Name oder ID, wie im Add-on eingetragen) */
+function lightFor(p) {
+  if (!S.light.has || !p) return false;
+  return S.light.follow.includes(pname(p).toLowerCase()) || S.light.follow.includes(String(p.player_id).toLowerCase());
+}
+function lightToggle() {
+  const on = !S.light.on;
+  S.light.on = on; lightHold = Date.now() + 5000;
+  if (sheetKind === "players") openPlayers();
+  fetch("party/light", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }) })
+    .then(r => { if (!r.ok) throw 0; toast(on ? "Licht im Takt: an" : "Licht im Takt: aus – es wird nichts mehr gesendet"); })
+    .catch(() => { lightHold = 0; toast("Licht-Schalter nicht erreichbar"); lightLoad(); });
+}
+lightLoad(); setInterval(() => { if (document.visibilityState === "visible") lightLoad(); }, 8000);
+
 /*
  * Licht-Geräte (Typ "visualizer": WLED-/DMX-Licht) hängen in der Gruppe eines Lautsprechers, sind aber keine
  * Lautsprecher: Sie haben keine Lautstärke. Rechnet man sie in die Gruppen-Lautstärke ein (als 0), springt der
@@ -941,6 +969,8 @@ function openPlayers() {
     return '<button class="row prow' + (p.player_id === S.pid ? " on" : "") + '" data-id="' + esc(p.player_id) + '"><span class="pic' + (art ? " art" : "") + (logo ? " lg" : "") + '">' + ICON.speaker +
       (art ? '<img loading="lazy" alt="" src="' + esc(art) + '">' : "") + '</span><span class="rm"><span class="r1">' + esc(pname(p)) + '</span><span class="r2">' + esc(sub) + '</span></span>' +
       (src && p.player_id !== src ? '<span class="xfer" data-id="' + esc(p.player_id) + '" title="Musik hierher übergeben">⇄</span>' : "") +
+      (lightFor(p) ? '<span class="ptv plt' + (S.light.on ? " on" : "") + '" title="Licht im Takt ein/aus"><i><svg viewBox="0 0 24 24">' + ICON_LIGHT +
+        "</svg></i><small>Licht</small></span>" : "") +
       (hasTvIn(p) ? (on => '<span class="ptv' + (on ? " on" : "") + '" data-id="' + esc(p.player_id) + '" title="Musik/TV umschalten"><i><svg viewBox="0 0 24 24">' +
         (on ? ICON_TV : ICON_NOTE) + '</svg></i><small>' + (on ? "TV" : "Music") + '</small></span>')(isTvSource(p)) : "") +
       '<span class="chk">' + ICON.check + "</span></button>";
@@ -968,8 +998,10 @@ function openPlayers() {
     c.querySelectorAll(".prow").forEach(b => {
       b.onclick = () => { const id = b.dataset.id; closeSheet(); selectPlayer(id); toast("Lautsprecher: " + pname(S.players[id])); };
     });
+    /* Licht im Takt (DMX/WLED) ein/aus – steht beim Lautsprecher, dem das Licht laut Add-on-Einstellung folgt */
+    c.querySelectorAll(".plt").forEach(x => { x.onclick = ev => { ev.stopPropagation(); lightToggle(); }; });
     /* Musik/TV der Box umschalten (Sonos mit TV-Eingang), Liste danach neu zeichnen */
-    c.querySelectorAll(".ptv").forEach(x => {
+    c.querySelectorAll(".ptv:not(.plt)").forEach(x => {
       x.onclick = async ev => { ev.stopPropagation(); if (!window.PJtv) return; await PJtv.toggle(x.dataset.id); later(() => { if (sheetKind === "players") openPlayers(); }, 400, "pl"); };
     });
     /* Musik samt Warteschlange übergeben (MA: player_queues/transfer), danach den neuen Lautsprecher wählen */

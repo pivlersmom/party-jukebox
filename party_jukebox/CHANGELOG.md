@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.6.2
+- Der Licht-Schalter sitzt jetzt in der Lautsprecherliste, direkt beim Lautsprecher, dem das Licht folgt (statt unter dem Titel).
+
 ## 0.6.1
 - Licht ausgeschaltet: beim Start des Add-ons läuft auch kein Testmuster mehr.
 
