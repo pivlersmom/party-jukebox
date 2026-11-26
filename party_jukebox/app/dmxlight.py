@@ -137,7 +137,9 @@ class DmxLight:
             now = time.monotonic()
             active = self.playing and now - self.last_frame < 3
             if not active:
-                if dark < 8 or int(now) % 2 == 0 and now - int(now) < dt:   # dunkel: ein paar Mal, dann nur noch selten
+                # Musik aus: ein paar Mal "dunkel" senden, dann ganz still sein. So gibt ein Empfänger wie WLED die
+                # Lampe wieder frei (Steuerung über Home Assistant/Presets), statt dauerhaft im Fernsteuer-Modus zu bleiben.
+                if dark < 8:
                     self.send(0.0)
                 dark += 1
                 self.env = 0.0

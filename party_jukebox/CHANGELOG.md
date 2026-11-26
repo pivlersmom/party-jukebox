@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.3.1
+- DMX-Licht: Bei Musikpause sendet das Add-on nichts mehr – WLED & Co. lassen sich dann wieder normal (z. B. über Home Assistant) steuern.
+
 ## 0.3.0
 - **DMX-Licht im Takt** (z. B. Spot auf eine Discokugel): Das Add-on holt Lautstärke, Bassschläge und Takt direkt aus Music Assistant und schickt sie per Art-Net an einen DMX-Knoten im Netz (z. B. ESP32 mit LuxDMX). Kein Mikrofon nötig. Einstellungen `dmx_*`, beim Start läuft ein Testmuster Rot/Grün/Blau/Weiß.
 
