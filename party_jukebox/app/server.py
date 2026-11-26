@@ -2262,6 +2262,37 @@ async def ha_event(session, name, data):
         log.info("HA-Ereignis %s fehlgeschlagen: %s", name, e)
 
 
+async def ha_set_state(session, entity, state, attrs):
+    """Einen Wert als Entität in Home Assistant setzen (erscheint dort als Sensor; nach einem HA-Neustart erst wieder beim nächsten Wert)."""
+    if not SUP_TOKEN:
+        return
+    try:
+        async with session.post(f"{HA_HTTP}/states/{entity}", json={"state": state, "attributes": attrs},
+                                headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=5) as r:
+            if r.status >= 400 and not LIGHT.get("state_err"):
+                LIGHT["state_err"] = True
+                log.info("HA-Sensor %s -> %s", entity, r.status)
+    except Exception:
+        pass
+
+
+async def light_report(session, d):
+    """Farbe, Tempo und Energie des DMX-Lichts nach Home Assistant: Sensoren + Ereignis „party_jukebox_color“.
+    Damit können andere Lampen (Hue, Govee, Loxone …) per Automation mitziehen."""
+    if "rgb" in d:
+        r, g, b = d["rgb"]
+        hexv = "#%02x%02x%02x" % (r, g, b)
+        attrs = {"rgb_color": [r, g, b], "hs_color": [d.get("hue", 0), 100], "friendly_name": "Party-Jukebox Farbe", "icon": "mdi:palette"}
+        await asyncio.gather(
+            ha_set_state(session, "sensor.party_jukebox_farbe", hexv, attrs),
+            ha_event(session, "party_jukebox_color", {"rgb_color": [r, g, b], "hs_color": [d.get("hue", 0), 100], "hex": hexv}))
+    await asyncio.gather(
+        ha_set_state(session, "sensor.party_jukebox_energie", d.get("energy", 0),
+                     {"unit_of_measurement": "%", "friendly_name": "Party-Jukebox Energie", "icon": "mdi:waveform", "state_class": "measurement"}),
+        ha_set_state(session, "sensor.party_jukebox_bpm", d["bpm"] if d.get("bpm") else "unknown",
+                     {"unit_of_measurement": "BPM", "friendly_name": "Party-Jukebox Tempo", "icon": "mdi:metronome", "state_class": "measurement"}))
+
+
 async def light_loop(app):
     session = app["session"]
     await asyncio.sleep(6)
@@ -2542,6 +2573,7 @@ async def on_startup(app):
         dmx.enabled = light_on
         # Drop erkannt → Ereignis „party_jukebox_drop“ in Home Assistant (z. B. für Nebel, Strobe, andere Lampen)
         dmx.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
+        dmx.on_state = lambda d: asyncio.create_task(light_report(app["session"], d))
         LIGHT["has"] = True
         app["dmx"] = asyncio.create_task(dmx.run())
     if str(OPT.get("wled_host") or "").strip() and OPT.get("ma_token"):

@@ -121,6 +121,8 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `wled_gain_db` | Empfindlichkeit, Standard 6 |
 | `wled_delay_ms` | Feinabgleich: positiv = Licht später, negativ = früher |
 
+**Andere Lampen mitziehen:** Läuft das DMX-Licht, meldet das Add-on an Home Assistant die aktuelle Farbe (`sensor.party_jukebox_farbe`, Attribut `rgb_color`), das Tempo (`sensor.party_jukebox_bpm`) und die Energie (`sensor.party_jukebox_energie`, 0–100 %). Bei jedem Farbwechsel feuert das Ereignis `party_jukebox_color`, beim Drop `party_jukebox_drop`. Beispiel-Automation: Auslöser „Ereignis `party_jukebox_color`“, Aktion `light.turn_on` mit `rgb_color: "{{ trigger.event.data.rgb_color }}"`.
+
 **Licht ein/aus:** Ist ein DMX- oder WLED-Licht eingerichtet, erscheint in der Jukebox unter dem Titel der Knopf „Licht“. Zusätzlich legt das Add-on in Home Assistant den Helfer `input_boolean.party_jukebox_licht` an – damit lässt sich das Licht auch aus Automationen und Dashboards schalten. Aus heißt: Das Add-on sendet nichts mehr, die Lampe gehört wieder Home Assistant.
 
 Alles Weitere (Limits, Räume, TV-Darstellung) stellst du in der Jukebox unter ⚙ ein.

@@ -173,6 +173,9 @@ class DmxLight:
         self.strobe_val = int(num("dmx_strobe_value", 200))
         self.detector = DropDetector(num("dmx_drop_build", 6.0), num("dmx_drop_sensitivity", 5), num("dmx_drop_cooldown", 30.0))
         self.on_drop = None               # vom Add-on gesetzt: meldet den Drop an Home Assistant (Event)
+        self.on_state = None              # vom Add-on gesetzt: meldet Farbe, Tempo und Energie an Home Assistant
+        self.beat_times = deque(maxlen=12)
+        self.said_hue, self.said_at, self.said_idle = None, 0.0, True
         self.drop_at = -1e9               # wann der letzte Drop fällig war (Uhr des Add-ons)
         self.loud_in = 0.0                # zuletzt EINGETROFFENE Lautstärke (für die Erkennung, vor dem Ton)
         self.bass = 0.0
@@ -267,6 +270,9 @@ class DmxLight:
                     self.send(0.0)
                 dark += 1
                 self.env = 0.0
+                if not self.said_idle:                               # einmal melden: Musik aus → Energie 0
+                    self.said_idle = True
+                    self.report({"energy": 0, "bpm": None, "playing": False})
                 continue
             dark = 0
             self.env *= math.exp(-dt / 0.18)                     # Puls klingt in ~0,2 s ab
@@ -279,6 +285,7 @@ class DmxLight:
                     elif kind == T_BEAT:
                         self.beats += 1
                         self.last_beat = now
+                        self.beat_times.append(now)
                         self.env = 1.0 if val else 0.8
                         if val or self.beats % 4 == 0:           # Taktanfang (oder jeder 4. Schlag): nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
@@ -297,7 +304,29 @@ class DmxLight:
             lv = max(0.0, min(1.0, (self.loud - self.lo) / span))
             self.smooth += (lv - self.smooth) * 0.25
             levels = {"beat": max(self.env, 0.10 + 0.25 * self.smooth), "smooth": 0.12 + 0.88 * self.smooth, "color": 1.0}
-            self.frame(levels, colorsys.hsv_to_rgb(self.hue, 1.0, 1.0), now - self.drop_at, True)
+            rgb = colorsys.hsv_to_rgb(self.hue, 1.0, 1.0)
+            self.frame(levels, rgb, now - self.drop_at, True)
+            # Home Assistant auf dem Laufenden halten: neue Farbe sofort, Tempo/Energie alle 5 s
+            if self.on_state and (self.hue != self.said_hue or now - self.said_at > 5):
+                d = {"energy": int(round(self.smooth * 100)), "bpm": self.bpm(), "playing": True}
+                if self.hue != self.said_hue:
+                    d["rgb"] = [int(round(x * 255)) for x in rgb]
+                    d["hue"] = int(round(self.hue * 360))
+                self.said_hue, self.said_at, self.said_idle = self.hue, now, False
+                self.report(d)
+
+    def bpm(self):
+        """Tempo aus den Abständen der letzten Schläge (Median), None wenn kein Takt bekannt ist."""
+        t = list(self.beat_times)
+        gaps = sorted(b - a for a, b in zip(t, t[1:]) if 0.25 < b - a < 1.5)
+        return int(round(60.0 / gaps[len(gaps) // 2])) if len(gaps) >= 4 else None
+
+    def report(self, d):
+        if self.on_state:
+            try:
+                self.on_state(d)
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------ Verbindung zu Music Assistant
     async def keep_grouped(self):

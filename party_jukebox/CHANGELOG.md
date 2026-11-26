@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.7.0
+- **DMX-Licht meldet an Home Assistant**: `sensor.party_jukebox_farbe` (aktuelle Farbe als Hex, Attribute `rgb_color`/`hs_color`), `sensor.party_jukebox_bpm`, `sensor.party_jukebox_energie` und bei jedem Farbwechsel das Ereignis `party_jukebox_color`. Damit ziehen andere Lampen (Hue, Govee, Loxone …) per Automation mit.
+
 ## 0.6.2
 - Der Licht-Schalter sitzt jetzt in der Lautsprecherliste, direkt beim Lautsprecher, dem das Licht folgt (statt unter dem Titel).
 
