@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.4.1
+- **Wichtig:** Hängt ein WLED-/DMX-Licht an einem Lautsprecher, sprang dessen Lautstärke beim Regeln viel zu weit hoch (bis 100 %), weil Music Assistant das Licht als Gruppenmitglied mit Lautstärke 0 mitrechnet. Jukebox und App (ab 3.10.2) regeln jetzt die echten Lautsprecher einzeln; das Licht zählt nicht mehr als Gruppenmitglied.
+
 ## 0.4.0
 - **WLED im Takt ohne Mikrofon**: Das Add-on schickt WLEDs eigenes „Audio Sync“-Signal, gefüllt mit Lautstärke, Spektrum und Bassschlägen aus Music Assistant. Die eingebauten Musik-Effekte von WLED laufen damit passend zur Musik; An/Aus, Helligkeit und Effekt bleiben in WLED bzw. Home Assistant steuerbar. Einstellungen `wled_*`.
 

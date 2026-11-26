@@ -38,6 +38,9 @@ configuration:
   tv_logo_dir:
     name: TV audio – channel logo folder
     description: Optional. Folder of the logo files under /local.
+  app_update_package:
+    name: App updates – package name
+    description: Optional. Package name of the Android app (e.g. de.partyjukebox.player). A new app version triggers a notification; tapping it opens the app.
   dmx_host:
     name: DMX light – Art-Net node address
     description: Optional. IP address or name of an Art-Net receiver (e.g. ESP32 with LuxDMX, dmx-gateway.local). The light then follows the beat of the music. Empty = off.
@@ -48,7 +51,7 @@ configuration:
     name: DMX light – fixture channels
     description: 'DMX channels of the fixture, e.g. dimmer=1,r=2,g=3,b=4,w=5. Roles: dimmer, r, g, b, w, strobe. Fixed values as channel=value, e.g. 6=255. Empty = r=1,g=2,b=3.'
   dmx_player:
-    name: DMX light – speaker
+    name: DMX light – follows this speaker
     description: Music Assistant player (name or ID) the light follows. Empty = party player.
   dmx_effect:
     name: DMX light – effect
@@ -63,7 +66,7 @@ configuration:
     name: WLED light – port
     description: Port from WLED's AudioReactive sync setting (default 11988).
   wled_player:
-    name: WLED light – speaker
+    name: WLED light – follows this speaker
     description: Music Assistant player (name or ID) the light follows. Empty = party player.
   wled_gain_db:
     name: WLED light – sensitivity (dB)

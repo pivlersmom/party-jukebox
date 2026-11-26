@@ -313,12 +313,32 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     private fun setVolume(v: Int) {
         val q = playerId(); if (q.isEmpty()) return
         val nv = v.coerceIn(0, 100)
+        val old = volume ?: nv
         volume = nv; invalidateState()
+        /*
+         * Lernkarte: Licht-Geräte in der Gruppe
+         * Ein WLED-/DMX-Licht der Jukebox hängt als Mitglied (Typ "visualizer") in der Gruppe, hat aber keine
+         * Lautstärke. MAs Gruppen-Lautstärke rechnet es als 0 mit – der echte Lautsprecher sprang dadurch beim
+         * Regeln viel zu weit hoch (bis 100 %). Mit Licht in der Gruppe regeln wir darum jeden echten
+         * Lautsprecher einzeln um denselben Betrag.
+         */
+        if (lightInGroup) {
+            val d = nv - old
+            for (id in realMembers) ma.send("players/get", o("player_id" to id)) { r, _ ->
+                val pv = (r as? JSONObject)?.takeUnless { it.isNull("volume_level") }?.optInt("volume_level") ?: return@send
+                ma.send("players/cmd/volume_set", o("player_id" to id, "volume_level" to (pv + d).coerceIn(0, 100))) { _, _ -> }
+            }
+            return
+        }
         // erst die ganze Gruppe versuchen, sonst nur den einen Lautsprecher
         ma.send("players/cmd/group_volume", o("player_id" to q, "volume_level" to nv)) { _, err ->
             if (err != null) ma.send("players/cmd/volume_set", o("player_id" to q, "volume_level" to nv)) { _, _ -> }
         }
     }
+
+    // Gruppe des gewählten Lautsprechers: echte Lautsprecher (ohne Licht-Geräte) und ob ein Licht dranhängt
+    @Volatile private var lightInGroup = false
+    @Volatile private var realMembers: List<String> = emptyList()
 
     /*
      * Lernkarte: Herz-Knopf (Favorit)
@@ -669,7 +689,13 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             val tv = p.optString("active_source") == "tv" || cm?.optString("source_id") == "tv" || cm?.optString("uri") == "homeTheater-input"
             if (tv != tvMode) { tvMode = tv; if (tv) entries = emptyList(); refreshSoon() }
             speakerName = p.optString("display_name").takeUnless { it.isEmpty() || it == "null" } ?: p.optString("name")
-            val group = (p.optJSONArray("group_childs")?.length() ?: 0) > 1
+            // Mitglieder der Gruppe; Licht-Geräte der Jukebox (Kennung "pj-…", Typ visualizer) sind keine Lautsprecher
+            val arr = p.optJSONArray("group_members") ?: p.optJSONArray("group_childs")
+            val all = (0 until (arr?.length() ?: 0)).map { arr!!.optString(it) }.filter { it.isNotEmpty() }
+            val real = (all.filter { !it.startsWith("pj-") } + q).distinct()
+            lightInGroup = all.any { it.startsWith("pj-") }
+            realMembers = real
+            val group = real.size > 1 && !lightInGroup
             volume = when {
                 group && !p.isNull("group_volume") -> p.optInt("group_volume")
                 p.isNull("volume_level") -> null

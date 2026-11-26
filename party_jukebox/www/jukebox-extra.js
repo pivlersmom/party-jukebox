@@ -493,7 +493,7 @@ const abs = u => { try { return u ? new URL(u, location.href).href : ""; } catch
 
 function curVol() {
   const p = S.players[S.pid]; if (!p) return null;
-  const v = groupInfo(p).isGroup ? (p.group_volume != null ? p.group_volume : p.volume_level) : p.volume_level;
+  const v = JB.shownVol ? JB.shownVol(p) : p.volume_level;
   return v == null ? null : Math.round(v);
 }
 

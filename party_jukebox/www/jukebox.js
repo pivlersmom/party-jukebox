@@ -283,11 +283,27 @@ function usable(p, all) {
 function playerList() { return Object.values(S.players).filter(p => usable(p)).sort((a, b) => pname(a).localeCompare(pname(b), "de")); }
 function leaderOf(id) { const p = S.players[id]; return p && p.synced_to && S.players[p.synced_to] ? p.synced_to : id; }
 const slug = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+/*
+ * Licht-Geräte (Typ "visualizer": WLED-/DMX-Licht) hängen in der Gruppe eines Lautsprechers, sind aber keine
+ * Lautsprecher: Sie haben keine Lautstärke. Rechnet man sie in die Gruppen-Lautstärke ein (als 0), springt der
+ * echte Lautsprecher beim Regeln viel zu weit nach oben. Darum zählen sie hier nirgends als Gruppenmitglied.
+ */
+const isLight = id => { const x = S.players[id]; return !!x && x.type === "visualizer"; };
+/** Echte Lautsprecher einer Gruppe außer dem Anführer selbst (ohne Licht-Geräte) */
+function members(p) { return ((p && p.group_members) || []).filter(x => x !== p.player_id && !isLight(x)); }
 function groupInfo(p) {
   if (!p) return { isGroup: false, n: 1 };
-  const others = (p.group_members || []).filter(x => x !== p.player_id);
+  const all = (p.group_members || []).filter(x => x !== p.player_id), others = all.filter(x => !isLight(x));
   const isGroup = others.length > 0 || p.type === "group";
-  return { isGroup, n: p.type === "group" ? others.length : others.length + 1 };
+  return { isGroup, n: p.type === "group" ? others.length : others.length + 1, lights: all.length - others.length };
+}
+/** Angezeigte Lautstärke: Gruppe = MA-Wert; hängt ein Licht dran, selbst über die echten Lautsprecher mitteln */
+function shownVol(p) {
+  const g = groupInfo(p);
+  if (!g.isGroup) return p.volume_level;
+  if (!g.lights) return p.group_volume != null ? p.group_volume : p.volume_level;
+  const v = [p.player_id].concat(members(p)).map(id => S.players[id] && S.players[id].volume_level).filter(x => x != null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : p.volume_level;
 }
 /* Reihenfolge: eigene Wahl (localStorage) → PJ.player → spielender → erster */
 function pickPlayer() {
@@ -402,7 +418,7 @@ function hasTvIn(p) { return !!(p && Array.isArray(p.source_list) && p.source_li
 const ICON_TV = '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>', ICON_NOTE = '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>';
 function tvBoxOf(p) {
   if (!p) return null;
-  const ids = [p.player_id].concat((p.group_members || []).filter(x => x !== p.player_id));
+  const ids = [p.player_id].concat(members(p));
   for (const id of ids) if (hasTvIn(S.players[id])) return S.players[id];
   return null;
 }
@@ -515,7 +531,7 @@ function renderVol() {
   const p = S.players[S.pid], box = $("#volBox");
   if (!p) { box.classList.add("off"); setText($("#vVal"), "–"); setText($("#vGrp"), ""); volSl.set(0); return; }
   const g = groupInfo(p);
-  const v = g.isGroup ? (p.group_volume != null ? p.group_volume : p.volume_level) : p.volume_level;
+  const v = shownVol(p);
   const vg = $("#vGrp");
   if (v == null) setText(vg, "Lautstärke nicht regelbar");
   else if (g.isGroup) { const t = "Gruppe · " + g.n + " Lautsprecher"; if (vg.dataset.t !== t) { vg.dataset.t = t; vg.innerHTML = "<span>" + esc(t) + '</span><span class="vgc">' + ICON.chev + "</span>"; } }
@@ -541,7 +557,7 @@ function memSend(id) {
 }
 function renderMembers(p, g) {
   const box = $("#vMem");
-  const ids = g.isGroup ? [p.player_id].concat((p.group_members || []).filter(x => x !== p.player_id)) : [];
+  const ids = g.isGroup ? [p.player_id].concat(members(p)) : [];
   const open = S.memOpen && ids.length > 1;
   box.hidden = !open; $("#vGrp").setAttribute("aria-expanded", open ? "true" : "false");
   if (!open) { memKey = ""; return; }
@@ -638,7 +654,15 @@ let vPending = null, vTimer = null, vLast = 0;
 function volFlush() {
   vTimer = null; if (vPending == null || !S.pid) return;
   const v = vPending; vPending = null; vLast = Date.now();
-  const g = groupInfo(S.players[S.pid]);
+  const p = S.players[S.pid], g = groupInfo(p);
+  if (g.isGroup && g.lights) {
+    // Gruppe mit Licht-Gerät: nicht MAs Gruppen-Lautstärke nehmen (rechnet das Licht als 0 mit), sondern jeden
+    // echten Lautsprecher um denselben Betrag verschieben
+    const d = v - shownVol(p);
+    [p.player_id].concat(members(p)).forEach(id => { const x = S.players[id];
+      if (x && x.volume_level != null) cmd("players/cmd/volume_set", { player_id: id, volume_level: clamp(Math.round(x.volume_level + d), 0, 100) }).catch(() => {}); });
+    return;
+  }
   cmd(g.isGroup ? "players/cmd/group_volume" : "players/cmd/volume_set", { player_id: S.pid, volume_level: v })
     .catch(e => toast("Lautstärke: " + errText(e)));
 }
@@ -2677,7 +2701,7 @@ function setConn(c, wait) {
 /* ---------- Start ---------- */
 /* für jukebox-extra.js (Teilnehmer, Android-Medien) */
 window.JB = { S, $, esc, groupInfo, nowInfo, isPlaying, togglePlay, volSet, elapsed, cmd, toast, openSheet, closeSheet,
-  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt, isTvSource, setTvFlag, renderVol };
+  selectPlayer, profUser, profProv, favUid: () => favUid(), toggleFav, isFavIt, isTvSource, setTvFlag, renderVol, shownVol };
 renderAll();
 try { localStorage.setItem("pj_host", "1"); } catch (e) {}
 connect();

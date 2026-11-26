@@ -195,7 +195,7 @@ class DmxLight:
                 want = self.player.lower()
                 tgt = next((x for x in pl if want and (str(x.get("player_id", "")).lower() == want or str(x.get("name", "")).lower() == want)), None)
                 if not mine or not tgt:
-                    msg = "Licht-Gerät in MA nicht gefunden" if not mine else "Lautsprecher „%s“ nicht gefunden (dmx_player prüfen)" % self.player
+                    msg = "Licht-Gerät in MA nicht gefunden" if not mine else "Lautsprecher „%s“ nicht gefunden – im Feld „folgt diesem Lautsprecher“ muss ein Lautsprecher aus Music Assistant stehen" % self.player
                     if said != msg:
                         said = msg
                         log.info(self.tag + ": %s", msg)
