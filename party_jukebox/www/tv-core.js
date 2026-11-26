@@ -54,17 +54,23 @@ function noop(){}
   var ua=navigator.userAgent+' '+(navigator.platform||''), mem=+navigator.deviceMemory||0,
       tvBrowser=/Tizen|SMART-?TV|SmartTV|Web0S|webOS|NetCast|HbbTV|VIDAA|Hisense|Viera|Philips.*TV|BRAVIA/i.test(ua),
       auto=(/aarch64|armv\d|arm64|\barm\b/i.test(ua)&&!/Android/i.test(ua)) || (mem>0&&mem<=1) || tvBrowser, q=null;  /* Pi, ≤1 GB RAM oder Browser eines Smart-TVs (Samsung/LG …) */
-  try{ q=new URLSearchParams(location.search).get('lite'); localStorage.removeItem('tv_lite'); }catch(e){}
-  TV.set={lyr_offset:0.5,tv_lite:'auto'};
+  var qd=null;
+  try{ var sp=new URLSearchParams(location.search); q=sp.get('lite'); qd=sp.get('dim'); localStorage.removeItem('tv_lite'); }catch(e){}
+  TV.set={lyr_offset:0.5,tv_lite:'auto',tv_dim:'off'};
   function apply(){
     var m=TV.set.tv_lite, on=q==='1'?true:q==='0'?false:m==='on'?true:m==='off'?false:auto;
     TV.lite=on; document.documentElement.classList.toggle('lite',on);
+    /* TV-Helligkeit: Grundeinstellung aus der Jukebox, ?dim=off|dim|night zum Testen */
+    var d=(qd==='off'||qd==='dim'||qd==='night')?qd:TV.set.tv_dim;
+    TV.dim=d==='dim'||d==='night'?d:'off';
+    document.documentElement.classList.toggle('dim',TV.dim==='dim');
+    document.documentElement.classList.toggle('night',TV.dim==='night');
   }
   apply();
   TV.loadSet=function(){
     return fetch('party/tv.json?_='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).then(function(j){
       if(!j) return;
-      var ch=j.lyr_offset!==TV.set.lyr_offset||j.tv_lite!==TV.set.tv_lite||j.name!==TV.set.name;
+      var ch=j.lyr_offset!==TV.set.lyr_offset||j.tv_lite!==TV.set.tv_lite||j.tv_dim!==TV.set.tv_dim||j.name!==TV.set.name;
       TV.set=j; if(ch){ apply(); TV.emit('set',j); }
     }).catch(function(){});
   };

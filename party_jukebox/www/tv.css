@@ -329,6 +329,33 @@ html.lite #recWrap.swap .art-wrap{transform:none!important;opacity:1!important}
 html.lite .glow{display:none!important}
 html.lite .lyr .in{transition:none!important}
 
+/* TV-Helligkeit (Jukebox → Einstellungen, ?dim=dim|night): für dunkle Räume.
+   Nur Variablen, Bild-Filter und Glows – kein Filter auf #app, damit Spar-Geräte nicht ruckeln. */
+html.dim{--tx:#bfc5d1;--tx2:#7d869a;--tx3:#525b6e}
+html.night{--tx:#8d94a3;--tx2:#5f677a;--tx3:#414858;--s1:#0d111b;--s2:#121725;--s3:#181e2c;
+  --pink:#a8338a;--violet:#6447b0;--cyan:#1f9e95}
+html.dim #art-bg,html.night #art-bg,html.dim .glow,html.night .glow{display:none!important}
+html.dim .art-wrap img,html.dim .rct .cv,html.dim #upNext .cv,html.dim .qrow .cover{filter:brightness(.7)}
+html.night .art-wrap img,html.night .rct .cv,html.night #upNext .cv,html.night .qrow .cover,html.night #recWrap .lbl{filter:brightness(.45) saturate(.8)}
+/* QR samt Platte dimmen: Schwarz bleibt schwarz, Kontrast bleibt scanbar */
+html.dim .qr-frame{box-shadow:0 0 0 4px var(--pink)!important;filter:brightness(.75)}
+html.night .qr-frame{box-shadow:0 0 0 3px var(--pink)!important;filter:brightness(.55)}
+html.night .card,html.night .art-wrap,html.night #upNext .cv,html.night .rct .cv{box-shadow:none!important}
+html.night .card{background:rgba(13,17,27,.9)}
+html.dim .clkN,html.night .clkN{background:none;color:var(--tx)}
+html.night .clkC{animation:none}
+html.dim .brand .txt span,html.night .brand .txt span{color:var(--tx2)}
+html.night .brand .logo,html.night .brand .txt b,html.night .hey b,html.night .step b,html.night #gCard .gi{filter:brightness(.6)}
+html.night #gCard .gi{box-shadow:none}
+/* Getränke-Ranking & Vordrängeln: warme Töne leiser */
+html.night .bbBig b,html.night .bbr .bar i{filter:brightness(.6)}
+html.night .bbLast b,html.night .bbr .ct,html.night .qhl .b{color:#a8813a}
+html.night .wby .bo,html.night .q-wish.bo,html.night #upNext .w.bo{color:#a8653a}
+/* Vollbild-Effekte (Nachschub-Blitz, Vordrängeln, Widmung): dunkler und ohne Farbblitz */
+html.night #biFl{display:none!important}
+html.night #dedOv,html.night #boOv,html.night #biOv{background:rgba(5,7,12,.92)!important}
+html.night #boOv .bx,html.night #biOv .bx{filter:brightness(.65)}
+
 /* Vollbild-Hinweis (nur im Browser) */
 #fsHint{position:fixed;right:2.4vw;bottom:2vh;z-index:70;padding:1vh 1.6vw;border-radius:999px;background:rgba(18,23,37,.94);border:1px solid rgba(0,240,224,.5);
   color:var(--cyan);font-size:2vh;font-weight:800;opacity:0;transform:translateY(1vh);transition:opacity .4s,transform .4s;pointer-events:none}

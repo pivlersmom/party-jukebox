@@ -41,7 +41,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 
 ## 4. Jukebox-Einstellungen (⚙ oben rechts)
 - **Lichteffekte, Abstimmung, Gast-Limits** – gelten sofort.
-- **TV-Anzeige** – Songtext-Versatz (+ = Text früher) und Darstellung (Spar-Modus für langsame TV-Boxen).
+- **TV-Anzeige** – Songtext-Versatz (+ = Text früher) und Darstellung (Spar-Modus für langsame TV-Boxen) und **TV-Helligkeit** (Normal · Gedimmt · Nacht für dunkle Räume).
 - **Räume · Auto-Beitritt** – je Raum Lautsprecher und Bewegungsmelder wählen:
   - Bewegung im Raum → die Box spielt die gerade laufende Musik mit.
   - Keine Bewegung für die eingestellte Zeit → die Box verlässt die Gruppe wieder (0 = nie).
@@ -84,6 +84,7 @@ Die Startseite ist im Heimnetz unter `http://<IP-von-Home-Assistant>:8099` errei
 | Falscher Lautsprecher | **Party-Player** in der Konfiguration setzen bzw. in der Jukebox oben rechts wechseln |
 | Songtext läuft zu früh/zu spät | Jukebox ⚙ → **Songtext-Versatz** anpassen (+ = Text früher) |
 | TV ruckelt | Jukebox ⚙ → Darstellung **Spar-Modus** |
+| TV zu hell im dunklen Raum | Jukebox ⚙ → TV-Helligkeit **Gedimmt** oder **Nacht** (zum Testen: `tv.html?dim=night`) |
 | Song wird trotz 👎 nicht übersprungen | Option **Abstimmung überspringt Songs** prüfen; nötig ist die Mehrheit der Gäste (mindestens 2) |
 
 Logs: Reiter **Protokoll** des Add-ons.
