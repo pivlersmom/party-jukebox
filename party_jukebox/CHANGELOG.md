@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.6.0
+- **DMX: mehrere Geräte** im selben Universum (`dmx_fixtures`): Licht im Takt, Geräte nur beim Drop (z. B. Nebel) und Geräte nur bei Musik (z. B. Laser).
+- **Drop-Erkennung**: Bass einige Sekunden weg (Aufbau), dann schlagartig zurück. Beim Drop: Strobe-Kanal des Lichts für einige Sekunden, Drop-Geräte an und das Ereignis `party_jukebox_drop` in Home Assistant. Nachstellbar über `dmx_drop_build`, `dmx_drop_sensitivity`, `dmx_drop_seconds`, `dmx_drop_cooldown`, `dmx_strobe_value`; jeder Drop steht mit Messwerten im Protokoll.
+- **Eigener Licht-Schalter** (`light_switch`): statt des automatisch angelegten Helfers eine eigene Entität verwenden.
+
 ## 0.5.0
 - **Schalter „Licht im Takt“**: DMX- und WLED-Licht lassen sich im laufenden Betrieb ein- und ausschalten – in der Jukebox (Knopf „Licht“ unter dem Titel) und in Home Assistant über den Helfer `input_boolean.party_jukebox_licht`, den das Add-on selbst anlegt. Aus = es wird nichts mehr gesendet und das Licht-Gerät hängt nicht mehr am Lautsprecher.
 

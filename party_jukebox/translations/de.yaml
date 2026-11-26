@@ -59,6 +59,27 @@ configuration:
   dmx_delay_ms:
     name: DMX-Licht – Feinabgleich (ms)
     description: Kommt das Licht zu früh, positive Zahl eintragen (z. B. 150); kommt es zu spät, negative Zahl.
+  dmx_fixtures:
+    name: DMX-Licht – mehrere Geräte
+    description: 'Optional, statt „Kanäle der Lampe“. Eine Zeile pro Gerät: Name | Art | Kanäle | Dauer. Arten: beat, smooth, color (Licht) · drop (nur beim Drop) · music (nur solange Musik läuft). Beispiele: „Spot | beat | dimmer=1,r=2,g=3,b=4,strobe=5“ · „Nebel | drop | 10=255 | 3s“ · „Laser | music | 20=255“. Ein Strobe-Kanal am Licht wird nur beim Drop benutzt.'
+  dmx_drop_seconds:
+    name: DMX-Licht – Drop-Dauer (s)
+    description: So lange laufen Strobe und Drop-Geräte nach einem erkannten Drop (Standard 4). Je Gerät überschreibbar mit der Dauer in der Geräte-Zeile.
+  dmx_drop_build:
+    name: DMX-Licht – Drop-Aufbau (s)
+    description: So lange muss der Bass vorher mindestens weg sein, damit es als Drop zählt (Standard 6). Größer = nur lange Aufbauten.
+  dmx_drop_sensitivity:
+    name: DMX-Licht – Drop-Empfindlichkeit
+    description: 1 bis 10 (Standard 5). Höher = erkennt auch schwächere Drops, aber mehr Fehlalarme.
+  dmx_drop_cooldown:
+    name: DMX-Licht – Drop-Pause (s)
+    description: Frühestens nach so vielen Sekunden wird der nächste Drop ausgelöst (Standard 30).
+  dmx_strobe_value:
+    name: DMX-Licht – Strobe-Wert
+    description: Wert des Strobe-Kanals während des Drops, 0–255 (Standard 200). 0 = kein Strobe.
+  light_switch:
+    name: Licht – eigener Schalter
+    description: Optional. Entität aus Home Assistant (z. B. input_boolean.musik_sync_diskokugel), die DMX- und WLED-Licht ein- und ausschaltet. Leer = das Add-on legt selbst den Helfer input_boolean.party_jukebox_licht an.
   wled_host:
     name: WLED-Licht – Adresse(n)
     description: Optional. IP-Adresse(n) von WLED-Geräten, mit Komma getrennt. WLEDs Musik-Effekte bekommen ihre Daten dann aus Music Assistant statt von einem Mikrofon. In WLED unter Usermods → AudioReactive den Sync-Modus „Receive“ einstellen. Leer = aus.

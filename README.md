@@ -112,6 +112,9 @@ Zahnrad oben links – in Reitern **Persönlich · Party · TV & Räume · Info*
 | `dmx_player` | Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player) |
 | `dmx_effect` | `beat` (Puls auf jeden Schlag), `smooth` (folgt der Lautstärke) oder `color` (nur Farbwechsel) |
 | `dmx_delay_ms` | Feinabgleich: positiv = Licht später, negativ = früher |
+| `dmx_fixtures` | Mehrere Geräte, je Zeile `Name \| Art \| Kanäle \| Dauer`. Arten: `beat`/`smooth`/`color` (Licht), `drop` (nur beim Drop, z. B. Nebel), `music` (nur bei Musik, z. B. Laser). Beispiel: `Spot \| beat \| dimmer=1,r=2,g=3,b=4,strobe=5` |
+| `dmx_drop_build`, `dmx_drop_sensitivity`, `dmx_drop_seconds`, `dmx_drop_cooldown`, `dmx_strobe_value` | Drop-Erkennung nachstellen (Aufbau-Dauer, Empfindlichkeit 1–10, Dauer, Pause, Strobe-Wert). Bei jedem Drop feuert das Ereignis `party_jukebox_drop` in Home Assistant |
+| `light_switch` | Eigene HA-Entität als Ein/Aus-Schalter fürs Licht (leer = Helfer wird automatisch angelegt) |
 | `wled_host` | Optional: IP-Adresse(n) von WLED-Geräten (Komma-getrennt). WLEDs Musik-Effekte bekommen ihre Daten dann aus Music Assistant statt von einem Mikrofon (WLED: Usermods → AudioReactive → Sync „Receive“). Leer = aus |
 | `wled_port` | Port aus WLEDs Sync-Einstellung (Standard 11988) |
 | `wled_player` | Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player) |

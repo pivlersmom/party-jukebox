@@ -2250,10 +2250,26 @@ async def _light_helper_create(session):
         return "input_boolean." + str((r.get("result") or {}).get("id") or "party_jukebox_licht")
 
 
+async def ha_event(session, name, data):
+    """Ein Ereignis in Home Assistant auslösen (für Automationen: Auslöser „Ereignis“, Typ = name)."""
+    if not SUP_TOKEN:
+        return
+    try:
+        async with session.post(f"{HA_HTTP}/events/{name}", json=data, headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=5) as r:
+            if r.status >= 400:
+                log.info("HA-Ereignis %s -> %s", name, r.status)
+    except Exception as e:
+        log.info("HA-Ereignis %s fehlgeschlagen: %s", name, e)
+
+
 async def light_loop(app):
     session = app["session"]
     await asyncio.sleep(6)
-    if SUP_TOKEN:
+    own = str(OPT.get("light_switch") or "").strip()                    # eigener Schalter/Helfer aus den Einstellungen
+    if own:
+        LIGHT["entity"] = own
+        log.info("Licht-Schalter: folgt %s", own)
+    elif SUP_TOKEN:
         try:
             cand = [e for e in (LIGHT["entity"], "input_boolean.party_jukebox_licht") if e]
             st = await ha_states(session, cand)
@@ -2299,7 +2315,8 @@ async def party_light(request):
         _save_favs()
         log.info("Licht-Schalter: %s (Jukebox)", "an" if on else "aus")
         if LIGHT["entity"]:
-            await ha_call(request.app["session"], "input_boolean", "turn_on" if on else "turn_off", {"entity_id": LIGHT["entity"]})
+            # homeassistant.turn_on/off schaltet jeden Typ (input_boolean, switch, light …)
+            await ha_call(request.app["session"], "homeassistant", "turn_on" if on else "turn_off", {"entity_id": LIGHT["entity"]})
     return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"]})
 
 
@@ -2516,6 +2533,8 @@ async def on_startup(app):
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
         dmx = DmxLight(app["session"], OPT, ma_cmds, ma_host)
         dmx.enabled = light_on
+        # Drop erkannt → Ereignis „party_jukebox_drop“ in Home Assistant (z. B. für Nebel, Strobe, andere Lampen)
+        dmx.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
         LIGHT["has"] = True
         app["dmx"] = asyncio.create_task(dmx.run())
     if str(OPT.get("wled_host") or "").strip() and OPT.get("ma_token"):

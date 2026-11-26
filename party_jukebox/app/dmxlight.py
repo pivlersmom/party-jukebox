@@ -17,6 +17,17 @@ Einstellungen (Add-on-Konfiguration):
   dmx_player    Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player)
   dmx_effect    beat (Puls auf jeden Schlag) · smooth (folgt der Lautstärke) · color (nur Farbwechsel)
   dmx_delay_ms  Feinabgleich: positiv = Licht später, negativ = früher
+  dmx_fixtures  Mehrere Geräte im selben Universum, je Zeile "Name | Art | Kanäle | Dauer":
+                  Spot  | beat  | dimmer=1,r=2,g=3,b=4,strobe=5     folgt dem Takt; Strobe-Kanal nur beim Drop
+                  Nebel | drop  | 10=255 | 3s                       beim Drop 3 s lang Kanal 10 auf 255, sonst 0
+                  Laser | music | 20=255                            solange Musik läuft Kanal 20 auf 255, sonst 0
+                Arten: beat · smooth · color (Licht) · drop (nur beim Drop) · music (nur bei Musik)
+  dmx_drop_*    Drop-Erkennung nachstellen: build (Sekunden Aufbau), sensitivity (1–10), seconds (Dauer),
+                cooldown (Pause bis zum nächsten Drop); dmx_strobe_value = Wert des Strobe-Kanals beim Drop
+
+Was ist ein "Drop"? Im Aufbau (Build-up/Breakdown) nimmt ein Titel den Bass für einige Sekunden heraus, dann
+setzt er schlagartig wieder ein. Genau das sucht DropDetector: Bass deutlich unter dem gewohnten Pegel für
+mindestens `build` Sekunden – bei weiterlaufender Musik – und dann zurück auf vollen Pegel.
 """
 import asyncio
 import colorsys
@@ -69,18 +80,103 @@ def parse_channels(text):
     return roles, fixed
 
 
+class DropDetector:
+    """Sucht "Bass weg → Aufbau → Bass schlagartig zurück". Wird mit jedem Spektrum-Paket gefüttert (also VOR dem Ton)."""
+
+    def __init__(self, build_s=6.0, sensitivity=5, cooldown_s=30.0):
+        self.build_s, self.cooldown_s = float(build_s), float(cooldown_s)
+        # Wie weit der Bass unter den gewohnten Pegel fallen muss (Anteil der 60-dB-Skala; 0,15 ≈ 9 dB)
+        self.delta = max(0.06, 0.25 - 0.02 * max(1, min(10, int(sensitivity))))
+        self.fast = None          # geglätteter Bass (ca. 0,1 s)
+        self.hi = 0.0             # gewohnter voller Bass-Pegel (sinkt nur langsam)
+        self.high_time = 0.0      # so lange lief schon voller Bass (nach einer Pause von vorn)
+        self.low_since = None     # seit wann der Bass weg ist
+        self.low_loud = [0.0, 0]  # Lautstärke während des Aufbaus (Summe, Anzahl) – Stille ist kein Aufbau
+        self.quiet = 0.0
+        self.block_until = 0
+        self.last_drop = -10 ** 18
+        self.prev = None
+
+    def feed(self, ts, bass, loud):
+        """ts in µs, bass und loud 0..1. Gibt beim Drop ein dict mit den Messwerten zurück, sonst None."""
+        dt = 0.03 if self.prev is None else max(0.0, min(0.2, (ts - self.prev) / 1e6))
+        self.prev = ts
+        self.fast = bass if self.fast is None else self.fast + (bass - self.fast) * (1 - math.exp(-dt / 0.12))
+        self.hi = max(self.fast, self.hi - dt * 0.004)
+        # Stille (Titelwechsel, Pause): alles zurück – der Einsatz des nächsten Titels ist kein Drop
+        self.quiet = self.quiet + dt if loud < 0.12 else 0.0
+        if self.quiet > 1.0:
+            self.low_since, self.high_time, self.low_loud = None, 0.0, [0.0, 0]
+            self.block_until = ts + 3_000_000
+            return None
+        if self.fast < self.hi - self.delta:                       # Bass ist weg
+            if self.low_since is None:
+                self.low_since, self.low_loud = ts, [0.0, 0]
+            self.low_loud[0] += loud
+            self.low_loud[1] += 1
+        elif self.fast >= self.hi - self.delta * 0.3:              # Bass ist (wieder) voll da
+            out = None
+            if self.low_since is not None:
+                build = (ts - self.low_since) / 1e6
+                avg = self.low_loud[0] / max(1, self.low_loud[1])
+                if (build >= self.build_s and self.high_time >= 5 and avg >= 0.2 and ts > self.block_until
+                        and (ts - self.last_drop) / 1e6 >= self.cooldown_s):
+                    self.last_drop = ts
+                    out = {"build_s": round(build, 1), "bass": round(self.fast, 2), "level": round(self.hi, 2), "loud": round(avg, 2)}
+                self.low_since = None
+            self.high_time += dt
+            return out
+        return None
+
+
+KINDS = ("beat", "smooth", "color", "drop", "music")
+
+
+def parse_fixtures(opt):
+    """Geräteliste aus den Einstellungen. Ohne dmx_fixtures: ein Gerät aus dmx_channels + dmx_effect (wie bisher)."""
+    out = []
+    for line in opt.get("dmx_fixtures") or []:
+        parts = [x.strip() for x in str(line).split("|")]
+        if len(parts) < 3:
+            continue
+        kind = parts[1].lower()
+        kind = {"takt": "beat", "licht": "beat", "nebel": "drop", "musik": "music"}.get(kind, kind)
+        roles, fixed = parse_channels(parts[2])
+        dur = None
+        if len(parts) > 3:
+            num = "".join(c for c in parts[3].replace(",", ".") if c.isdigit() or c == ".")
+            dur = float(num) if num else None
+        if kind in KINDS and (roles or fixed):
+            out.append({"name": parts[0] or kind, "kind": kind, "roles": roles, "fixed": fixed, "dur": dur})
+    if not out:
+        roles, fixed = parse_channels(opt.get("dmx_channels") or "r=1,g=2,b=3")
+        eff = str(opt.get("dmx_effect") or "beat").strip().lower()
+        if roles or fixed:
+            out.append({"name": "Licht", "kind": eff if eff in KINDS else "beat", "roles": roles, "fixed": fixed, "dur": None})
+    return out
+
+
 class DmxLight:
     # Diese vier Angaben überschreibt die WLED-Variante (wledsync.py)
     client_id, name, tag = CLIENT_ID, NAME, "DMX-Licht"
-    viz = {"types": ["loudness", "beat", "peak"], "rate_max": 30}      # welche Daten wir von Music Assistant wollen
+    # welche Daten wir von Music Assistant wollen (Spektrum: 16 Bänder, daraus der Bass für die Drop-Erkennung)
+    viz = {"types": ["loudness", "beat", "peak", "spectrum"], "rate_max": 30,
+           "spectrum": {"n_disp_bins": 16, "scale": "log", "f_min": 43, "f_max": 9259}}
 
     def __init__(self, session, opt, ma_cmds, ma_host):
         self.session, self.ma_cmds, self.ma_host = session, ma_cmds, ma_host
         self.host = str(opt.get("dmx_host") or "").strip()
         self.universe = int(opt.get("dmx_universe") or 0)
-        self.roles, self.fixed = parse_channels(opt.get("dmx_channels") or "r=1,g=2,b=3")
+        self.fixtures = parse_fixtures(opt)
+        num = lambda k, d: float(opt.get(k)) if opt.get(k) not in (None, "") else d
+        self.drop_s = num("dmx_drop_seconds", 4.0)                  # Dauer von Strobe/Drop-Geräten
+        self.strobe_val = int(num("dmx_strobe_value", 200))
+        self.detector = DropDetector(num("dmx_drop_build", 6.0), num("dmx_drop_sensitivity", 5), num("dmx_drop_cooldown", 30.0))
+        self.on_drop = None               # vom Add-on gesetzt: meldet den Drop an Home Assistant (Event)
+        self.drop_at = -1e9               # wann der letzte Drop fällig war (Uhr des Add-ons)
+        self.loud_in = 0.0                # zuletzt EINGETROFFENE Lautstärke (für die Erkennung, vor dem Ton)
+        self.bass = 0.0
         self.player = str(opt.get("dmx_player") or opt.get("party_player") or "").strip()
-        self.effect = str(opt.get("dmx_effect") or "beat").strip().lower()
         self.delay_us = int(opt.get("dmx_delay_ms") or 0) * 1000
         self.enabled = lambda: True       # vom Add-on gesetzt: Schalter „Licht im Takt“ (aus = gar nichts senden)
         self.sock = None
@@ -98,21 +194,35 @@ class DmxLight:
         self.lead = []
 
     # ------------------------------------------------------------------ Ausgabe
-    def send(self, v, rgb=None):
-        """v = Helligkeit 0..1, rgb = Farbe (je 0..1). Schreibt die belegten Kanäle und schickt ein Art-Net-Paket."""
+    def frame(self, levels, rgb, drop_age, music):
+        """
+        Alle Geräte in EIN DMX-Bild schreiben und senden.
+        levels = Helligkeit 0..1 je Licht-Art, rgb = Farbe, drop_age = Sekunden seit dem letzten Drop, music = läuft Musik?
+        """
         buf = bytearray(512)
-        r, g, b = rgb or (1.0, 1.0, 1.0)
-        has_dim = "dimmer" in self.roles
-        has_rgb = any(k in self.roles for k in "rgb")
-        k = 1.0 if has_dim else v                      # ohne eigenen Helligkeits-Kanal steckt die Helligkeit in der Farbe
-        val = {"dimmer": v, "r": r * k, "g": g * k, "b": b * k, "w": 0.0 if has_rgb else v, "strobe": 0.0}
         top = 0
-        for role, ch in self.roles.items():
-            buf[ch - 1] = max(0, min(255, int(round(val[role] * 255))))
-            top = max(top, ch)
-        for ch, x in self.fixed.items():
-            buf[ch - 1] = x
-            top = max(top, ch)
+        for fx in self.fixtures:
+            kind, roles = fx["kind"], fx["roles"]
+            if kind in ("drop", "music"):
+                on = (drop_age < (fx["dur"] or self.drop_s)) if kind == "drop" else music
+                for ch, x in fx["fixed"].items():
+                    buf[ch - 1] = x if on else 0
+                    top = max(top, ch)
+                continue
+            v = levels.get(kind, 0.0)
+            r, g, b = rgb or (1.0, 1.0, 1.0)
+            strobe = 0.0
+            if "strobe" in roles and music and drop_age < (fx["dur"] or self.drop_s):
+                v, (r, g, b), strobe = 1.0, (1.0, 1.0, 1.0), self.strobe_val / 255.0      # Drop: volle Helligkeit, weiß, Strobe an
+            has_rgb = any(k in roles for k in "rgb")
+            k = 1.0 if "dimmer" in roles else v           # ohne eigenen Helligkeits-Kanal steckt die Helligkeit in der Farbe
+            val = {"dimmer": v, "r": r * k, "g": g * k, "b": b * k, "w": 0.0 if has_rgb else v, "strobe": strobe}
+            for role, ch in roles.items():
+                buf[ch - 1] = max(0, min(255, int(round(val[role] * 255))))
+                top = max(top, ch)
+            for ch, x in fx["fixed"].items():
+                buf[ch - 1] = x
+                top = max(top, ch)
         self.seq = self.seq % 255 + 1
         try:
             self.sock.sendto(artnet(self.universe, buf[:max(top, 2)], self.seq), (self.host, 6454))
@@ -121,9 +231,14 @@ class DmxLight:
                 self.stat["err"] = str(e)
                 log.info(self.tag + ": Senden an %s fehlgeschlagen: %s", self.host, e)
 
+    def send(self, v, rgb=None):
+        """Einfaches Bild: alle Licht-Geräte mit Helligkeit v und Farbe rgb; Drop- und Musik-Geräte bleiben aus."""
+        self.frame({"beat": v, "smooth": v, "color": v}, rgb, 1e9, False)
+
     async def test_pattern(self):
         """Beim Start einmal Rot, Grün, Blau, Weiß – so sieht man sofort, ob Knoten, Universum und Kanäle stimmen."""
-        log.info(self.tag + ": Testmuster an %s (Universum %d, Kanäle %s, fest %s)", self.host, self.universe, self.roles, self.fixed)
+        log.info(self.tag + ": Testmuster an %s (Universum %d) · Geräte: %s", self.host, self.universe,
+                 "; ".join("%s=%s %s %s" % (f["name"], f["kind"], f["roles"] or "", f["fixed"] or "") for f in self.fixtures))
         for rgb in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1)):
             for _ in range(16):
                 self.send(1.0, rgb)
@@ -167,6 +282,8 @@ class DmxLight:
                         self.env = 1.0 if val else 0.8
                         if val or self.beats % 4 == 0:           # Taktanfang (oder jeder 4. Schlag): nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
+                    elif kind == "drop":
+                        self.drop_at = now
                     elif kind == T_PEAK and now - self.last_beat > 5:   # kein Takt-Raster da → Bassschläge nehmen
                         if val > 0.35:
                             self.env = max(self.env, val)
@@ -179,14 +296,8 @@ class DmxLight:
             span = max(0.05, self.hi - self.lo)
             lv = max(0.0, min(1.0, (self.loud - self.lo) / span))
             self.smooth += (lv - self.smooth) * 0.25
-            if self.effect == "smooth":
-                v = 0.12 + 0.88 * self.smooth
-                self.hue = (self.hue + dt / 40) % 1.0
-            elif self.effect == "color":
-                v = 1.0
-            else:
-                v = max(self.env, 0.10 + 0.25 * self.smooth)
-            self.send(v, colorsys.hsv_to_rgb(self.hue, 1.0, 1.0))
+            levels = {"beat": max(self.env, 0.10 + 0.25 * self.smooth), "smooth": 0.12 + 0.88 * self.smooth, "color": 1.0}
+            self.frame(levels, colorsys.hsv_to_rgb(self.hue, 1.0, 1.0), now - self.drop_at, True)
 
     # ------------------------------------------------------------------ Verbindung zu Music Assistant
     async def keep_grouped(self):
@@ -245,7 +356,33 @@ class DmxLight:
             return d[0] & 1                                         # 1 = Taktanfang
         if kind == T_PEAK:
             return d[0] / 255.0
+        if kind == T_SPEC and len(d) >= 8:
+            lo = struct.unpack(">3H", d[2:8])                       # Bänder 2–4 (ca. 60–130 Hz): der Bass
+            return sum(lo) / (3 * 65535.0)
         return None
+
+    def status_extra(self):
+        d = self.detector
+        return " · Bass %.2f (gewohnt %.2f, Schwelle %.2f)" % (self.bass, d.hi, d.hi - d.delta)
+
+    def arrived(self, ts, kind, val):
+        """Ein Datenpaket ist da (noch VOR dem Ton). Hier läuft die Drop-Erkennung; True = nicht in die Warteschlange."""
+        if kind == T_LOUD:
+            self.loud_in = val
+            return False
+        if kind != T_SPEC:
+            return False
+        self.bass = val
+        hit = self.detector.feed(ts, val, self.loud_in)
+        if hit:
+            self.events.append((ts, "drop", hit))                   # wird im Bild genau zum Ton ausgelöst
+            log.info(self.tag + ": Drop erkannt · Aufbau %(build_s)s s · Bass zurück auf %(bass)s (gewohnt %(level)s) · Lautstärke im Aufbau %(loud)s", hit)
+            if self.on_drop:
+                try:
+                    self.on_drop(hit)
+                except Exception:
+                    pass
+        return True
 
     async def link(self):
         viz = self.viz
@@ -267,8 +404,8 @@ class DmxLight:
                     last_log = now
                     if self.playing and self.stat.get("n"):
                         lead = sum(self.lead) / len(self.lead) if self.lead else 0
-                        log.info(self.tag + ": läuft · Pakete/min %s · Schläge %d · Daten kommen %d ms vor dem Ton",
-                                 self.stat["n"], self.beats, lead / 1000)
+                        log.info(self.tag + ": läuft · Pakete/min %s · Schläge %d · Daten kommen %d ms vor dem Ton%s",
+                                 self.stat["n"], self.beats, lead / 1000, self.status_extra())
                     self.stat["n"] = {}
                     self.lead = []
                 try:
@@ -290,6 +427,8 @@ class DmxLight:
                     n[kind] = n.get(kind, 0) + 1
                     if self.offset is not None and len(self.lead) < 200:
                         self.lead.append(ts - (us() + self.offset))
+                    if self.arrived(ts, kind, val):
+                        continue
                     self.events.append((ts, kind, val))
                     while len(self.events) > 4000:
                         self.events.popleft()
@@ -328,8 +467,8 @@ class DmxLight:
         except Exception as e:
             log.info(self.tag + ": Adresse „%s“ nicht erreichbar: %s", self.host, e)
             return False
-        if not self.roles and not self.fixed:
-            log.info(self.tag + ": dmx_channels ist leer oder ungültig – aus")
+        if not self.fixtures:
+            log.info(self.tag + ": keine gültigen Kanäle in dmx_channels/dmx_fixtures – aus")
             return False
         return True
 

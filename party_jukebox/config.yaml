@@ -1,5 +1,5 @@
 name: Party-Jukebox
-version: "0.5.0"
+version: "0.6.0"
 slug: party_jukebox
 description: Jukebox, Party-Seite für Gäste und TV-Anzeige für Music Assistant
 url: https://github.com/pivlersmom/party-jukebox
@@ -32,6 +32,7 @@ options:
   script_boost: ""
   script_drink: ""
   skip_votes: true
+  dmx_fixtures: []
   drinks:
     - "Bier|🍺|ein Bier"
     - "Weizen|🌾|ein Weizen"
@@ -66,6 +67,14 @@ schema:
   dmx_player: str?
   dmx_effect: list(beat|smooth|color)?
   dmx_delay_ms: int(-2000,5000)?
+  dmx_fixtures:
+    - str?
+  dmx_drop_seconds: int(1,60)?
+  dmx_drop_build: int(2,60)?
+  dmx_drop_sensitivity: int(1,10)?
+  dmx_drop_cooldown: int(5,900)?
+  dmx_strobe_value: int(0,255)?
+  light_switch: str?
   wled_host: str?
   wled_port: port?
   wled_player: str?

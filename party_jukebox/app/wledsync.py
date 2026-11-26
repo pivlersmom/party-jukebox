@@ -73,6 +73,12 @@ class WledSync(DmxLight):
         self.cur = {"loud": 0, "spec": [0] * BINS, "freq": 0, "amp": 0}
         self.peak = False
 
+    def arrived(self, ts, kind, val):
+        return False                                                 # WLED: keine Drop-Erkennung, alles normal einreihen
+
+    def status_extra(self):
+        return ""
+
     def parse(self, kind, d):
         if kind == T_LOUD and len(d) >= 2:
             return struct.unpack(">H", d[:2])[0]

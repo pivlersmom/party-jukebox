@@ -59,6 +59,27 @@ configuration:
   dmx_delay_ms:
     name: DMX light – fine tuning (ms)
     description: Light too early → positive number (e.g. 150); too late → negative number.
+  dmx_fixtures:
+    name: DMX light – several fixtures
+    description: 'Optional, replaces "fixture channels". One line per fixture: name | kind | channels | duration. Kinds: beat, smooth, color (light) · drop (only on a drop) · music (only while music plays). Examples: "Spot | beat | dimmer=1,r=2,g=3,b=4,strobe=5" · "Fog | drop | 10=255 | 3s" · "Laser | music | 20=255". A strobe channel on a light is only used on a drop.'
+  dmx_drop_seconds:
+    name: DMX light – drop duration (s)
+    description: How long strobe and drop fixtures run after a detected drop (default 4). Can be overridden per fixture.
+  dmx_drop_build:
+    name: DMX light – drop build-up (s)
+    description: Minimum time the bass must be gone before it counts as a drop (default 6).
+  dmx_drop_sensitivity:
+    name: DMX light – drop sensitivity
+    description: 1 to 10 (default 5). Higher = detects weaker drops but more false alarms.
+  dmx_drop_cooldown:
+    name: DMX light – drop cooldown (s)
+    description: Earliest time until the next drop is triggered (default 30).
+  dmx_strobe_value:
+    name: DMX light – strobe value
+    description: Value of the strobe channel during a drop, 0–255 (default 200). 0 = no strobe.
+  light_switch:
+    name: Light – own switch
+    description: Optional. Home Assistant entity (e.g. input_boolean.my_light_sync) that switches DMX and WLED light on and off. Empty = the add-on creates the helper input_boolean.party_jukebox_licht itself.
   wled_host:
     name: WLED light – address(es)
     description: Optional. IP address(es) of WLED devices, comma separated. WLED's audio-reactive effects then get their data from Music Assistant instead of a microphone. In WLED set Usermods → AudioReactive sync mode to "Receive". Empty = off.
