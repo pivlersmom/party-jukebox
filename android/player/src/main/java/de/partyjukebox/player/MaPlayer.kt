@@ -296,7 +296,22 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         return done()
     }
 
-    override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int): ListenableFuture<*> { setVolume(deviceVolume); return done() }
+    /*
+     * Lernkarte: Lautstärke-Befehl "von außen"
+     * Diesen Befehl schickt nicht die App selbst, sondern Android bzw. ein angeschlossenes Gerät (Auto, Uhr,
+     * Bluetooth) – mit einem festen Zielwert. Kommt dabei ein Ausreißer (z. B. "100", wenn ein Anruf eingeht),
+     * stünde der Lautsprecher zuhause schlagartig auf voller Lautstärke. Darum: nach oben höchstens 10 Punkte
+     * pro Befehl, leiser geht immer sofort. Jeder Befehl steht im Protokoll.
+     */
+    override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int): ListenableFuture<*> {
+        if (isPhone()) { setVolume(deviceVolume); return done() }
+        val cur = volume
+        val want = deviceVolume.coerceIn(0, 100)
+        val nv = if (cur != null && want > cur + 10) cur + 10 else want
+        AppLog.add("Lautstärke von außen: ${cur ?: "?"} → $want" + if (nv != want) " (begrenzt auf $nv)" else "")
+        setVolume(nv)
+        return done()
+    }
     override fun handleIncreaseDeviceVolume(flags: Int): ListenableFuture<*> { adjustVolume(+1); return done() }
     override fun handleDecreaseDeviceVolume(flags: Int): ListenableFuture<*> { adjustVolume(-1); return done() }
     override fun handleRelease(): ListenableFuture<*> { stopPolling(); return done() }
