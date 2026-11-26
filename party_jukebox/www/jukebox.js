@@ -309,6 +309,10 @@ function lightToggle() {
     .then(r => { if (!r.ok) throw 0; toast(on ? "Licht im Takt: an" : "Licht im Takt: aus – es wird nichts mehr gesendet"); })
     .catch(() => { lightHold = 0; toast("Licht-Schalter nicht erreichbar"); lightLoad(); });
 }
+function lightDropTest() {
+  fetch("party/light", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ drop: true }) })
+    .then(r => r.json()).then(d => toast("Drop-Test: " + ((d && d.msg) || "nicht möglich"))).catch(() => toast("Drop-Test nicht möglich"));
+}
 lightLoad(); setInterval(() => { if (document.visibilityState === "visible") lightLoad(); }, 8000);
 
 /*
@@ -999,7 +1003,14 @@ function openPlayers() {
       b.onclick = () => { const id = b.dataset.id; closeSheet(); selectPlayer(id); toast("Lautsprecher: " + pname(S.players[id])); };
     });
     /* Licht im Takt (DMX/WLED) ein/aus – steht beim Lautsprecher, dem das Licht laut Add-on-Einstellung folgt */
-    c.querySelectorAll(".plt").forEach(x => { x.onclick = ev => { ev.stopPropagation(); lightToggle(); }; });
+    c.querySelectorAll(".plt").forEach(x => {
+      // kurz tippen = an/aus · lange drücken = Drop-Test (Strobe/Nebel einmal auslösen)
+      let t = null, long = false;
+      x.onpointerdown = () => { long = false; t = setTimeout(() => { long = true; lightDropTest(); }, 700); };
+      x.onpointerup = x.onpointerleave = x.onpointercancel = () => clearTimeout(t);
+      x.oncontextmenu = ev => ev.preventDefault();
+      x.onclick = ev => { ev.stopPropagation(); if (long) { long = false; return; } lightToggle(); };
+    });
     /* Musik/TV der Box umschalten (Sonos mit TV-Eingang), Liste danach neu zeichnen */
     c.querySelectorAll(".ptv:not(.plt)").forEach(x => {
       x.onclick = async ev => { ev.stopPropagation(); if (!window.PJtv) return; await PJtv.toggle(x.dataset.id); later(() => { if (sheetKind === "players") openPlayers(); }, 400, "pl"); };

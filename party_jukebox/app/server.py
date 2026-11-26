@@ -2339,6 +2339,10 @@ async def party_light(request):
             body = await request.json()
         except Exception:
             body = {}
+        if isinstance(body, dict) and body.get("drop"):
+            # Drop-Test: Strobe/Nebel von Hand auslösen, ohne auf einen echten Drop zu warten
+            dmx = request.app.get("dmx_obj")
+            return web.json_response({"ok": bool(dmx), "msg": dmx.test_drop() if dmx else "Kein DMX-Licht eingerichtet"})
         on = bool(body.get("on")) if isinstance(body, dict) and "on" in body else not LIGHT["on"]
         LIGHT["on"] = on
         LIGHT["hold"] = time.monotonic() + 6
@@ -2574,6 +2578,7 @@ async def on_startup(app):
         # Drop erkannt → Ereignis „party_jukebox_drop“ in Home Assistant (z. B. für Nebel, Strobe, andere Lampen)
         dmx.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
         dmx.on_state = lambda d: asyncio.create_task(light_report(app["session"], d))
+        app["dmx_obj"] = dmx
         LIGHT["has"] = True
         app["dmx"] = asyncio.create_task(dmx.run())
     if str(OPT.get("wled_host") or "").strip() and OPT.get("ma_token"):

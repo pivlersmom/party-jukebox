@@ -215,7 +215,7 @@ class DmxLight:
             v = levels.get(kind, 0.0)
             r, g, b = rgb or (1.0, 1.0, 1.0)
             strobe = 0.0
-            if "strobe" in roles and music and drop_age < (fx["dur"] or self.drop_s):
+            if "strobe" in roles and self.strobe_val > 0 and drop_age < (fx["dur"] or self.drop_s):
                 v, (r, g, b), strobe = 1.0, (1.0, 1.0, 1.0), self.strobe_val / 255.0      # Drop: volle Helligkeit, weiß, Strobe an
             has_rgb = any(k in roles for k in "rgb")
             k = 1.0 if "dimmer" in roles else v           # ohne eigenen Helligkeits-Kanal steckt die Helligkeit in der Farbe
@@ -266,6 +266,10 @@ class DmxLight:
             if not active:
                 # Musik aus: ein paar Mal "dunkel" senden, dann ganz still sein. So gibt ein Empfänger wie WLED die
                 # Lampe wieder frei (Steuerung über Home Assistant/Presets), statt dauerhaft im Fernsteuer-Modus zu bleiben.
+                if now - self.drop_at < self.drop_max():             # Drop-Test ohne Musik: Strobe/Nebel trotzdem zeigen
+                    self.frame({}, None, now - self.drop_at, False)
+                    dark = 0
+                    continue
                 if dark < 8:
                     self.send(0.0)
                 dark += 1
@@ -291,6 +295,7 @@ class DmxLight:
                             self.hue = (self.hue + 0.17) % 1.0
                     elif kind == "drop":
                         self.drop_at = now
+                        log.info(self.tag + ": Drop ausgelöst → %s", self.drop_targets())
                     elif kind == T_PEAK and now - self.last_beat > 5:   # kein Takt-Raster da → Bassschläge nehmen
                         if val > 0.35:
                             self.env = max(self.env, val)
@@ -314,6 +319,30 @@ class DmxLight:
                     d["hue"] = int(round(self.hue * 360))
                 self.said_hue, self.said_at, self.said_idle = self.hue, now, False
                 self.report(d)
+
+    def drop_max(self):
+        """Längste Drop-Dauer aller Geräte (so lange läuft ein Drop höchstens)."""
+        return max([self.drop_s] + [f["dur"] for f in self.fixtures if f["dur"]])
+
+    def drop_targets(self):
+        """Was ein Drop schaltet – als Text fürs Protokoll (hilft bei „Drop erkannt, aber nichts passiert“)."""
+        out = []
+        for f in self.fixtures:
+            dur = f["dur"] or self.drop_s
+            if f["kind"] == "drop":
+                out.append("%s: %s für %g s" % (f["name"], ", ".join("Kanal %d=%d" % kv for kv in sorted(f["fixed"].items())), dur))
+            elif "strobe" in f["roles"] and self.strobe_val > 0:
+                out.append("%s: Strobe Kanal %d=%d, volle Helligkeit weiß, für %g s" % (f["name"], f["roles"]["strobe"], self.strobe_val, dur))
+        return "; ".join(out) or "nichts (kein Gerät mit strobe=… und kein Gerät der Art drop eingetragen)"
+
+    def test_drop(self):
+        """Drop von Hand auslösen (Jukebox: Licht-Knopf lange drücken) – zum Prüfen von Strobe, Nebel & Co."""
+        if not self.enabled():
+            return "Licht ist ausgeschaltet"
+        self.drop_at = time.monotonic()
+        t = self.drop_targets()
+        log.info(self.tag + ": Drop-Test → %s", t)
+        return t
 
     def bpm(self):
         """Tempo aus den Abständen der letzten Schläge (Median), None wenn kein Takt bekannt ist."""

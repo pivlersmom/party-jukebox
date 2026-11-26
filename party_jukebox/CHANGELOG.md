@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.7.1
+- **Drop-Test**: Licht-Knopf in der Lautsprecherliste lange drücken löst einen Drop von Hand aus (Strobe, Nebel …) – auch ohne Musik. Im Protokoll steht bei jedem Drop, welche Kanäle geschaltet werden.
+- Richtigstellung zu 0.4.1: Der Lautstärke-Sprung kam nicht vom Licht-Gerät (Music Assistant rechnet Mitglieder ohne Lautstärke nicht mit), sondern von einem Lautstärke-Befehl von außen an die Handy-App – behoben in der App 3.10.3.
+
 ## 0.7.0
 - **DMX-Licht meldet an Home Assistant**: `sensor.party_jukebox_farbe` (aktuelle Farbe als Hex, Attribute `rgb_color`/`hs_color`), `sensor.party_jukebox_bpm`, `sensor.party_jukebox_energie` und bei jedem Farbwechsel das Ereignis `party_jukebox_color`. Damit ziehen andere Lampen (Hue, Govee, Loxone …) per Automation mit.
 
