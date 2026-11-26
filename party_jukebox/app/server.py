@@ -2086,7 +2086,8 @@ def party_name():
 
 
 def tv_settings():
-    return {"lyr_offset": float(setting("lyr_offset", 0.5)), "tv_lite": setting("tv_lite", "auto"), "name": party_name()}
+    return {"lyr_offset": float(setting("lyr_offset", 0.5)), "tv_lite": setting("tv_lite", "auto"),
+            "tv_dim": setting("tv_dim", "off"), "name": party_name()}
 
 
 async def party_tv_get(request):
@@ -2137,6 +2138,8 @@ async def party_settings_post(request):
         SETTINGS["lyr_offset"] = round(max(-8.0, min(8.0, float(data["lyr_offset"]))), 1)
     if data.get("tv_lite") in ("auto", "on", "off"):
         SETTINGS["tv_lite"] = data["tv_lite"]
+    if data.get("tv_dim") in ("off", "dim", "night"):
+        SETTINGS["tv_dim"] = data["tv_dim"]
     if isinstance(data.get("profiles"), list):
         SETTINGS["profiles"] = [str(x)[:64] for x in data["profiles"][:30] if x]
     if isinstance(data.get("switches"), list):  # Schalter aus HA für Jukebox und Android Auto

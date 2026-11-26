@@ -1156,9 +1156,13 @@ function renderSettings() {
   html += '<div class="nrow" data-k="lyr_offset"><span class="r1">Songtext-Versatz<small>+ = Text früher, − = später</small></span><span class="stp">' +
     '<button data-d="-0.1" aria-label="später">−</button><b>' + (off > 0 ? "+" : "") + off.toFixed(1) + '</b><button data-d="0.1" aria-label="früher">+</button></span><span class="un">Sek.</span></div>';
   const lm = d.tv_lite || "auto";
-  html += '<div class="segrow"><span class="r1">Darstellung</span><span class="seg">' +
+  html += '<div class="segrow"><span class="r1">Darstellung</span><span class="seg" data-k="tv_lite">' +
     [["auto", "Automatisch"], ["off", "Volle Optik"], ["on", "Spar-Modus"]].map(([v, t]) => '<button data-v="' + v + '"' + (lm === v ? ' class="on"' : "") + ">" + t + "</button>").join("") +
     '</span><span class="r2">Spar-Modus: ohne unscharfes Cover und Animationen – für langsame Geräte (Automatisch = nur Raspberry Pi)</span></div>';
+  const dm = d.tv_dim || "off";
+  html += '<div class="segrow"><span class="r1">TV-Helligkeit</span><span class="seg" data-k="tv_dim">' +
+    [["off", "Normal"], ["dim", "Gedimmt"], ["night", "Nacht"]].map(([v, t]) => '<button data-v="' + v + '"' + (dm === v ? ' class="on"' : "") + ">" + t + "</button>").join("") +
+    '</span><span class="r2">Für dunkle Räume: Schrift, Cover und QR-Code leiser, keine Glow-Effekte. Gilt für alle TV-Anzeigen und bleibt gespeichert.</span></div>';
   const P = d.plugin, maBase = d.ma_web || (location.protocol + "//" + location.hostname + ":8095");
   const maLink = maBase + "/#/settings/" + (P && P.installed ? "editprovider/" + encodeURIComponent(P.instance_id) : "providers");
   html += '<div class="shh gsh">Party zurücksetzen</div>' +
@@ -1304,9 +1308,10 @@ function renderSettings() {
     });
     const inst = c.querySelector("#plInst");
     if (inst) inst.onclick = () => { inst.disabled = true; inst.textContent = "Installiere …"; setSave({ plugin: "install" }); };
-    c.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
-      c.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
-      setData.tv_lite = b.dataset.v; setSave({ tv_lite: b.dataset.v });
+    c.querySelectorAll(".seg[data-k] button").forEach(b => b.onclick = () => {
+      const seg = b.closest(".seg"), k = seg.dataset.k;
+      seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+      setData[k] = b.dataset.v; setSave({ [k]: b.dataset.v });
     });
     c.querySelectorAll(".nrow:not(.dis) .stp button").forEach(b => b.onclick = () => {
       const row = b.closest(".nrow"), k = row.dataset.k, el = row.querySelector("b");

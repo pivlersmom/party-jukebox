@@ -1,5 +1,8 @@
 # Änderungen
 
+## Unveröffentlicht
+- **TV-Helligkeit** für dunkle Räume: Jukebox ⚙ → TV-Helligkeit **Normal · Gedimmt · Nacht**. Gedimmt nimmt Schrift, Cover und QR-Platte zurück und schaltet Glow und unscharfes Cover aus; Nacht dämpft zusätzlich Akzentfarben, Getränke-Ranking und Vollbild-Effekte (kein Farbblitz). Wird gespeichert und gilt für alle TV-Anzeigen (Browser, Samsung-App, Android-Kiosk) – ohne App-Update. Zum Testen `tv.html?dim=dim|night|off`.
+
 ## 0.7.1
 - **Drop-Test**: Licht-Knopf in der Lautsprecherliste lange drücken löst einen Drop von Hand aus (Strobe, Nebel …) – auch ohne Musik. Im Protokoll steht bei jedem Drop, welche Kanäle geschaltet werden.
 - Richtigstellung zu 0.4.1: Der Lautstärke-Sprung kam nicht vom Licht-Gerät (Music Assistant rechnet Mitglieder ohne Lautstärke nicht mit), sondern von einem Lautstärke-Befehl von außen an die Handy-App – behoben in der App 3.10.3.
