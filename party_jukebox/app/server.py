@@ -2225,6 +2225,89 @@ async def pump(src, dst, transform=None):
             break
 
 
+async def viz_probe(app, spec):
+    """Diagnose (Option `viz_probe`): Was liefert Music Assistant an Licht-/Beat-Daten?
+    Meldet sich bei MA als reines "Licht-Gerät" an (Sendspin-Rolle visualizer@v1), hängt sich optional an einen
+    spielenden Lautsprecher und schreibt 60 s lang mit, was ankommt – ohne Licht, ohne Ton.
+    spec = "<player_id des spielenden Lautsprechers>[,Sekunden]" oder "-" (nur anmelden)."""
+    import struct
+    session = app["session"]
+    parts = [x.strip() for x in str(spec).split(",")]
+    leader = parts[0] if parts and parts[0] not in ("", "-") else ""
+    secs = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 60
+    name = "Jukebox Licht-Test"
+    host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+    names = {16: "loudness", 17: "beat", 18: "f_peak", 19: "spectrum", 20: "peak", 21: "pitch"}
+    cnt, first, jtypes, offs = {}, {}, {}, []
+    viz = {"types": ["loudness", "f_peak", "spectrum", "beat", "peak"], "rate_max": 20,
+           "spectrum": {"n_disp_bins": 8, "scale": "mel", "f_min": 40, "f_max": 16000}}
+    await asyncio.sleep(25)
+    log.info("Licht-Test: Start (Lautsprecher=%s, %d s)", leader or "keiner", secs)
+    try:
+        async with session.ws_connect(f"ws://{host}:8927/sendspin", max_msg_size=0, heartbeat=30) as ws:
+            sup = dict(viz); sup["buffer_capacity"] = 400      # ältere Server lesen die Wünsche aus dem Hallo, neuere aus client/state
+            await ws.send_json({"type": "client/hello", "payload": {
+                "client_id": "pj-lichttest", "name": name, "version": 1, "supported_roles": ["visualizer@v1"],
+                "device_info": {"product_name": "Party-Jukebox", "manufacturer": "Party-Jukebox", "software_version": "Licht-Test"},
+                "visualizer@v1_support": sup}})
+            t0 = time.monotonic()
+            us = lambda: int(time.monotonic() * 1e6)
+            grouped = False; last_sync = 0.0; mine = None
+            while time.monotonic() - t0 < secs + 8:
+                now = time.monotonic()
+                if now - last_sync > 2:
+                    last_sync = now
+                    await ws.send_json({"type": "client/time", "payload": {"client_transmitted": us()}})
+                if not grouped and now - t0 > 4:
+                    grouped = True
+                    try:
+                        pl = (await ma_cmds(session, [("players/all", {})]))[0] or []
+                        mine = next((x for x in pl if x.get("name") == name or "lichttest" in str(x.get("player_id", "")).lower()), None)
+                        log.info("Licht-Test: in MA als Player %s", json.dumps({k: (mine or {}).get(k) for k in ("player_id", "type", "provider", "available", "can_group_with", "supported_features")}, ensure_ascii=False)[:900] if mine else "NICHT gefunden")
+                        if mine and leader:
+                            ld = next((x for x in pl if x.get("player_id") == leader), None)
+                            log.info("Licht-Test: Ziel %s", json.dumps({k: (ld or {}).get(k) for k in ("player_id", "name", "type", "provider", "state", "can_group_with", "active_group", "synced_to")}, ensure_ascii=False)[:900])
+                            r = await ma_cmds(session, [("players/cmd/group", {"player_id": mine["player_id"], "target_player": leader})])
+                            log.info("Licht-Test: Gruppieren mit %s → %s", leader, r)
+                    except Exception as e:
+                        log.info("Licht-Test: Gruppieren fehlgeschlagen: %s", e)
+                try:
+                    m = await ws.receive(timeout=1)
+                except asyncio.TimeoutError:
+                    continue
+                if m.type == WSMsgType.TEXT:
+                    try: o = json.loads(m.data)
+                    except Exception: continue
+                    t = o.get("type", "?"); pay = o.get("payload") or {}
+                    if t == "server/time":
+                        t4 = us(); offs.append(((pay.get("server_received", 0) - pay.get("client_transmitted", 0)) + (pay.get("server_transmitted", 0) - t4)) // 2)
+                        continue
+                    jtypes[t] = jtypes.get(t, 0) + 1
+                    if jtypes[t] <= 3:
+                        log.info("Licht-Test: %s %s", t, json.dumps(pay, ensure_ascii=False)[:700])
+                    if t == "server/hello":
+                        await ws.send_json({"type": "client/state", "payload": {"available": True, "visualizer": viz}})
+                elif m.type == WSMsgType.BINARY:
+                    b = m.data
+                    if len(b) < 9: continue
+                    k = names.get(b[0], str(b[0])); cnt[k] = cnt.get(k, 0) + 1
+                    ts = struct.unpack(">q", b[1:9])[0]
+                    lead = (ts - (us() + offs[-1])) / 1000 if offs else None
+                    f = first.setdefault(k, [])
+                    if len(f) < 6: f.append("%s(Vorlauf %s ms)" % (b[9:].hex(), "?" if lead is None else int(lead)))
+                elif m.type in (WSMsgType.CLOSE, WSMsgType.CLOSED, WSMsgType.ERROR):
+                    log.info("Licht-Test: Verbindung von MA beendet (%s %s)", m.type, m.data)
+                    break
+            if mine and leader:
+                try: await ma_cmds(session, [("players/cmd/ungroup", {"player_id": mine["player_id"]})])
+                except Exception: pass
+        log.info("Licht-Test: ERGEBNIS Textnachrichten=%s · Datenpakete=%s", jtypes, cnt)
+        for k, v in first.items():
+            log.info("Licht-Test: Beispiele %s: %s", k, " ".join(v))
+    except Exception as e:
+        log.info("Licht-Test: Fehler %s: %s", type(e).__name__, e)
+
+
 async def sendspin_proxy(request):
     """Sendspin-Weiterleitung für den Handy-Player unterwegs: Die Android-App erreicht MA (Port 8927) von außen nicht,
     das Add-on aber schon – über Home Assistant (Nabu Casa / Ingress) läuft die Verbindung dann durch das Add-on.
@@ -2349,6 +2432,8 @@ async def on_startup(app):
     app["partykeep"] = asyncio.create_task(party_keep_loop(app))
     app["podpush"] = asyncio.create_task(podpush_loop(app))
     app["appupd_push"] = asyncio.create_task(appupdate_push_loop(app))
+    if str(OPT.get("viz_probe") or "").strip():
+        app["viz_probe"] = asyncio.create_task(viz_probe(app, OPT.get("viz_probe")))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
     app["autowatch"] = asyncio.create_task(autoplay_watch_loop(app))
 

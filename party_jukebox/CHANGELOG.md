@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.2.6
+- Diagnose-Option `viz_probe`: schreibt mit, welche Licht-/Beat-Daten Music Assistant liefert (Vorarbeit für DMX-Licht).
+
 ## 0.2.5
 - Neue Playlists werden automatisch Favorit (Start → Favoriten → Playlists). „Meine Playlists“ zeigt die neuesten zuerst.
 
