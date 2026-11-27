@@ -49,6 +49,7 @@ PORT = 4003
 FPS = 20
 ON = bytes.fromhex("bb0001b1010a")
 OFF = bytes.fromhex("bb0001b1000b")
+RISE_MIN = 0.05            # so viel müssen Lautstärke oder Höhen im Aufbau steigen (0,05 ≈ 3 dB), sonst kein Strobe
 KEEP_S = 2.0               # so oft „Echtzeit-Modus an“ wiederholen
 SCENE = "party_jukebox_govee_vorher"
 
@@ -81,6 +82,7 @@ class GoveeSync(DmxLight):
         self.effect = eff if eff in ("balken", "ampel", "spektrum", "puls") else "balken"
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
+        self.build = []                     # (Lautstärke, Höhen) während der Bass weg ist – daraus: baut sich etwas auf?
         brk = str(opt.get("govee_break") or "").strip().lower()
         self.break_effect = brk if brk in ("balken", "ampel", "spektrum", "puls") else ""
         self.low, self.low_hi, self.mel = 0.0, 0.0, 0.0   # Bass geglättet, sein gewohnter Pegel, Mitte (Stimme) geglättet
@@ -188,9 +190,23 @@ class GoveeSync(DmxLight):
         elif kind == T_SPEC and self.strobe and val:
             self.bass = (val[0] + (val[1] if len(val) > 1 else val[0])) / 2
             hit = self.detector.feed(ts, self.bass, self.loud_in)
+            if self.detector.low_since is not None:                  # Bass ist gerade weg: Spannung mitschreiben
+                highs = sum(val[-2:]) / 2 if len(val) >= 4 else self.loud_in
+                self.build.append((self.loud_in, highs))
+                if len(self.build) > 2400:
+                    del self.build[:1200]
             if hit:
-                self.events.append((ts, "drop", hit))               # wird im Bild genau zum Ton ausgelöst
-                log.info(self.tag + ": Drop erkannt · Aufbau %(build_s)s s · Bass %(bass_before)s → %(bass)s (gewohnt %(level)s)", hit)
+                rise = self.build_rise()
+                self.build = []
+                if rise >= RISE_MIN:
+                    self.events.append((ts, "drop", hit))           # wird im Bild genau zum Ton ausgelöst
+                    log.info(self.tag + ": Drop erkannt · Aufbau %s s · Bass %s → %s (gewohnt %s) · Spannung stieg um %.2f"
+                             % (hit["build_s"], hit["bass_before"], hit["bass"], hit["level"], rise))
+                else:
+                    log.info(self.tag + ": Bass kam zurück, aber ohne Aufbau (Spannung %+.2f, nötig %.2f) – kein Strobe · Pause %s s"
+                             % (rise, RISE_MIN, hit["build_s"]))
+            elif self.detector.low_since is None and self.build:
+                self.build = []
         return False                                                 # alles normal einreihen (das Spektrum brauchen wir auch fürs Bild)
 
     def status_extra(self):
@@ -233,6 +249,17 @@ class GoveeSync(DmxLight):
         """Mittlere Bänder (bei 7 Segmenten: Band 3–5, ca. 220–2000 Hz) – dort liegt die Stimme."""
         a, b = (2, 5) if self.n >= 5 else (min(1, self.n - 1), self.n)
         return sum(self.spec[a:b]) / max(1, b - a)
+
+    def build_rise(self):
+        """Hat sich der Drop aufgebaut? Lernkarte: Erst blitzte es nach jeder Bass-Pause (auch nach einer ruhigen Strophe).
+        Ein echter Aufbau wird aber lauter und heller (Trommelwirbel, Rauschen, das hochzieht). Darum vergleichen wir
+        das letzte Viertel der Pause mit dem ersten: um wie viel sind Lautstärke oder Höhen gestiegen? (0,05 ≈ 3 dB)"""
+        b = self.build
+        if len(b) < 8:
+            return 0.0
+        q = max(2, len(b) // 4)
+        avg = lambda part, i: sum(x[i] for x in part) / len(part)
+        return max(avg(b[-q:], 0) - avg(b[:q], 0), avg(b[-q:], 1) - avg(b[:q], 1))
 
     def test_drop(self):
         """Von der Jukebox (Licht-Knopf lange drücken): Strobe von Hand auslösen."""

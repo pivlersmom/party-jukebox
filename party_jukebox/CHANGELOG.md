@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.14.2
+- Govee-Licht: **Strobe nur noch nach einem echten Aufbau** – während der Bass-Pause müssen Lautstärke oder Höhen spürbar ansteigen (Trommelwirbel, Riser). Kommt der Bass nach einer ruhigen Stelle einfach zurück, bleibt das Strobe aus. Das Protokoll zeigt bei jeder Bass-Rückkehr, wie stark die Spannung stieg.
+
 ## 0.14.1
 - Govee-Licht: Der zweite Effekt (z. B. `ampel`) setzt jetzt immer ein, wenn der **Bass aussetzt** – nicht nur bei reinem Gesang. Option heißt jetzt „Effekt, wenn der Bass aussetzt“.
 
