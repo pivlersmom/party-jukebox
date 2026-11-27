@@ -1,6 +1,6 @@
 # Änderungen
 
-## Unveröffentlicht
+## 0.8.0
 - **TV-Helligkeit** für dunkle Räume: Jukebox ⚙ → TV-Helligkeit **Normal · Gedimmt · Nacht**. Gedimmt nimmt Schrift, Cover und QR-Platte zurück und schaltet Glow und unscharfes Cover aus; Nacht dämpft zusätzlich Akzentfarben, Getränke-Ranking und Vollbild-Effekte (kein Farbblitz). Wird gespeichert und gilt für alle TV-Anzeigen (Browser, Samsung-App, Android-Kiosk) – ohne App-Update. Zum Testen `tv.html?dim=dim|night|off`.
 
 ## 0.7.1
