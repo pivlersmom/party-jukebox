@@ -2383,7 +2383,7 @@ async def party_light(request):
         follow.add(str(OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("wled_host") or "").strip():
         follow.add(str(OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
-    if str(OPT.get("govee_host") or "").strip():
+    if str(OPT.get("govee_host") or "").strip() or OPT.get("govee_lamps"):
         follow.add(str(OPT.get("govee_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("ha_lights") or "").strip():
         follow.add(str(OPT.get("ha_lights_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
@@ -2627,17 +2627,19 @@ async def on_startup(app):
         hal.token = SUP_TOKEN
         LIGHT["has"] = True
         app["halight"] = asyncio.create_task(hal.run())
-    if str(OPT.get("govee_host") or "").strip() and OPT.get("ma_token"):
-        # Govee-Lampen mit Segmenten als Balken/Spektrum, direkt im LAN – siehe goveesync.py
-        from goveesync import GoveeSync
+    if (str(OPT.get("govee_host") or "").strip() or OPT.get("govee_lamps")) and OPT.get("ma_token"):
+        # Govee-Lampen mit Segmenten, direkt im LAN – jede Lampe mit eigener Rolle (Effekt). Siehe goveesync.py
+        from goveesync import GoveeSync, lamp_options
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
-        gov = GoveeSync(app["session"], OPT, ma_cmds, ma_host)
-        gov.enabled = light_on
-        gov.token = SUP_TOKEN
-        app["govee_obj"] = gov
-        gov.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
-        LIGHT["has"] = True
-        app["govee"] = asyncio.create_task(gov.run())
+        for i, o in enumerate(lamp_options(OPT), 1):
+            gov = GoveeSync(app["session"], o, ma_cmds, ma_host, i)
+            gov.enabled = light_on
+            gov.token = SUP_TOKEN
+            if i == 1:
+                app["govee_obj"] = gov                                # Drop-Test und Drop-Ereignis: nur die erste Lampe
+                gov.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
+            LIGHT["has"] = True
+            app["govee%d" % i] = asyncio.create_task(gov.run())
     if LIGHT["has"]:
         app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():

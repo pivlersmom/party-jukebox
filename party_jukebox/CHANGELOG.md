@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.15.0
+- **Govee-Licht: mehrere Lampen, jede mit eigener Rolle.** Neue Option „weitere Lampen“ – je Zeile IP, Segmentzahl, Effekt, HA-Entität, Feinabgleich. Jede Lampe meldet sich als eigenes Licht-Gerät an und zeigt ihren eigenen Effekt.
+- **Neuer Effekt `welle`** (Bass-Welle + Funkeln) für Flächen mit vielen Segmenten: Jeder Schlag schickt einen Lichtimpuls durch alle Segmente (die Eins kräftiger), bei Höhen blitzen einzelne Segmente weiß auf.
+
 ## 0.14.4
 - Govee-Licht: **Bass-Beat-Erkennung neu**. Statt „Bass leiser als gewohnt“ zählt jetzt, ob die Bassdrum wirklich läuft (der Bass springt im Sekundentakt auf und ab). Läuft sie: Blitzen + Farbwechsel. Ruhige Stelle oder nur Gesang: der zweite Effekt (z. B. Ampel/Equalizer). Einsatz des Beats wird nach 0,25 s erkannt, Aussetzen nach ca. 2 s. Lange ruhige Stellen springen nicht mehr von selbst zurück aufs Blitzen.
 

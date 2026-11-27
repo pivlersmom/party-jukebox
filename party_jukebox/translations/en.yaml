@@ -125,6 +125,9 @@ configuration:
   govee_entity:
     name: Govee light – entity in Home Assistant
     description: Optional. The same light as a Home Assistant entity, e.g. "light.floor_lamp". The add-on turns the light on when the light switch goes on and restores the previous state afterwards (if it was off, it goes off again).
+  govee_lamps:
+    name: Govee light – more lights
+    description: Each additional light gets its own role. Per line – IP | segments | effect | Home Assistant entity | fine tuning ms | effect without bass beat | reverse. Only the IP is required. Example "192.168.178.164 | 20 | welle | light.sofa | -250". Effects – balken, ampel, spektrum, puls, welle (bass wave + sparkle, for many segments).
   govee_player:
     name: Govee light – follows this speaker
     description: Music Assistant player (name or id) the light follows. Empty = same as WLED/DMX or the party player.

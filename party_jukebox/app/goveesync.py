@@ -20,6 +20,8 @@ Einstellungen (Add-on-Konfiguration):
   govee_effect    balken   = je lauter, desto mehr Segmente; Farbe wechselt im Takt (Standard)
                   ampel    = Balken mit festem Verlauf grün → rot
                   spektrum = jedes Segment ein Frequenzband (unten Bass, oben Höhen)
+                  welle    = Bass-Welle + Funkeln: jeder Schlag schickt einen Lichtimpuls durch alle Segmente, Höhen lassen
+                             einzelne Segmente aufblitzen (für Flächen mit vielen Segmenten)
                   puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
   govee_break     Effekt, solange der Bass aussetzt: ampel, balken oder spektrum.
                   Der Balken folgt dann dem, was noch läuft (Mitten: Gesang, Melodie). Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
@@ -28,6 +30,8 @@ Einstellungen (Add-on-Konfiguration):
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
   govee_entity    Dieselbe(n) Lampe(n) in Home Assistant (z. B. light.stehleuchte). Dann merkt sich das Add-on vor dem
                   Start, ob/wie die Lampe leuchtete, und stellt das danach wieder her (war sie aus, geht sie wieder aus).
+  govee_lamps     Weitere Lampen, jede mit eigener Rolle. Je Zeile:
+                  IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen
   govee_player    Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player)
   govee_delay_ms  Feinabgleich: positiv = Licht später, negativ = früher
 """
@@ -37,6 +41,7 @@ import colorsys
 import json
 import logging
 import math
+import random
 import socket
 import struct
 import time
@@ -53,7 +58,27 @@ OFF = bytes.fromhex("bb0001b1000b")
 SWING_MIN = 0.12           # so weit muss der Bass in 2 s auf- und abspringen, damit es als Bass-Beat zählt (0,12 ≈ 7 dB)
 RISE_MIN = 0.05            # so viel müssen Lautstärke oder Höhen im Aufbau steigen (0,05 ≈ 3 dB), sonst kein Strobe
 KEEP_S = 2.0               # so oft „Echtzeit-Modus an“ wiederholen
-SCENE = "party_jukebox_govee_vorher"
+EFFECTS = ("balken", "ampel", "spektrum", "puls", "welle")
+
+
+def lamp_options(opt):
+    """Aus der Add-on-Konfiguration eine Liste von Einstellungen machen – eine je Lampe.
+    Lampe 1 sind die Optionen govee_host, govee_segments … Weitere Lampen stehen in govee_lamps, je Zeile:
+        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen
+    Nur die IP ist Pflicht; leere Felder übernehmen Standardwerte. Beispiel:  192.168.178.164 | 20 | welle | light.couch | -250"""
+    out = []
+    if str(opt.get("govee_host") or "").strip():
+        out.append(dict(opt))
+    for line in opt.get("govee_lamps") or []:
+        f = [x.strip() for x in str(line).split("|")] + [""] * 7
+        if not f[0]:
+            continue
+        o = dict(opt)
+        o.update({"govee_host": f[0], "govee_segments": f[1] or 10, "govee_effect": f[2] or "welle", "govee_entity": f[3],
+                  "govee_delay_ms": int(f[4]) if f[4].lstrip("+-").isdigit() else opt.get("govee_delay_ms") or 0,
+                  "govee_break": f[5], "govee_reverse": f[6].lower() in ("1", "ja", "true", "x", "umdrehen")})
+        out.append(o)
+    return out
 
 
 def wrap(raw):
@@ -73,22 +98,30 @@ def frame(colors, gradient=False):
 class GoveeSync(DmxLight):
     client_id, name, tag = "pj-govee", "Jukebox Govee-Licht", "Govee-Licht"
 
-    def __init__(self, session, opt, ma_cmds, ma_host):
+    def __init__(self, session, opt, ma_cmds, ma_host, idx=1):
         super().__init__(session, opt, ma_cmds, ma_host)
+        # mehrere Lampen: jede meldet sich als eigenes Licht-Gerät bei Music Assistant an (eigene Rolle, eigener Effekt)
+        if idx > 1:
+            self.client_id, self.name, self.tag = "pj-govee%d" % idx, "Jukebox Govee-Licht %d" % idx, "Govee-Licht %d" % idx
+        self.scene = "party_jukebox_govee%s_vorher" % ("" if idx == 1 else idx)
         self.hosts = [h.strip() for h in str(opt.get("govee_host") or "").replace(";", ",").split(",") if h.strip()]
         try:
             self.n = max(1, min(60, int(opt.get("govee_segments") or 7)))
         except (TypeError, ValueError):
             self.n = 7
         eff = str(opt.get("govee_effect") or "balken").strip().lower()
-        self.effect = eff if eff in ("balken", "ampel", "spektrum", "puls") else "balken"
+        self.effect = eff if eff in EFFECTS else "balken"
+        self.nb = max(1, int(round(self.n * 2 / 7)))                 # so viele Bänder unten sind „Bass“ (bis ca. 220 Hz), oben „Höhen“
+        self.waves = []                     # Welle: laufende Lichtimpulse [Position, Stärke]
+        self.spark = [0.0] * self.n         # Funkeln: Helligkeit je Segment, klingt schnell ab
+        self.hi_prev = 0.0
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
         self.acc, self.acc_n, self.prev_vec = [0.0] * self.n, 0, None   # Klang seit dem letzten Schlag / beim Schlag davor
         self.one_score, self.one_pos, self.one_moves = [0.0] * 4, 0, 0  # Einsätze je Schlag-Position, vermutete Eins
         self.build = []                     # (Lautstärke, Höhen) während der Bass weg ist – daraus: baut sich etwas auf?
         brk = str(opt.get("govee_break") or "").strip().lower()
-        self.break_effect = brk if brk in ("balken", "ampel", "spektrum", "puls") else ""
+        self.break_effect = brk if brk in EFFECTS else ""
         self.low, self.low_hi, self.mel = 0.0, 0.0, 0.0   # Bass geglättet, sein gewohnter Pegel, Mitte (Stimme) geglättet
         self.voc, self.voc_since, self.voc_log = False, None, -1e9   # läuft gerade KEIN Bass-Beat?
         self.win = deque([0.0], maxlen=int(1.5 * FPS))    # Bass der letzten 1,5 s
@@ -132,7 +165,7 @@ class GoveeSync(DmxLight):
         """Lampe einschalten und in den Echtzeit-Modus bringen (zweimal – direkt nach dem Einschalten geht das erste oft unter)."""
         self.taken = True
         if self.entities:                                            # Zustand vorher merken (aus bleibt später aus)
-            await self.ha("scene", "create", {"scene_id": SCENE, "snapshot_entities": self.entities})
+            await self.ha("scene", "create", {"scene_id": self.scene, "snapshot_entities": self.entities})
         self.push(json.dumps({"msg": {"cmd": "turn", "data": {"value": 1}}}).encode())
         await asyncio.sleep(0.2)
         self.push(wrap(ON))
@@ -149,7 +182,7 @@ class GoveeSync(DmxLight):
             self.push(wrap(OFF))
             await asyncio.sleep(0.3)
         if self.entities:
-            await self.ha("scene", "turn_on", {"entity_id": "scene." + SCENE})
+            await self.ha("scene", "turn_on", {"entity_id": "scene." + self.scene})
         log.info(self.tag + ": %s – Echtzeit-Modus aus, Lampe wieder %s", why, "wie vorher" if self.entities else "frei")
 
     async def ha(self, domain, service, data):
@@ -193,10 +226,10 @@ class GoveeSync(DmxLight):
         if kind == T_LOUD:
             self.loud_in = val
         elif kind == T_SPEC and self.strobe and val:
-            self.bass = (val[0] + (val[1] if len(val) > 1 else val[0])) / 2
+            self.bass = sum(val[:self.nb]) / max(1, len(val[:self.nb]))
             hit = self.detector.feed(ts, self.bass, self.loud_in)
             if self.detector.low_since is not None:                  # Bass ist gerade weg: Spannung mitschreiben
-                highs = sum(val[-2:]) / 2 if len(val) >= 4 else self.loud_in
+                highs = sum(val[-self.nb:]) / self.nb if len(val) >= 4 else self.loud_in
                 self.build.append((self.loud_in, highs))
                 if len(self.build) > 2400:
                     del self.build[:1200]
@@ -233,7 +266,7 @@ class GoveeSync(DmxLight):
         Jetzt zählt, was ein Bass-Beat wirklich ist: Die Bassdrum lässt das unterste Band im Sekundentakt auf- und
         abspringen. Wir sehen uns die letzten 1,5 s an: Wie weit springt der Bass (Hub), und kommt er dabei in die Nähe
         dessen, was in diesem Titel laut ist? Nur Gesang oder eine Fläche: wenig Hub oder zu leise → kein Beat."""
-        bass = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
+        bass = self.lows()
         self.win.append(bass)
         self.low += (bass - self.low) * (1 - math.exp(-dt / 0.3))
         top, bottom = max(self.win), min(self.win)
@@ -256,9 +289,16 @@ class GoveeSync(DmxLight):
             self.voc_s += dt
         return self.voc
 
+    def lows(self):
+        """Bass: das lauteste der unteren Bänder (bis ca. 220 Hz)."""
+        return max(self.spec[:self.nb])
+
+    def highs(self):
+        return sum(self.spec[-self.nb:]) / self.nb
+
     def mids(self):
         """Mittlere Bänder (bei 7 Segmenten: Band 3–5, ca. 220–2000 Hz) – dort liegt die Stimme."""
-        a, b = (2, 5) if self.n >= 5 else (min(1, self.n - 1), self.n)
+        a, b = (self.nb, max(self.nb + 1, self.n - self.nb)) if self.n >= 5 else (min(1, self.n - 1), self.n)
         return sum(self.spec[a:b]) / max(1, b - a)
 
     def find_one(self):
@@ -368,9 +408,11 @@ class GoveeSync(DmxLight):
                         self.env = 1.0 if one else 0.8
                         if one:                                      # Taktanfang: nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
+                        self.waves.append([0.0, 1.0 if one else 0.7])   # Welle: jeder Schlag schickt einen Lichtimpuls los
                     elif kind == T_PEAK and now - self.last_beat > 5 and val > 0.35:   # kein Takt-Raster → Bassschläge zählen
                         self.beats += 1
                         self.env = max(self.env, val)
+                        self.waves.append([0.0, 0.5 + 0.5 * val])
                         if self.beats % 8 == 0:
                             self.hue = (self.hue + 0.17) % 1.0
             if not self.taken:
@@ -387,14 +429,42 @@ class GoveeSync(DmxLight):
                 voc = bool(self.break_effect) and self.vocals_only(dt, now)
                 eff = self.break_effect if voc else self.effect
                 # Bass weg: der Balken folgt dann den Mitten (Gesang, Melodie) statt dem Bass, der ja gerade fehlt
-                self.show(self.spectrum(dt) if eff == "spektrum" else self.pulse(dt) if eff == "puls" else self.bar(dt, eff, voc))
+                self.show(self.spectrum(dt) if eff == "spektrum" else self.pulse(dt) if eff == "puls"
+                          else self.wave(dt) if eff == "welle" else self.bar(dt, eff, voc))
+
+    def wave(self, dt):
+        """Bass-Welle + Funkeln – für Flächen mit vielen Segmenten (z. B. 20 Dreiecke).
+        Grund: alle Segmente glimmen in der Takt-Farbe. Jeder Schlag schickt einen hellen Impuls vom ersten zum letzten
+        Segment (in etwa einem Schlag Länge durch), die Eins kräftiger. Dazu Funkeln: Setzen Höhen ein (Hi-Hat, Becken),
+        blitzen einzelne zufällige Segmente weiß auf und klingen sofort wieder ab."""
+        speed = self.n / 0.45                                        # Segmente pro Sekunde: in ca. 0,45 s einmal durch
+        for w in self.waves:
+            w[0] += speed * dt
+        self.waves = [w for w in self.waves if w[0] < self.n + 3][-6:]
+        hi = self.highs()
+        rise, self.hi_prev = hi - self.hi_prev, hi
+        self.spark = [x * math.exp(-dt / 0.12) for x in self.spark]
+        if rise > 0.04:                                              # Höhen setzen ein → 1–3 Segmente funkeln
+            for _ in range(1 + min(2, int(rise / 0.06))):
+                self.spark[random.randrange(self.n)] = 1.0
+        out = []
+        for i in range(self.n):
+            glow = 0.10
+            for pos, power in self.waves:
+                d = pos - i                                          # Impuls: vorn scharf, nach hinten ca. 3 Segmente Schweif
+                if 0 <= d < 3.5:
+                    glow = max(glow, power * (1 - d / 3.5))
+            r, g_, b = colorsys_rgb(self.hue, glow)
+            sp = self.spark[i]
+            out.append((r + (255 - r) * sp, g_ + (255 - g_) * sp, b + (255 - b) * sp) if sp > 0.02 else (r, g_, b))
+        return out
 
     def bar(self, dt, eff=None, voice=False):
         """Pegel aus dem Bass (die zwei untersten Bänder) – jeder Bassschlag lässt den Balken hochspringen.
         Lernkarte: Erst hing der Balken an der Gesamt-Lautstärke mit sehr trägem Abgleich (Minuten). Nach einem leisen
         Intro stand er dann dauernd auf Anschlag – alle Segmente an, eine Farbe. Darum jetzt: Bass statt Lautstärke
         und ein Abgleich über wenige Sekunden (was gerade leise/laut ist, zählt – nicht was vor zwei Minuten war)."""
-        e = self.mids() if voice else max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
+        e = self.mids() if voice else self.lows()
         if e <= 0.0:
             e = self.loud                                            # kein Spektrum da → Lautstärke nehmen
         self.e_min, self.e_max = min(self.e_min, e), max(self.e_max, e)

@@ -1,5 +1,5 @@
 name: Party-Jukebox
-version: "0.14.4"
+version: "0.15.0"
 slug: party_jukebox
 description: Jukebox, Party-Seite für Gäste und TV-Anzeige für Music Assistant
 url: https://github.com/pivlersmom/party-jukebox
@@ -33,6 +33,7 @@ options:
   script_drink: ""
   skip_votes: true
   dmx_fixtures: []
+  govee_lamps: []
   drinks:
     - "Bier|🍺|ein Bier"
     - "Weizen|🌾|ein Weizen"
@@ -85,11 +86,13 @@ schema:
   ha_lights_ms: int(200,5000)?
   govee_host: str?
   govee_segments: int(1,60)?
-  govee_effect: list(balken|ampel|spektrum|puls)?
-  govee_break: list(|ampel|balken|spektrum|puls)?
+  govee_effect: list(balken|ampel|spektrum|puls|welle)?
+  govee_break: list(|ampel|balken|spektrum|puls|welle)?
   govee_strobe: bool?
   govee_reverse: bool?
   govee_entity: str?
+  govee_lamps:
+    - str?
   govee_player: str?
   govee_delay_ms: int(-2000,5000)?
   viz_probe: str?

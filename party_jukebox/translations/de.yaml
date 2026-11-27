@@ -125,6 +125,9 @@ configuration:
   govee_entity:
     name: Govee-Licht – Lampe in Home Assistant
     description: Optional. Dieselbe Lampe als Home-Assistant-Entität, z. B. „light.stehleuchte“. Geht der Licht-Schalter an, schaltet das Add-on die Lampe ein; danach stellt es den Zustand von vorher wieder her (war sie aus, geht sie wieder aus).
+  govee_lamps:
+    name: Govee-Licht – weitere Lampen
+    description: Jede weitere Lampe bekommt eine eigene Rolle. Je Zeile – IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen. Nur die IP ist Pflicht. Beispiel „192.168.178.164 | 20 | welle | light.wohnzimmercouch | -250“. Effekte – balken, ampel, spektrum, puls, welle (Bass-Welle + Funkeln, für viele Segmente).
   govee_player:
     name: Govee-Licht – folgt diesem Lautsprecher
     description: Music-Assistant-Player (Name oder ID), dem das Licht folgt. Leer = wie WLED/DMX bzw. Party-Player.
