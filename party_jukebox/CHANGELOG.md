@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.16.1
+- Govee-Licht: Strobe aus der Wellenform endet einen Takt früher (um 2 s vorgezogen, neue Option „Strobe vorziehen“).
+- Alle Govee-Lampen blitzen im Strobe jetzt **gleichzeitig** (vorher teils abwechselnd, weil jede für sich gezählt hat).
+- Aufblitzen auf die Schläge (Effekte `puls` und `welle`) nur noch, solange wirklich ein Bass-Beat läuft – setzt er aus, hört das Pulsieren auf.
+
 ## 0.16.0
 - **Govee-Licht: Strobe aus der Wellenform.** Music Assistant kennt die Wellenform jedes Titels (die Balken über der Zeitleiste). Das Add-on liest sie beim Titelstart, sucht die Aufbauten (Balken steigen über mehrere Sekunden gleichmäßig an) und blitzt **während des Aufbaus** – Schluss ist genau auf dem Einsatz. Ein bloßer Sprung (leise Strophe → voller Refrain) löst nichts aus. Alle Govee-Lampen blitzen gemeinsam. Gibt es für einen Titel keine Wellenform, gilt weiter das Mithören. Das Protokoll zeigt je Titel die gefundenen Stellen und die Wellenform als Ziffernzeile.
 

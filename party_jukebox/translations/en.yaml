@@ -122,6 +122,9 @@ configuration:
   govee_strobe_seconds:
     name: Govee light – strobe duration (s)
     description: How long the light flashes after a drop. Default 8.
+  govee_strobe_early_ms:
+    name: Govee light – strobe earlier (ms)
+    description: Shifts the waveform strobe earlier (start and end). Default 2000 (about one bar). Ends too late – increase; too early – decrease.
   govee_reverse:
     name: Govee light – reverse
     description: Enable if the bar runs upside down.

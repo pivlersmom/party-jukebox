@@ -122,6 +122,9 @@ configuration:
   govee_strobe_seconds:
     name: Govee-Licht – Strobe-Dauer (s)
     description: So lange blitzt die Lampe nach einem Drop. Standard 8.
+  govee_strobe_early_ms:
+    name: Govee-Licht – Strobe vorziehen (ms)
+    description: Verschiebt das Strobe aus der Wellenform nach vorn (Start und Ende). Standard 2000 (etwa ein Takt). Hört es zu spät auf – größer; zu früh – kleiner.
   govee_reverse:
     name: Govee-Licht – umdrehen
     description: Einschalten, wenn der Balken verkehrt herum läuft.

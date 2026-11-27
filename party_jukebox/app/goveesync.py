@@ -25,6 +25,7 @@ Einstellungen (Add-on-Konfiguration):
                   puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
   govee_break     Effekt, solange der Bass aussetzt: ampel, balken oder spektrum.
                   Der Balken folgt dann dem, was noch läuft (Mitten: Gesang, Melodie). Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
+  govee_strobe_early_ms  Strobe aus der Wellenform um so viele Millisekunden vorziehen – Start und Ende (Standard 2000 ≈ ein Takt).
   govee_strobe_seconds  Dauer des Strobes in Sekunden (Standard 8).
   govee_strobe    Strobe im Aufbau: Kennt Music Assistant die Wellenform des Titels, blitzt die Lampe, während die Balken
                   ansteigen, und hört genau auf dem Einsatz auf (siehe wavecue.py). Ohne Wellenform wie bisher:
@@ -125,6 +126,10 @@ class GoveeSync(DmxLight):
         self.busy = 0.5                     # wie viel gerade los ist (0 = fast still, 1 = volle Stelle), geglättet
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
+        try:
+            self.cue_early = float(opt.get("govee_strobe_early_ms") if opt.get("govee_strobe_early_ms") is not None else 2000) / 1000.0
+        except (TypeError, ValueError):
+            self.cue_early = 2.0                # Strobe aus der Wellenform so viel früher (Start und Ende)
         self.cues, self.cue_on = None, False   # Aufbauten aus der Wellenform des Titels (wavecue.py)
         try:
             self.drop_s = max(1.0, min(30.0, float(opt.get("govee_strobe_seconds") or 8)))   # Dauer des Strobes
@@ -301,7 +306,7 @@ class GoveeSync(DmxLight):
                 if now - self.voc_log > 2:
                     self.voc_log = now
                     log.info(self.tag + ": %s (Hub %.2f, Spitze %.2f, lautester Bass %.2f) → %s",
-                             "Bass-Beat da" if beat else "kein Bass-Beat", swing, top, self.low_hi, self.effect if beat else self.break_effect)
+                             "Bass-Beat da" if beat else "kein Bass-Beat", swing, top, self.low_hi, self.effect if beat else (self.break_effect or self.effect + " ohne Aufblitzen"))
         else:
             self.voc_since = None
         if self.voc:
@@ -366,7 +371,8 @@ class GoveeSync(DmxLight):
 
     def strobe_frame(self, now):
         """Weißes Strobe über die ganze Lampe: jedes zweite Bild hell (bei 20 Bildern/s = 10 Blitze pro Sekunde)."""
-        self.flip = not self.flip
+        # Takt des Blitzens aus der Uhr (nicht je Lampe mitzählen): so blitzen alle Lampen gleichzeitig statt abwechselnd
+        self.flip = (time.time() % 0.1) < 0.05
         return [(255, 255, 255) if self.flip else (0, 0, 0)] * self.n
 
     def pulse(self, dt):
@@ -426,12 +432,14 @@ class GoveeSync(DmxLight):
                         self.beats += 1
                         self.last_beat = now
                         one = bool(val) or self.find_one()           # ist das die „Eins“ des Takts?
-                        self.env = 1.0 if one else 0.8
+                        # aufblitzen nur, solange wirklich ein Bass-Beat läuft – das Takt-Raster zählt auch in ruhigen Stellen weiter
+                        self.env = 0.0 if self.voc else (1.0 if one else 0.8)
                         if one:                                      # Taktanfang: nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
                     elif kind == T_PEAK and now - self.last_beat > 5 and val > 0.35:   # kein Takt-Raster → Bassschläge zählen
                         self.beats += 1
-                        self.env = max(self.env, val)
+                        if not self.voc:
+                            self.env = max(self.env, val)
                         if self.beats % 8 == 0:
                             self.hue = (self.hue + 0.17) % 1.0
             if not self.taken:
@@ -444,7 +452,7 @@ class GoveeSync(DmxLight):
                 self.push(wrap(ON))
             # Strobe: während eines Aufbaus laut Wellenform (endet genau auf dem Einsatz) – oder, ohne Wellenform, ein paar
             # Sekunden nach einem mitgehörten Drop – oder von Hand (Drop-Test)
-            cue = bool(self.strobe and self.cues and self.cues.strobe(-self.delay_us / 1e6))
+            cue = bool(self.strobe and self.cues and self.cues.strobe(-self.delay_us / 1e6 + self.cue_early))
             if cue != self.cue_on:
                 self.cue_on = cue
                 if cue:
@@ -452,7 +460,8 @@ class GoveeSync(DmxLight):
             if cue or now - self.drop_at < self.drop_s:
                 self.show(self.strobe_frame(now))
             else:
-                voc = bool(self.break_effect) and self.vocals_only(dt, now)
+                nobeat = self.vocals_only(dt, now)                   # läuft gerade kein Bass-Beat? (steuert auch das Aufblitzen)
+                voc = bool(self.break_effect) and nobeat
                 eff = self.break_effect if voc else self.effect
                 # Bass weg: der Balken folgt dann den Mitten (Gesang, Melodie) statt dem Bass, der ja gerade fehlt
                 self.show(self.spectrum(dt) if eff == "spektrum" else self.pulse(dt) if eff == "puls"
