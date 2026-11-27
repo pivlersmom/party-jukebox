@@ -21,8 +21,8 @@ Einstellungen (Add-on-Konfiguration):
                   ampel    = Balken mit festem Verlauf grün → rot
                   spektrum = jedes Segment ein Frequenzband (unten Bass, oben Höhen)
                   puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
-  govee_break     Effekt, solange nur Gesang läuft (Bass und Schlagzeug fehlen): ampel, balken oder spektrum.
-                  Der Balken folgt dann der Stimme. Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
+  govee_break     Effekt, solange der Bass aussetzt: ampel, balken oder spektrum.
+                  Der Balken folgt dann dem, was noch läuft (Mitten: Gesang, Melodie). Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
   govee_strobe    Beim Drop (Bass fällt weg und kommt zurück) ein paar Sekunden weißes Strobe (Standard: an).
                   Erkennung und Dauer wie beim DMX-Licht (dmx_drop_build, dmx_drop_sensitivity, dmx_drop_cooldown, dmx_drop_seconds).
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
@@ -199,13 +199,13 @@ class GoveeSync(DmxLight):
         lo, hi, self.e_min, self.e_max = self.e_min, self.e_max, 1.0, 0.0
         txt = " · %d Bilder an die Lampe · im Schnitt %.1f von %d Segmenten an · Bass %.2f–%.2f" % (n, lit, self.n, lo, hi)
         if self.break_effect:
-            txt += " · Bass geglättet %.2f–%.2f (gewohnt %.2f) · %d s nur Gesang" % (self.low_min, self.low_max, self.low_hi, self.voc_s)
+            txt += " · Bass geglättet %.2f–%.2f (gewohnt %.2f) · %d s ohne Bass" % (self.low_min, self.low_max, self.low_hi, self.voc_s)
             self.low_min, self.low_max, self.voc_s = 1.0, 0.0, 0.0
         return txt
 
     def vocals_only(self, dt, now):
-        """Nur noch Gesang? Bass und Schlagzeug sind weg (die zwei untersten Bänder liegen deutlich unter ihrem gewohnten
-        Pegel), in der Mitte (ca. 220–2000 Hz, dort liegt die Stimme) ist aber noch etwas zu hören.
+        """Setzt der Bass aus? Die zwei untersten Bänder liegen dann deutlich unter ihrem gewohnten Pegel –
+        egal, was sonst noch läuft (Gesang, Melodie, Fläche).
         Erst nach 0,6 s umschalten und erst zurück, wenn der Bass klar wieder da ist – sonst flackert es zwischen den Effekten."""
         bass = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
         self.low += (bass - self.low) * (1 - math.exp(-dt / 0.3))
@@ -215,14 +215,14 @@ class GoveeSync(DmxLight):
         self.low_min, self.low_max = min(self.low_min, self.low), max(self.low_max, self.low)
         gap = max(0.12, 0.3 * self.low_hi)
         if not self.voc:
-            if self.low < self.low_hi - gap and self.mel > 0.05:
+            if self.low < self.low_hi - gap:
                 self.voc_since = self.voc_since or now
                 if now - self.voc_since > 0.6:
                     self.voc = True
-                    log.info(self.tag + ": nur noch Gesang (Bass %.2f, gewohnt %.2f) → %s", self.low, self.low_hi, self.break_effect)
+                    log.info(self.tag + ": Bass weg (%.2f, gewohnt %.2f) → %s", self.low, self.low_hi, self.break_effect)
             else:
                 self.voc_since = None
-        elif self.low > self.low_hi - gap * 0.5 or self.mel < 0.03:
+        elif self.low > self.low_hi - gap * 0.5:
             self.voc, self.voc_since = False, None
             log.info(self.tag + ": Bass wieder da → %s", self.effect)
         if self.voc:
@@ -319,7 +319,7 @@ class GoveeSync(DmxLight):
             else:
                 voc = bool(self.break_effect) and self.vocals_only(dt, now)
                 eff = self.break_effect if voc else self.effect
-                # nur Gesang: der Balken folgt dann der Stimme (Mitte) statt dem Bass, der ja gerade fehlt
+                # Bass weg: der Balken folgt dann den Mitten (Gesang, Melodie) statt dem Bass, der ja gerade fehlt
                 self.show(self.spectrum(dt) if eff == "spektrum" else self.pulse(dt) if eff == "puls" else self.bar(dt, eff, voc))
 
     def bar(self, dt, eff=None, voice=False):

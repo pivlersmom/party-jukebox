@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.14.1
+- Govee-Licht: Der zweite Effekt (z. B. `ampel`) setzt jetzt immer ein, wenn der **Bass aussetzt** – nicht nur bei reinem Gesang. Option heißt jetzt „Effekt, wenn der Bass aussetzt“.
+
 ## 0.14.0
 - **Govee-Licht: eigener Effekt, solange nur Gesang läuft** (Option „Effekt bei nur Gesang“, z. B. `ampel`): Fallen Bass und Schlagzeug weg, schaltet die Lampe auf diesen Effekt – der Balken folgt dann der Stimme – und danach zurück. Das Protokoll zeigt jede Minute den Bass-Pegel und wie lange nur Gesang lief.
 
