@@ -79,6 +79,7 @@ class GoveeSync(DmxLight):
         self.spec = [0.0] * self.n          # zuletzt fällige Bänder (0..1)
         self.bands = [0.0] * self.n         # geglättet für die Anzeige
         self.band_hi = 0.3                  # gewohntes Maximum der Bänder (leise/laute Titel gleich hoch)
+        self.bar_hi, self.bar_lo = 0.0, 1.0  # was in den letzten Sekunden laut/leise war
         self.level = 0.0                    # Pegel des Balkens: springt sofort hoch, fällt in ca. 0,3 s ab
         self.taken = False
         self.sent = 0
@@ -197,11 +198,19 @@ class GoveeSync(DmxLight):
             self.show(self.spectrum(dt) if self.effect == "spektrum" else self.bar(dt))
 
     def bar(self, dt):
-        # Lautstärke auf 0..1 bringen (leise und laute Titel sollen gleich hoch ausschlagen)
-        self.hi = max(self.hi * 0.9998, self.loud)
-        self.lo = min(self.lo * 1.0002 + 0.00001, self.loud)
-        lv = max(0.0, min(1.0, (self.loud - self.lo) / max(0.05, self.hi - self.lo)))
-        self.level = max(lv, self.level * math.exp(-dt / 0.3))
+        """Pegel aus dem Bass (die zwei untersten Bänder) – jeder Bassschlag lässt den Balken hochspringen.
+        Lernkarte: Erst hing der Balken an der Gesamt-Lautstärke mit sehr trägem Abgleich (Minuten). Nach einem leisen
+        Intro stand er dann dauernd auf Anschlag – alle Segmente an, eine Farbe. Darum jetzt: Bass statt Lautstärke
+        und ein Abgleich über wenige Sekunden (was gerade leise/laut ist, zählt – nicht was vor zwei Minuten war)."""
+        e = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
+        if e <= 0.0:
+            e = self.loud                                            # kein Spektrum da → Lautstärke nehmen
+        k = math.exp(-dt / 6.0)                                      # Abgleich über ca. 6 s
+        self.bar_hi = max(e, self.bar_hi * k + e * (1 - k))
+        self.bar_lo = min(e, self.bar_lo * k + e * (1 - k))
+        lv = max(0.0, min(1.0, (e - self.bar_lo) / max(0.08, self.bar_hi - self.bar_lo)))
+        lv = lv ** 1.5                                               # Ausschläge deutlicher: nur echte Spitzen füllen den Balken
+        self.level = max(lv, self.level * math.exp(-dt / 0.25))
         pos = self.level * self.n                                    # z. B. 4,6 → 4 Segmente voll, das 5. zu 60 %
         out = []
         for i in range(self.n):

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.12.1
+- Govee-Licht: Der Balken stand nach kurzer Zeit dauernd auf Anschlag (alle Segmente an, eine Farbe). Er folgt jetzt dem Bass statt der Gesamt-Lautstärke und gleicht sich über wenige Sekunden ab – jeder Bassschlag lässt ihn hochspringen.
+
 ## 0.12.0
 - **Neu: Govee-Licht in Echtzeit** – Govee-Lampen mit Segmenten (z. B. Stehleuchte) als Pegel-Balken, Ampel-Balken oder Spektrum, direkt im Heimnetz (Govees Echtzeit-Modus, ohne Cloud, 20 Bilder pro Sekunde). Optionen „Govee-Licht – …“. In der Govee-App muss „LAN-Steuerung“ an sein.
 - Hinweis: Der Balken über Home Assistant (`=balken` in der Lampen-Liste, 0.11.0) läuft bei Govee über die Cloud und bleibt nach wenigen Sekunden stehen – für Govee bitte das neue Govee-Licht nehmen.
