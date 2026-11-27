@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.15.4
+- Diagnose: `viz_probe: wave` schreibt ins Protokoll, was Music Assistant als Wellenform des laufenden Titels liefert (Vorbereitung: Strobe-Stellen im Voraus aus der Wellenform lesen).
+
 ## 0.15.3
 - Effekt `welle`: Das **Lauflicht hängt jetzt am Gesang** statt an den Schlägen – jeder Einsatz der Stimme schickt einen Impuls los, kräftiger Gesang läuft schnell, leiser langsam, ohne Gesang kein Lauflicht. Das Pulsieren der Fläche bleibt auf den Schlägen, das Funkeln auf den Höhen.
 

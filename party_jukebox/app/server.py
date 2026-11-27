@@ -2391,6 +2391,49 @@ async def party_light(request):
                               "follow": sorted(x for x in follow if x)})
 
 
+async def wave_probe(app, spec):
+    """Diagnose (Option viz_probe = "wave" oder "wave,<player_id>"): Was liefert Music Assistant als Wellenform des Titels?
+    Probiert den Befehl audio_analysis/wave_form mit verschiedenen Angaben und schreibt Fehlertext bzw. Form des Ergebnisses ins Protokoll."""
+    session = app["session"]
+    parts = [x.strip() for x in str(spec).split(",")]
+    await asyncio.sleep(20)
+    try:
+        q = parts[1] if len(parts) > 1 and parts[1] else None
+        if not q:
+            pl = await MAC.cmd(session, "players/all", {})
+            want = str(OPT.get("party_player") or "").strip().lower()
+            q = next((x["player_id"] for x in pl or [] if str(x.get("name", "")).lower() == want or x.get("player_id") == want), None)
+        qu = await MAC.cmd(session, "player_queues/get", {"queue_id": q}) or {}
+        ci = qu.get("current_item") or {}
+        mi = ci.get("media_item") or {}
+        sd = ci.get("streamdetails") or {}
+        log.info("Wellen-Test: Queue %s · Titel %s · uri %s · item_id %s · provider %s · streamdetails %s/%s · Dauer %s · Position %s",
+                 q, ci.get("name"), mi.get("uri"), mi.get("item_id"), mi.get("provider"), sd.get("provider"), sd.get("item_id"), ci.get("duration"), qu.get("elapsed_time"))
+        log.info("Wellen-Test: Schlüssel streamdetails %s · media_item %s", sorted(sd.keys()), sorted(mi.keys()))
+        tries = [{}, {"item_id": mi.get("item_id"), "provider_instance_id_or_domain": mi.get("provider")},
+                 {"item_id": sd.get("item_id"), "provider_instance_id_or_domain": sd.get("provider")},
+                 {"uri": mi.get("uri")}, {"queue_id": q}, {"queue_item_id": ci.get("queue_item_id")},
+                 {"queue_id": q, "queue_item_id": ci.get("queue_item_id")}, {"media_item": mi.get("uri")}]
+        for cmd in ("audio_analysis/wave_form", "audio_analysis/get", "audio_analysis/beats", "audio_analysis/sections"):
+            for args in (tries if cmd.endswith("wave_form") else tries[:3]):
+                try:
+                    r = await MAC.cmd(session, cmd, args)
+                except Exception as e:
+                    log.info("Wellen-Test: %s %s → Fehler: %s", cmd, sorted(args.keys()), str(e)[:300])
+                    continue
+                if isinstance(r, list):
+                    nums = [x for x in r if isinstance(x, (int, float))]
+                    log.info("Wellen-Test: %s %s → Liste mit %d Einträgen%s · Anfang %s", cmd, sorted(args.keys()), len(r),
+                             " (min %s, max %s)" % (min(nums), max(nums)) if nums else "", json.dumps(r[:24], ensure_ascii=False)[:400])
+                elif isinstance(r, dict):
+                    log.info("Wellen-Test: %s %s → Objekt %s", cmd, sorted(args.keys()),
+                             json.dumps({k: (("Liste %d: " % len(v)) + json.dumps(v[:16])[:200] if isinstance(v, list) else v) for k, v in r.items()}, ensure_ascii=False)[:900])
+                else:
+                    log.info("Wellen-Test: %s %s → %s", cmd, sorted(args.keys()), str(r)[:300])
+    except Exception as e:
+        log.info("Wellen-Test fehlgeschlagen: %s", e)
+
+
 async def viz_probe(app, spec):
     """Diagnose (Option `viz_probe`): Was liefert Music Assistant an Licht-/Beat-Daten?
     Meldet sich bei MA als reines "Licht-Gerät" an (Sendspin-Rolle visualizer@v1), hängt sich optional an einen
@@ -2643,7 +2686,8 @@ async def on_startup(app):
     if LIGHT["has"]:
         app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():
-        app["viz_probe"] = asyncio.create_task(viz_probe(app, OPT.get("viz_probe")))
+        vp = str(OPT.get("viz_probe")).strip()
+        app["viz_probe"] = asyncio.create_task(wave_probe(app, vp) if vp.lower().startswith("wave") else viz_probe(app, vp))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
     app["autowatch"] = asyncio.create_task(autoplay_watch_loop(app))
 
