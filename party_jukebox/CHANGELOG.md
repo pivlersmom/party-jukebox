@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.14.3
+- Govee-Licht: **Farbwechsel auf der Eins**. Music Assistant liefert nur die Schläge, nicht den Taktanfang – bisher wurde einfach jeder 4. Schlag genommen. Jetzt sucht das Add-on die Eins selbst: die Schlag-Position, auf der in der Musik am häufigsten etwas Neues einsetzt. Das Protokoll zeigt die vermutete Position.
+
 ## 0.14.2
 - Govee-Licht: **Strobe nur noch nach einem echten Aufbau** – während der Bass-Pause müssen Lautstärke oder Höhen spürbar ansteigen (Trommelwirbel, Riser). Kommt der Bass nach einer ruhigen Stelle einfach zurück, bleibt das Strobe aus. Das Protokoll zeigt bei jeder Bass-Rückkehr, wie stark die Spannung stieg.
 

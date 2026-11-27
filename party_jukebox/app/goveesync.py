@@ -82,6 +82,8 @@ class GoveeSync(DmxLight):
         self.effect = eff if eff in ("balken", "ampel", "spektrum", "puls") else "balken"
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
+        self.acc, self.acc_n, self.prev_vec = [0.0] * self.n, 0, None   # Klang seit dem letzten Schlag / beim Schlag davor
+        self.one_score, self.one_pos, self.one_moves = [0.0] * 4, 0, 0  # Einsätze je Schlag-Position, vermutete Eins
         self.build = []                     # (Lautstärke, Höhen) während der Bass weg ist – daraus: baut sich etwas auf?
         brk = str(opt.get("govee_break") or "").strip().lower()
         self.break_effect = brk if brk in ("balken", "ampel", "spektrum", "puls") else ""
@@ -214,6 +216,8 @@ class GoveeSync(DmxLight):
         lit, self.lit_sum = self.lit_sum / max(1, n), 0
         lo, hi, self.e_min, self.e_max = self.e_min, self.e_max, 1.0, 0.0
         txt = " · %d Bilder an die Lampe · im Schnitt %.1f von %d Segmenten an · Bass %.2f–%.2f" % (n, lit, self.n, lo, hi)
+        txt += " · Eins auf Position %d (Einsätze %s, %d× verschoben)" % (self.one_pos + 1, "/".join("%.1f" % x for x in self.one_score), self.one_moves)
+        self.one_moves = 0
         if self.break_effect:
             txt += " · Bass geglättet %.2f–%.2f (gewohnt %.2f) · %d s ohne Bass" % (self.low_min, self.low_max, self.low_hi, self.voc_s)
             self.low_min, self.low_max, self.voc_s = 1.0, 0.0, 0.0
@@ -249,6 +253,32 @@ class GoveeSync(DmxLight):
         """Mittlere Bänder (bei 7 Segmenten: Band 3–5, ca. 220–2000 Hz) – dort liegt die Stimme."""
         a, b = (2, 5) if self.n >= 5 else (min(1, self.n - 1), self.n)
         return sum(self.spec[a:b]) / max(1, b - a)
+
+    def find_one(self):
+        """Welcher der vier Schläge ist die „Eins“?
+        Lernkarte: Music Assistant liefert hier nur die Schläge, nicht den Taktanfang (tracks_downbeats: false). Erst wurde
+        einfach jeder 4. Schlag ab Start gezählt – die Farbe wechselte dann irgendwo im Takt. Jetzt hören wir hin:
+        Neues setzt in der Musik fast immer auf der Eins ein (Bass kommt zurück, neue Spur, Akkordwechsel). Darum
+        merken wir uns je Schlag-Position (1–4), wie stark der Klang dort gegenüber dem Schlag davor ZUGELEGT hat.
+        Die Position mit den meisten Einsätzen gilt als Eins. Ältere Takte verblassen (ca. 30 Takte Gedächtnis)."""
+        pos = self.beats % 4
+        if self.acc_n:
+            vec = [a / self.acc_n for a in self.acc]
+            if self.prev_vec:
+                gain = sum(max(0.0, c - p) for c, p in zip(vec, self.prev_vec))
+                # der Klang seit dem letzten Schlag gehört zum Schlag davor: dort hat etwas eingesetzt
+                was = (pos - 1) % 4
+                self.one_score = [x * 0.992 for x in self.one_score]
+                self.one_score[was] += gain
+            self.prev_vec = vec
+        self.acc, self.acc_n = [0.0] * self.n, 0
+        best = max(range(4), key=lambda i: self.one_score[i])
+        rest = sorted(self.one_score)[-2]
+        # nur umspringen, wenn die neue Position klar vorn liegt – sonst bleibt die bisherige Eins
+        if best != self.one_pos and self.one_score[best] > 0.3 and self.one_score[best] > 1.25 * max(rest, self.one_score[self.one_pos]):
+            self.one_pos = best
+            self.one_moves += 1
+        return pos == self.one_pos
 
     def build_rise(self):
         """Hat sich der Drop aufgebaut? Lernkarte: Erst blitzte es nach jeder Bass-Pause (auch nach einer ruhigen Strophe).
@@ -318,6 +348,8 @@ class GoveeSync(DmxLight):
                         self.loud = val
                     elif kind == T_SPEC:
                         self.spec = list(val) + [0.0] * (self.n - len(val))
+                        self.acc = [a + b for a, b in zip(self.acc, self.spec)]
+                        self.acc_n += 1
                     elif kind == "drop":
                         self.drop_at = now
                         log.info(self.tag + ": Drop ausgelöst → Strobe")
@@ -325,8 +357,9 @@ class GoveeSync(DmxLight):
                     elif kind == T_BEAT:
                         self.beats += 1
                         self.last_beat = now
-                        self.env = 1.0 if val else 0.8
-                        if val or self.beats % 4 == 0:               # Taktanfang (oder jeder 4. Schlag): nächste Farbe
+                        one = bool(val) or self.find_one()           # ist das die „Eins“ des Takts?
+                        self.env = 1.0 if one else 0.8
+                        if one:                                      # Taktanfang: nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
                     elif kind == T_PEAK and now - self.last_beat > 5 and val > 0.35:   # kein Takt-Raster → Bassschläge zählen
                         self.beats += 1
