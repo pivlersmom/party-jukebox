@@ -2633,6 +2633,7 @@ async def on_startup(app):
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
         gov = GoveeSync(app["session"], OPT, ma_cmds, ma_host)
         gov.enabled = light_on
+        gov.token = SUP_TOKEN
         LIGHT["has"] = True
         app["govee"] = asyncio.create_task(gov.run())
     if LIGHT["has"]:

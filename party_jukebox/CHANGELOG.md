@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.12.3
+- Govee-Licht: Die Lampe fiel nach ein paar Sekunden von selbst aus dem Echtzeit-Modus zurück in ihr eigenes Programm (einfarbig). Der Modus wird jetzt alle 2 s neu angefordert.
+- Govee-Licht: neue Option „Lampe in Home Assistant“ – Zustand vorher wird gemerkt und nach Musik-Ende/Licht-Schalter aus wiederhergestellt (war die Lampe aus, geht sie wieder aus).
+
 ## 0.12.2
 - Govee-Licht: Protokoll zeigt jede Minute, wie viele Segmente im Schnitt leuchten und wie stark der Bass schwankt (Fehlersuche).
 

@@ -21,6 +21,8 @@ Einstellungen (Add-on-Konfiguration):
                   ampel    = Balken mit festem Verlauf grün → rot
                   spektrum = jedes Segment ein Frequenzband (unten Bass, oben Höhen)
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
+  govee_entity    Dieselbe(n) Lampe(n) in Home Assistant (z. B. light.stehleuchte). Dann merkt sich das Add-on vor dem
+                  Start, ob/wie die Lampe leuchtete, und stellt das danach wieder her (war sie aus, geht sie wieder aus).
   govee_player    Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player)
   govee_delay_ms  Feinabgleich: positiv = Licht später, negativ = früher
 """
@@ -42,6 +44,8 @@ PORT = 4003
 FPS = 20
 ON = bytes.fromhex("bb0001b1010a")
 OFF = bytes.fromhex("bb0001b1000b")
+KEEP_S = 2.0               # so oft „Echtzeit-Modus an“ wiederholen
+SCENE = "party_jukebox_govee_vorher"
 
 
 def wrap(raw):
@@ -81,6 +85,9 @@ class GoveeSync(DmxLight):
         self.band_hi = 0.3                  # gewohntes Maximum der Bänder (leise/laute Titel gleich hoch)
         self.bar_hi, self.bar_lo = 0.0, 1.0  # was in den letzten Sekunden laut/leise war
         self.level = 0.0                    # Pegel des Balkens: springt sofort hoch, fällt in ca. 0,3 s ab
+        self.entities = [e.strip().lower() for e in str(opt.get("govee_entity") or "").replace(";", ",").split(",") if e.strip().lower().startswith("light.")]
+        self.token = ""                     # vom Add-on gesetzt: Zugang zu Home Assistant (für „Zustand vorher“)
+        self.on_at = 0.0                    # wann zuletzt „Echtzeit-Modus an“ geschickt wurde
         self.taken = False
         self.sent = 0
         self.lit_sum, self.e_min, self.e_max = 0, 1.0, 0.0   # fürs Protokoll: wie viele Segmente an, Bass von–bis
@@ -105,11 +112,14 @@ class GoveeSync(DmxLight):
     async def take(self):
         """Lampe einschalten und in den Echtzeit-Modus bringen (zweimal – direkt nach dem Einschalten geht das erste oft unter)."""
         self.taken = True
+        if self.entities:                                            # Zustand vorher merken (aus bleibt später aus)
+            await self.ha("scene", "create", {"scene_id": SCENE, "snapshot_entities": self.entities})
         self.push(json.dumps({"msg": {"cmd": "turn", "data": {"value": 1}}}).encode())
         await asyncio.sleep(0.2)
         self.push(wrap(ON))
         await asyncio.sleep(0.5)
         self.push(wrap(ON))
+        self.on_at = time.monotonic()
         log.info(self.tag + ": Echtzeit-Modus an (%s, %d Segmente, Effekt %s)", ", ".join(t[0] for t in self.targets), self.n, self.effect)
 
     async def give_back(self, why):
@@ -119,7 +129,20 @@ class GoveeSync(DmxLight):
         for _ in range(2):
             self.push(wrap(OFF))
             await asyncio.sleep(0.3)
-        log.info(self.tag + ": %s – Echtzeit-Modus aus, Lampe wieder frei", why)
+        if self.entities:
+            await self.ha("scene", "turn_on", {"entity_id": "scene." + SCENE})
+        log.info(self.tag + ": %s – Echtzeit-Modus aus, Lampe wieder %s", why, "wie vorher" if self.entities else "frei")
+
+    async def ha(self, domain, service, data):
+        if not self.token:
+            return
+        try:
+            async with self.session.post(f"http://supervisor/core/api/services/{domain}/{service}", json=data,
+                                         headers={"Authorization": f"Bearer {self.token}"}, timeout=8) as r:
+                if r.status >= 400:
+                    log.info(self.tag + ": %s.%s → %s", domain, service, r.status)
+        except Exception as e:
+            log.info(self.tag + ": %s.%s fehlgeschlagen: %s", domain, service, e)
 
     # ------------------------------------------------------------------ Grundgerüst anpassen
     async def setup(self):
@@ -199,6 +222,12 @@ class GoveeSync(DmxLight):
                             self.hue = (self.hue + 0.17) % 1.0
             if not self.taken:
                 await self.take()
+            elif now - self.on_at > KEEP_S:
+                # Lernkarte: Die Stehleuchte (H6076) fiel nach einigen Sekunden von selbst aus dem Echtzeit-Modus zurück
+                # in ihr eigenes Programm – unsere Bilder kamen an, wurden aber nicht mehr gezeigt. Darum den Modus
+                # regelmäßig neu anfordern.
+                self.on_at = now
+                self.push(wrap(ON))
             self.show(self.spectrum(dt) if self.effect == "spektrum" else self.bar(dt))
 
     def bar(self, dt):
