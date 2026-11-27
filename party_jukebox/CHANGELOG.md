@@ -1,6 +1,6 @@
 # Änderungen
 
-## Unveröffentlicht
+## 0.9.0
 - **Drop-Ereignis genauer**: `party_jukebox_drop` kommt jetzt im selben Moment wie Strobe und Drop-Geräte (vorher schon beim Eintreffen der Daten, also vor dem Ton) und auch beim Drop-Test von Hand. Neue Daten: `confidence` (0–1), `build_seconds`, `bass_before`, `bass_after`, `player`, `manual`. Die bisherigen Felder (`build_s`, `bass`, `level`, `loud`) bleiben.
 - **Farbe/Energie an Home Assistant gebremst und vollständiger**: Farbe (Sensor + Ereignis `party_jukebox_color`, neu mit `beat_count`) höchstens 1× pro Sekunde; `sensor.party_jukebox_energie` über ca. 1 s geglättet, höchstens 2× pro Sekunde statt alle 5 s; Sensoren werden nur bei Änderung gesendet.
 - **Neu: `binary_sensor.party_jukebox_licht_aktiv`** – an, solange das Add-on DMX sendet.
