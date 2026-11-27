@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.16.2
+- Govee-Licht: **Takt-Erkennung (4/4) sicherer** – setzt der Bass nach einer Pause wieder ein, gilt dieser Schlag sofort als Eins (statt sie erst über viele Takte zu erraten). Farbwechsel liegt damit nach jedem Break wieder auf der Eins.
+- Effekt `welle`: Ohne Bass-Beat glimmt die Fläche heller, damit der Farbwechsel im Takt sichtbar bleibt (Aufblitzen bleibt aus).
+
 ## 0.16.1
 - Govee-Licht: Strobe aus der Wellenform endet einen Takt früher (um 2 s vorgezogen, neue Option „Strobe vorziehen“).
 - Alle Govee-Lampen blitzen im Strobe jetzt **gleichzeitig** (vorher teils abwechselnd, weil jede für sich gezählt hat).

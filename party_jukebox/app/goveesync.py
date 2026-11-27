@@ -137,6 +137,7 @@ class GoveeSync(DmxLight):
             self.drop_s = 8.0
         self.acc, self.acc_n, self.prev_vec = [0.0] * self.n, 0, None   # Klang seit dem letzten Schlag / beim Schlag davor
         self.one_score, self.one_pos, self.one_moves = [0.0] * 4, 0, 0  # Einsätze je Schlag-Position, vermutete Eins
+        self.bass_beats, self.one_set = deque(maxlen=3), -99            # Bass der letzten drei Schläge; wann die Eins zuletzt festgesetzt wurde
         self.build = []                     # (Lautstärke, Höhen) während der Bass weg ist – daraus: baut sich etwas auf?
         brk = str(opt.get("govee_break") or "").strip().lower()
         self.break_effect = brk if brk in EFFECTS else ""
@@ -331,7 +332,9 @@ class GoveeSync(DmxLight):
         einfach jeder 4. Schlag ab Start gezählt – die Farbe wechselte dann irgendwo im Takt. Jetzt hören wir hin:
         Neues setzt in der Musik fast immer auf der Eins ein (Bass kommt zurück, neue Spur, Akkordwechsel). Darum
         merken wir uns je Schlag-Position (1–4), wie stark der Klang dort gegenüber dem Schlag davor ZUGELEGT hat.
-        Die Position mit den meisten Einsätzen gilt als Eins. Ältere Takte verblassen (ca. 30 Takte Gedächtnis)."""
+        Die Position mit den meisten Einsätzen gilt als Eins. Ältere Takte verblassen (ca. 30 Takte Gedächtnis).
+        Gerechnet wird im 4/4-Takt (bei elektronischer Musik fast immer richtig). Dazu ein fester Anker: Setzt der Bass
+        nach einer Pause wieder ein, ist das die Eins – dann wird sie sofort festgesetzt, nicht erst nach vielen Takten."""
         pos = self.beats % 4
         if self.acc_n:
             vec = [a / self.acc_n for a in self.acc]
@@ -342,6 +345,19 @@ class GoveeSync(DmxLight):
                 self.one_score = [x * 0.992 for x in self.one_score]
                 self.one_score[was] += gain
             self.prev_vec = vec
+            # Stärkster Hinweis im 4/4-Takt: Nach einer Pause setzt der Bass praktisch immer auf der Eins wieder ein.
+            # War der Bass in den drei Schlägen davor klar leiser und ist jetzt laut da → dieser Schlag ist die Eins (festsetzen).
+            bass_now = max(vec[:self.nb])
+            if (len(self.bass_beats) >= 3 and bass_now - max(self.bass_beats) >= 0.12 and bass_now >= 0.6 * self.low_hi
+                    and self.beats - self.one_set > 8):
+                was = (pos - 1) % 4
+                self.one_score = [min(x, 2.0) for x in self.one_score]
+                self.one_score[was] = 8.0
+                if was != self.one_pos:
+                    self.one_moves += 1
+                    log.info(self.tag + ": Bass setzt ein → Eins neu gesetzt (Position %d)", was + 1)
+                self.one_pos, self.one_set = was, self.beats
+            self.bass_beats.append(bass_now)
         self.acc, self.acc_n = [0.0] * self.n, 0
         best = max(range(4), key=lambda i: self.one_score[i])
         rest = sorted(self.one_score)[-2]
@@ -496,7 +512,8 @@ class GoveeSync(DmxLight):
             self.waves.append([0.0, min(1.0, 0.55 + jump * 4)])
             self.launches += 1
         self.env *= math.exp(-dt / 0.18)                             # zusätzlich pulsiert die ganze Fläche auf jeden Schlag
-        base = max(0.10, 0.55 * self.env)
+        # ohne Bass-Beat: kein Aufblitzen – dafür glimmt die Fläche heller, damit man den Farbwechsel im Takt sieht
+        base = max(0.32 if self.voc else 0.10, 0.55 * self.env)
         # Tempo des Lauflichts: Gesang voll da → in ca. 0,45 s einmal durch; Gesang fast weg → nur noch ein Fünftel so schnell
         speed = self.n / 0.45 * (0.2 + 0.8 * full)
         for w in self.waves:
