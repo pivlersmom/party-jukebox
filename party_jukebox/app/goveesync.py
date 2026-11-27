@@ -26,7 +26,9 @@ Einstellungen (Add-on-Konfiguration):
   govee_break     Effekt, solange der Bass aussetzt: ampel, balken oder spektrum.
                   Der Balken folgt dann dem, was noch läuft (Mitten: Gesang, Melodie). Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
   govee_strobe_seconds  Dauer des Strobes in Sekunden (Standard 8).
-  govee_strobe    Beim Drop (Bass fällt weg, es baut sich auf, Bass kommt zurück) weißes Strobe (Standard: an).
+  govee_strobe    Strobe im Aufbau: Kennt Music Assistant die Wellenform des Titels, blitzt die Lampe, während die Balken
+                  ansteigen, und hört genau auf dem Einsatz auf (siehe wavecue.py). Ohne Wellenform wie bisher:
+                  Beim Drop (Bass fällt weg, es baut sich auf, Bass kommt zurück) weißes Strobe (Standard: an).
                   Erkennung und Dauer wie beim DMX-Licht (dmx_drop_build, dmx_drop_sensitivity, dmx_drop_cooldown, dmx_drop_seconds).
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
   govee_entity    Dieselbe(n) Lampe(n) in Home Assistant (z. B. light.stehleuchte). Dann merkt sich das Add-on vor dem
@@ -48,6 +50,7 @@ import struct
 import time
 from collections import deque
 
+from wavecue import WaveCues
 from dmxlight import DmxLight, T_BEAT, T_LOUD, T_PEAK, T_SPEC, us
 
 log = logging.getLogger("jukebox")
@@ -122,6 +125,7 @@ class GoveeSync(DmxLight):
         self.busy = 0.5                     # wie viel gerade los ist (0 = fast still, 1 = volle Stelle), geglättet
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
+        self.cues, self.cue_on = None, False   # Aufbauten aus der Wellenform des Titels (wavecue.py)
         try:
             self.drop_s = max(1.0, min(30.0, float(opt.get("govee_strobe_seconds") or 8)))   # Dauer des Strobes
         except (TypeError, ValueError):
@@ -216,6 +220,8 @@ class GoveeSync(DmxLight):
         except Exception as e:
             log.info(self.tag + ": Adresse aus govee_host nicht erreichbar: %s", e)
             return False
+        if self.targets and self.strobe:
+            self.cues = WaveCues.get(self.session, self.ma_cmds, self.player)   # je Lautsprecher einmal, alle Lampen teilen sie sich
         return bool(self.targets)
 
     async def test_pattern(self):
@@ -411,6 +417,8 @@ class GoveeSync(DmxLight):
                         self.acc = [a + b for a, b in zip(self.acc, self.spec)]
                         self.acc_n += 1
                     elif kind == "drop":
+                        if self.cues and self.cues.have:             # Wellenform kennt die Aufbauten schon – Mithören zählt dann nicht
+                            continue
                         self.drop_at = now
                         log.info(self.tag + ": Drop ausgelöst → Strobe")
                         self.fire_drop(val, manual=False)          # Ereignis „party_jukebox_drop“ an Home Assistant, wie beim DMX-Licht
@@ -434,7 +442,14 @@ class GoveeSync(DmxLight):
                 # regelmäßig neu anfordern.
                 self.on_at = now
                 self.push(wrap(ON))
-            if now - self.drop_at < self.drop_s:                     # Drop: ein paar Sekunden weißes Strobe, dann weiter wie vorher
+            # Strobe: während eines Aufbaus laut Wellenform (endet genau auf dem Einsatz) – oder, ohne Wellenform, ein paar
+            # Sekunden nach einem mitgehörten Drop – oder von Hand (Drop-Test)
+            cue = bool(self.strobe and self.cues and self.cues.strobe(-self.delay_us / 1e6))
+            if cue != self.cue_on:
+                self.cue_on = cue
+                if cue:
+                    log.info(self.tag + ": Aufbau laut Wellenform → Strobe bis zum Einsatz")
+            if cue or now - self.drop_at < self.drop_s:
                 self.show(self.strobe_frame(now))
             else:
                 voc = bool(self.break_effect) and self.vocals_only(dt, now)

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.16.0
+- **Govee-Licht: Strobe aus der Wellenform.** Music Assistant kennt die Wellenform jedes Titels (die Balken über der Zeitleiste). Das Add-on liest sie beim Titelstart, sucht die Aufbauten (Balken steigen über mehrere Sekunden gleichmäßig an) und blitzt **während des Aufbaus** – Schluss ist genau auf dem Einsatz. Ein bloßer Sprung (leise Strophe → voller Refrain) löst nichts aus. Alle Govee-Lampen blitzen gemeinsam. Gibt es für einen Titel keine Wellenform, gilt weiter das Mithören. Das Protokoll zeigt je Titel die gefundenen Stellen und die Wellenform als Ziffernzeile.
+
 ## 0.15.4
 - Diagnose: `viz_probe: wave` schreibt ins Protokoll, was Music Assistant als Wellenform des laufenden Titels liefert (Vorbereitung: Strobe-Stellen im Voraus aus der Wellenform lesen).
 
