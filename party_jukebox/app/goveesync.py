@@ -21,8 +21,8 @@ Einstellungen (Add-on-Konfiguration):
                   ampel    = Balken mit festem Verlauf grün → rot
                   spektrum = jedes Segment ein Frequenzband (unten Bass, oben Höhen)
                   puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
-  govee_break     Effekt, solange die Melodie fehlt (nur Bass/Schlagzeug, z. B. im Break): ampel, balken oder spektrum.
-                  Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
+  govee_break     Effekt, solange nur Gesang läuft (Bass und Schlagzeug fehlen): ampel, balken oder spektrum.
+                  Der Balken folgt dann der Stimme. Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
   govee_strobe    Beim Drop (Bass fällt weg und kommt zurück) ein paar Sekunden weißes Strobe (Standard: an).
                   Erkennung und Dauer wie beim DMX-Licht (dmx_drop_build, dmx_drop_sensitivity, dmx_drop_cooldown, dmx_drop_seconds).
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
@@ -83,9 +83,9 @@ class GoveeSync(DmxLight):
         self.flip = False
         brk = str(opt.get("govee_break") or "").strip().lower()
         self.break_effect = brk if brk in ("balken", "ampel", "spektrum", "puls") else ""
-        self.mel, self.mel_hi = 0.0, 0.0    # Melodie = mittlere Bänder (ca. 220–2000 Hz), geglättet, und ihr gewohnter Pegel
-        self.mel_gone, self.mel_since = False, None
-        self.mel_min, self.mel_max, self.gone_s = 1.0, 0.0, 0.0   # fürs Protokoll
+        self.low, self.low_hi, self.mel = 0.0, 0.0, 0.0   # Bass geglättet, sein gewohnter Pegel, Mitte (Stimme) geglättet
+        self.voc, self.voc_since = False, None            # läuft gerade nur Gesang?
+        self.low_min, self.low_max, self.voc_s = 1.0, 0.0, 0.0   # fürs Protokoll
         self.reverse = bool(opt.get("govee_reverse"))
         self.player = str(opt.get("govee_player") or opt.get("wled_player") or opt.get("dmx_player") or opt.get("party_player") or "").strip()
         self.delay_us = int(opt.get("govee_delay_ms") or 0) * 1000
@@ -199,34 +199,40 @@ class GoveeSync(DmxLight):
         lo, hi, self.e_min, self.e_max = self.e_min, self.e_max, 1.0, 0.0
         txt = " · %d Bilder an die Lampe · im Schnitt %.1f von %d Segmenten an · Bass %.2f–%.2f" % (n, lit, self.n, lo, hi)
         if self.break_effect:
-            txt += " · Melodie %.2f–%.2f (gewohnt %.2f) · %d s ohne Melodie" % (self.mel_min, self.mel_max, self.mel_hi, self.gone_s)
-            self.mel_min, self.mel_max, self.gone_s = 1.0, 0.0, 0.0
+            txt += " · Bass geglättet %.2f–%.2f (gewohnt %.2f) · %d s nur Gesang" % (self.low_min, self.low_max, self.low_hi, self.voc_s)
+            self.low_min, self.low_max, self.voc_s = 1.0, 0.0, 0.0
         return txt
 
-    def melody(self, dt, now):
-        """Fehlt die Melodie? Die mittleren Bänder (ca. 220–2000 Hz) liegen dann deutlich unter ihrem gewohnten Pegel.
-        Erst nach 0,6 s umschalten und erst zurück, wenn sie klar wieder da ist – sonst flackert es zwischen den Effekten."""
-        a, b = (2, 5) if self.n >= 5 else (min(1, self.n - 1), self.n)
-        raw = sum(self.spec[a:b]) / max(1, b - a)
-        self.mel += (raw - self.mel) * (1 - math.exp(-dt / 0.3))
+    def vocals_only(self, dt, now):
+        """Nur noch Gesang? Bass und Schlagzeug sind weg (die zwei untersten Bänder liegen deutlich unter ihrem gewohnten
+        Pegel), in der Mitte (ca. 220–2000 Hz, dort liegt die Stimme) ist aber noch etwas zu hören.
+        Erst nach 0,6 s umschalten und erst zurück, wenn der Bass klar wieder da ist – sonst flackert es zwischen den Effekten."""
+        bass = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
+        self.low += (bass - self.low) * (1 - math.exp(-dt / 0.3))
         k = math.exp(-dt / 20.0)                                     # gewohnter Pegel: über ca. 20 s
-        self.mel_hi = max(self.mel, self.mel_hi * k + self.mel * (1 - k))
-        self.mel_min, self.mel_max = min(self.mel_min, self.mel), max(self.mel_max, self.mel)
-        gap = max(0.12, 0.3 * self.mel_hi)
-        if not self.mel_gone:
-            if self.mel < self.mel_hi - gap:
-                self.mel_since = self.mel_since or now
-                if now - self.mel_since > 0.6:
-                    self.mel_gone = True
-                    log.info(self.tag + ": Melodie weg (%.2f, gewohnt %.2f) → %s", self.mel, self.mel_hi, self.break_effect)
+        self.low_hi = max(self.low, self.low_hi * k + self.low * (1 - k))
+        self.mel += (self.mids() - self.mel) * (1 - math.exp(-dt / 0.3))
+        self.low_min, self.low_max = min(self.low_min, self.low), max(self.low_max, self.low)
+        gap = max(0.12, 0.3 * self.low_hi)
+        if not self.voc:
+            if self.low < self.low_hi - gap and self.mel > 0.05:
+                self.voc_since = self.voc_since or now
+                if now - self.voc_since > 0.6:
+                    self.voc = True
+                    log.info(self.tag + ": nur noch Gesang (Bass %.2f, gewohnt %.2f) → %s", self.low, self.low_hi, self.break_effect)
             else:
-                self.mel_since = None
-        elif self.mel > self.mel_hi - gap * 0.5:
-            self.mel_gone, self.mel_since = False, None
-            log.info(self.tag + ": Melodie wieder da → %s", self.effect)
-        if self.mel_gone:
-            self.gone_s += dt
-        return self.mel_gone
+                self.voc_since = None
+        elif self.low > self.low_hi - gap * 0.5 or self.mel < 0.03:
+            self.voc, self.voc_since = False, None
+            log.info(self.tag + ": Bass wieder da → %s", self.effect)
+        if self.voc:
+            self.voc_s += dt
+        return self.voc
+
+    def mids(self):
+        """Mittlere Bänder (bei 7 Segmenten: Band 3–5, ca. 220–2000 Hz) – dort liegt die Stimme."""
+        a, b = (2, 5) if self.n >= 5 else (min(1, self.n - 1), self.n)
+        return sum(self.spec[a:b]) / max(1, b - a)
 
     def test_drop(self):
         """Von der Jukebox (Licht-Knopf lange drücken): Strobe von Hand auslösen."""
@@ -311,15 +317,17 @@ class GoveeSync(DmxLight):
             if now - self.drop_at < self.drop_s:                     # Drop: ein paar Sekunden weißes Strobe, dann weiter wie vorher
                 self.show(self.strobe_frame(now))
             else:
-                eff = self.break_effect if self.break_effect and self.melody(dt, now) else self.effect
-                self.show(self.spectrum(dt) if eff == "spektrum" else self.pulse(dt) if eff == "puls" else self.bar(dt, eff))
+                voc = bool(self.break_effect) and self.vocals_only(dt, now)
+                eff = self.break_effect if voc else self.effect
+                # nur Gesang: der Balken folgt dann der Stimme (Mitte) statt dem Bass, der ja gerade fehlt
+                self.show(self.spectrum(dt) if eff == "spektrum" else self.pulse(dt) if eff == "puls" else self.bar(dt, eff, voc))
 
-    def bar(self, dt, eff=None):
+    def bar(self, dt, eff=None, voice=False):
         """Pegel aus dem Bass (die zwei untersten Bänder) – jeder Bassschlag lässt den Balken hochspringen.
         Lernkarte: Erst hing der Balken an der Gesamt-Lautstärke mit sehr trägem Abgleich (Minuten). Nach einem leisen
         Intro stand er dann dauernd auf Anschlag – alle Segmente an, eine Farbe. Darum jetzt: Bass statt Lautstärke
         und ein Abgleich über wenige Sekunden (was gerade leise/laut ist, zählt – nicht was vor zwei Minuten war)."""
-        e = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
+        e = self.mids() if voice else max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
         if e <= 0.0:
             e = self.loud                                            # kein Spektrum da → Lautstärke nehmen
         self.e_min, self.e_max = min(self.e_min, e), max(self.e_max, e)
