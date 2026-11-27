@@ -1,5 +1,11 @@
 # Änderungen
 
+## Unveröffentlicht
+- **Drop-Ereignis genauer**: `party_jukebox_drop` kommt jetzt im selben Moment wie Strobe und Drop-Geräte (vorher schon beim Eintreffen der Daten, also vor dem Ton) und auch beim Drop-Test von Hand. Neue Daten: `confidence` (0–1), `build_seconds`, `bass_before`, `bass_after`, `player`, `manual`. Die bisherigen Felder (`build_s`, `bass`, `level`, `loud`) bleiben.
+- **Farbe/Energie an Home Assistant gebremst und vollständiger**: Farbe (Sensor + Ereignis `party_jukebox_color`, neu mit `beat_count`) höchstens 1× pro Sekunde; `sensor.party_jukebox_energie` über ca. 1 s geglättet, höchstens 2× pro Sekunde statt alle 5 s; Sensoren werden nur bei Änderung gesendet.
+- **Neu: `binary_sensor.party_jukebox_licht_aktiv`** – an, solange das Add-on DMX sendet.
+- Anleitung: Abschnitt „DMX-Licht: Ereignisse und Sensoren in Home Assistant“ mit Beispiel.
+
 ## 0.8.0
 - **TV-Helligkeit** für dunkle Räume: Jukebox ⚙ → TV-Helligkeit **Normal · Gedimmt · Nacht**. Gedimmt nimmt Schrift, Cover und QR-Platte zurück und schaltet Glow und unscharfes Cover aus; Nacht dämpft zusätzlich Akzentfarben, Getränke-Ranking und Vollbild-Effekte (kein Farbblitz). Wird gespeichert und gilt für alle TV-Anzeigen (Browser, Samsung-App, Android-Kiosk) – ohne App-Update. Zum Testen `tv.html?dim=dim|night|off`.
 

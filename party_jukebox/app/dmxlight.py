@@ -92,6 +92,7 @@ class DropDetector:
         self.high_time = 0.0      # so lange lief schon voller Bass (nach einer Pause von vorn)
         self.low_since = None     # seit wann der Bass weg ist
         self.low_loud = [0.0, 0]  # Lautstärke während des Aufbaus (Summe, Anzahl) – Stille ist kein Aufbau
+        self.low_bass = 0.0       # Bass während des Aufbaus (Summe; Anzahl wie low_loud)
         self.quiet = 0.0
         self.block_until = 0
         self.last_drop = -10 ** 18
@@ -111,8 +112,9 @@ class DropDetector:
             return None
         if self.fast < self.hi - self.delta:                       # Bass ist weg
             if self.low_since is None:
-                self.low_since, self.low_loud = ts, [0.0, 0]
+                self.low_since, self.low_loud, self.low_bass = ts, [0.0, 0], 0.0
             self.low_loud[0] += loud
+            self.low_bass += self.fast
             self.low_loud[1] += 1
         elif self.fast >= self.hi - self.delta * 0.3:              # Bass ist (wieder) voll da
             out = None
@@ -122,11 +124,20 @@ class DropDetector:
                 if (build >= self.build_s and self.high_time >= 5 and avg >= 0.2 and ts > self.block_until
                         and (ts - self.last_drop) / 1e6 >= self.cooldown_s):
                     self.last_drop = ts
-                    out = {"build_s": round(build, 1), "bass": round(self.fast, 2), "level": round(self.hi, 2), "loud": round(avg, 2)}
+                    before = self.low_bass / max(1, self.low_loud[1])
+                    out = {"build_s": round(build, 1), "bass": round(self.fast, 2), "level": round(self.hi, 2), "loud": round(avg, 2),
+                           "bass_before": round(before, 2), "confidence": self.confidence(build, before)}
                 self.low_since = None
             self.high_time += dt
             return out
         return None
+
+    def confidence(self, build, before):
+        """Wie sicher der Drop ist (0–1): längerer Aufbau und größerer Bass-Sprung = sicherer.
+        Aufbau: Mindestdauer zählt 0,5, doppelte Mindestdauer 1,0. Sprung: so tief wie die Schwelle 0,5, doppelt so tief 1,0."""
+        c_build = min(1.0, build / (2 * self.build_s))
+        c_jump = max(0.0, min(1.0, (self.fast - before) / (2 * self.delta)))
+        return round(0.4 * c_build + 0.6 * c_jump, 2)
 
 
 KINDS = ("beat", "smooth", "color", "drop", "music")
@@ -176,6 +187,10 @@ class DmxLight:
         self.on_state = None              # vom Add-on gesetzt: meldet Farbe, Tempo und Energie an Home Assistant
         self.beat_times = deque(maxlen=12)
         self.said_hue, self.said_at, self.said_idle = None, 0.0, True
+        self.color_at = -1e9              # letzte Farbmeldung an HA (höchstens 1× pro Sekunde)
+        self.energy_s = 0.0               # Energie für HA, über ca. 1 s geglättet
+        self.said_energy, self.energy_at = None, -1e9   # letzte Energiemeldung (höchstens 2× pro Sekunde)
+        self.sending = None               # sendet gerade DMX? (→ binary_sensor.party_jukebox_licht_aktiv)
         self.drop_at = -1e9               # wann der letzte Drop fällig war (Uhr des Add-ons)
         self.loud_in = 0.0                # zuletzt EINGETROFFENE Lautstärke (für die Erkennung, vor dem Ton)
         self.bass = 0.0
@@ -260,6 +275,7 @@ class DmxLight:
             if not self.enabled():           # ausgeschaltet: KEIN Paket mehr – die Lampe gehört dann z. B. Home Assistant
                 dark = 99
                 self.env = 0.0
+                self.set_sending(False)
                 continue
             now = time.monotonic()
             active = self.playing and now - self.last_frame < 3
@@ -269,13 +285,18 @@ class DmxLight:
                 if now - self.drop_at < self.drop_max():             # Drop-Test ohne Musik: Strobe/Nebel trotzdem zeigen
                     self.frame({}, None, now - self.drop_at, False)
                     dark = 0
+                    self.set_sending(True)
                     continue
                 if dark < 8:
                     self.send(0.0)
                 dark += 1
                 self.env = 0.0
+                self.energy_s = 0.0
+                if dark >= 8:
+                    self.set_sending(False)
                 if not self.said_idle:                               # einmal melden: Musik aus → Energie 0
                     self.said_idle = True
+                    self.said_energy, self.energy_at = 0, now
                     self.report({"energy": 0, "bpm": None, "playing": False})
                 continue
             dark = 0
@@ -296,6 +317,7 @@ class DmxLight:
                     elif kind == "drop":
                         self.drop_at = now
                         log.info(self.tag + ": Drop ausgelöst → %s", self.drop_targets())
+                        self.fire_drop(val, manual=False)
                     elif kind == T_PEAK and now - self.last_beat > 5:   # kein Takt-Raster da → Bassschläge nehmen
                         if val > 0.35:
                             self.env = max(self.env, val)
@@ -311,14 +333,24 @@ class DmxLight:
             levels = {"beat": max(self.env, 0.10 + 0.25 * self.smooth), "smooth": 0.12 + 0.88 * self.smooth, "color": 1.0}
             rgb = colorsys.hsv_to_rgb(self.hue, 1.0, 1.0)
             self.frame(levels, rgb, now - self.drop_at, True)
-            # Home Assistant auf dem Laufenden halten: neue Farbe sofort, Tempo/Energie alle 5 s
-            if self.on_state and (self.hue != self.said_hue or now - self.said_at > 5):
-                d = {"energy": int(round(self.smooth * 100)), "bpm": self.bpm(), "playing": True}
-                if self.hue != self.said_hue:
+            self.set_sending(True)
+            # Home Assistant auf dem Laufenden halten – mit Bremse, damit HA nicht überflutet wird:
+            # Farbe höchstens 1× pro Sekunde, Energie (ca. 1 s geglättet) höchstens 2× pro Sekunde und nur bei Änderung
+            self.energy_s += (self.smooth - self.energy_s) * (1 - math.exp(-dt / 1.0))
+            if self.on_state:
+                d = {}
+                if self.hue != self.said_hue and now - self.color_at >= 1.0:
                     d["rgb"] = [int(round(x * 255)) for x in rgb]
                     d["hue"] = int(round(self.hue * 360))
-                self.said_hue, self.said_at, self.said_idle = self.hue, now, False
-                self.report(d)
+                    d["beat_count"] = self.beats
+                    self.said_hue, self.color_at = self.hue, now
+                e = int(round(self.energy_s * 100))
+                if now - self.energy_at >= 0.5 and (self.said_energy is None or abs(e - self.said_energy) >= 2 or now - self.energy_at > 5):
+                    d.update({"energy": e, "bpm": self.bpm(), "playing": True})
+                    self.said_energy, self.energy_at = e, now
+                if d:
+                    self.said_at, self.said_idle = now, False
+                    self.report(d)
 
     def drop_max(self):
         """Längste Drop-Dauer aller Geräte (so lange läuft ein Drop höchstens)."""
@@ -342,13 +374,35 @@ class DmxLight:
         self.drop_at = time.monotonic()
         t = self.drop_targets()
         log.info(self.tag + ": Drop-Test → %s", t)
+        self.fire_drop({"bass": round(self.bass, 2), "bass_before": round(self.bass, 2)}, manual=True)
         return t
+
+    def fire_drop(self, hit, manual):
+        """Drop an Home Assistant melden (Ereignis „party_jukebox_drop“) – im selben Moment wie Strobe und Drop-Geräte."""
+        hit = hit or {}
+        d = {"confidence": 1.0 if manual else hit.get("confidence", 0.5),
+             "build_seconds": 0.0 if manual else hit.get("build_s", 0.0),
+             "bass_before": hit.get("bass_before"), "bass_after": hit.get("bass"),
+             "player": self.player, "manual": manual}
+        d.update({k: hit[k] for k in ("build_s", "bass", "level", "loud") if k in hit})   # Felder aus 0.6–0.8 bleiben erhalten
+        log.info(self.tag + ": Drop ausgelöst → HA-Event party_jukebox_drop (confidence %s%s)", d["confidence"], ", von Hand" if manual else "")
+        if self.on_drop:
+            try:
+                self.on_drop(d)
+            except Exception:
+                pass
 
     def bpm(self):
         """Tempo aus den Abständen der letzten Schläge (Median), None wenn kein Takt bekannt ist."""
         t = list(self.beat_times)
         gaps = sorted(b - a for a, b in zip(t, t[1:]) if 0.25 < b - a < 1.5)
         return int(round(60.0 / gaps[len(gaps) // 2])) if len(gaps) >= 4 else None
+
+    def set_sending(self, on):
+        """Meldet Wechsel „sendet DMX“ ↔ „still“ (binary_sensor.party_jukebox_licht_aktiv)."""
+        if on != self.sending:
+            self.sending = on
+            self.report({"active": on})
 
     def report(self, d):
         if self.on_state:
@@ -433,13 +487,10 @@ class DmxLight:
         self.bass = val
         hit = self.detector.feed(ts, val, self.loud_in)
         if hit:
-            self.events.append((ts, "drop", hit))                   # wird im Bild genau zum Ton ausgelöst
-            log.info(self.tag + ": Drop erkannt · Aufbau %(build_s)s s · Bass zurück auf %(bass)s (gewohnt %(level)s) · Lautstärke im Aufbau %(loud)s", hit)
-            if self.on_drop:
-                try:
-                    self.on_drop(hit)
-                except Exception:
-                    pass
+            # wird im Bild genau zum Ton ausgelöst – erst dann geht auch das Ereignis an Home Assistant (zeitgleich mit dem Strobe)
+            self.events.append((ts, "drop", hit))
+            log.info(self.tag + ": Drop erkannt · Aufbau %(build_s)s s · Bass %(bass_before)s → %(bass)s (gewohnt %(level)s) · "
+                     "Lautstärke im Aufbau %(loud)s · Sicherheit %(confidence)s", hit)
         return True
 
     async def link(self):

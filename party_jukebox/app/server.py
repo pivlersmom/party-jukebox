@@ -2279,21 +2279,43 @@ async def ha_set_state(session, entity, state, attrs):
         pass
 
 
+HA_SENT = {}   # zuletzt an HA gemeldete Werte je Entität: (Wert, Zeit) – Gleiches nicht dauernd neu schicken
+
+
+async def ha_put(session, entity, state, attrs, every=300):
+    """Zustand nur senden, wenn er sich geändert hat (oder alle `every` Sekunden, damit er einen HA-Neustart übersteht)."""
+    now = time.monotonic()
+    last = HA_SENT.get(entity)
+    if last and last[0] == (state, attrs.get("rgb_color")) and now - last[1] < every:
+        return
+    HA_SENT[entity] = ((state, attrs.get("rgb_color")), now)
+    await ha_set_state(session, entity, state, attrs)
+
+
 async def light_report(session, d):
-    """Farbe, Tempo und Energie des DMX-Lichts nach Home Assistant: Sensoren + Ereignis „party_jukebox_color“.
-    Damit können andere Lampen (Hue, Govee, Loxone …) per Automation mitziehen."""
+    """Farbe, Tempo, Energie und „sendet gerade“ des DMX-Lichts nach Home Assistant: Sensoren + Ereignis „party_jukebox_color“.
+    Damit können andere Lampen (Hue, Govee, Loxone …) per Automation mitziehen. Die Bremse (Farbe ≤ 1/s, Energie ≤ 2/s) sitzt in dmxlight.py."""
+    jobs = []
     if "rgb" in d:
         r, g, b = d["rgb"]
         hexv = "#%02x%02x%02x" % (r, g, b)
-        attrs = {"rgb_color": [r, g, b], "hs_color": [d.get("hue", 0), 100], "friendly_name": "Party-Jukebox Farbe", "icon": "mdi:palette"}
-        await asyncio.gather(
-            ha_set_state(session, "sensor.party_jukebox_farbe", hexv, attrs),
-            ha_event(session, "party_jukebox_color", {"rgb_color": [r, g, b], "hs_color": [d.get("hue", 0), 100], "hex": hexv}))
-    await asyncio.gather(
-        ha_set_state(session, "sensor.party_jukebox_energie", d.get("energy", 0),
-                     {"unit_of_measurement": "%", "friendly_name": "Party-Jukebox Energie", "icon": "mdi:waveform", "state_class": "measurement"}),
-        ha_set_state(session, "sensor.party_jukebox_bpm", d["bpm"] if d.get("bpm") else "unknown",
-                     {"unit_of_measurement": "BPM", "friendly_name": "Party-Jukebox Tempo", "icon": "mdi:metronome", "state_class": "measurement"}))
+        hs = [d.get("hue", 0), 100]
+        attrs = {"rgb_color": [r, g, b], "hs_color": hs, "beat_count": d.get("beat_count", 0),
+                 "friendly_name": "Party-Jukebox Farbe", "icon": "mdi:palette"}
+        jobs += [ha_put(session, "sensor.party_jukebox_farbe", hexv, attrs),
+                 ha_event(session, "party_jukebox_color", {"rgb_color": [r, g, b], "hs_color": hs, "hex": hexv,
+                                                           "beat_count": d.get("beat_count", 0)})]
+    if "energy" in d:
+        jobs.append(ha_put(session, "sensor.party_jukebox_energie", d["energy"],
+                           {"unit_of_measurement": "%", "friendly_name": "Party-Jukebox Energie", "icon": "mdi:waveform", "state_class": "measurement"}))
+    if "bpm" in d:
+        jobs.append(ha_put(session, "sensor.party_jukebox_bpm", d["bpm"] if d["bpm"] else "unknown",
+                           {"unit_of_measurement": "BPM", "friendly_name": "Party-Jukebox Tempo", "icon": "mdi:metronome", "state_class": "measurement"}))
+    if "active" in d:
+        jobs.append(ha_put(session, "binary_sensor.party_jukebox_licht_aktiv", "on" if d["active"] else "off",
+                           {"friendly_name": "Party-Jukebox Licht aktiv", "icon": "mdi:spotlight-beam", "device_class": "running"}))
+    if jobs:
+        await asyncio.gather(*jobs)
 
 
 async def light_loop(app):

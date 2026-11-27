@@ -105,3 +105,38 @@ Spielt eine Soundbar (z. B. Sonos Beam) den Ton vom Fernseher, kann die Jukebox 
   `adb shell cmd notification allow_listener de.partyjukebox.tv/de.partyjukebox.tv.MediaListener`
   Play/Pause geht an den ersten Player unter „TV-Ton – weitere Player“.
 - Umschalten Musik ↔ TV: in der Lautsprecher-Liste der Knopf ♪/📺 bei der Box mit TV-Eingang.
+
+## DMX-Licht: Ereignisse und Sensoren in Home Assistant
+
+Läuft DMX-Licht (`dmx_host`), meldet das Add-on seine Musik-Analyse an Home Assistant. So ziehen Lampen ohne DMX/WLED (Hue, Zigbee, Govee, Loxone …) per Automation mit. Nichts einzurichten – es braucht nur den Supervisor-Zugang, den das Add-on ohnehin hat.
+
+**Ereignisse** (Auslöser „Ereignis“ in einer Automation):
+
+| Ereignis | Wann | Daten |
+|---|---|---|
+| `party_jukebox_drop` | bei jedem Drop – im selben Moment wie Strobe und Drop-Geräte, auch beim Drop-Test (Licht-Knopf lange drücken) | `confidence` (0–1, länger Aufbau und größerer Bass-Sprung = sicherer), `build_seconds`, `bass_before`, `bass_after`, `player`, `manual` (true = von Hand) |
+| `party_jukebox_color` | bei einem Farbwechsel, höchstens 1× pro Sekunde | `rgb_color`, `hs_color`, `hex`, `beat_count` |
+
+**Sensoren** (werden nur bei Änderung gesendet; nach einem Neustart von Home Assistant erst wieder beim nächsten Wert):
+
+- `sensor.party_jukebox_farbe` – aktuelle Farbe als Hex, Attribute `rgb_color`, `hs_color`, `beat_count`
+- `sensor.party_jukebox_energie` – 0–100 %, über ca. 1 s geglättet, höchstens 2× pro Sekunde
+- `sensor.party_jukebox_bpm` – Tempo; `unknown`, solange Music Assistant kein Takt-Raster liefert
+- `binary_sensor.party_jukebox_licht_aktiv` – an, solange das Add-on DMX sendet (Musik läuft oder Drop läuft)
+
+Tipp: Energie und Farbe ändern sich laufend. Damit die Datenbank nicht wächst, beide im `recorder` ausschließen.
+
+Beispiel – Lampe übernimmt die Spot-Farbe:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: party_jukebox_color
+actions:
+  - action: light.turn_on
+    target:
+      entity_id: light.bar_stripe
+    data:
+      rgb_color: "{{ trigger.event.data.rgb_color }}"
+      transition: 0.3
+```
