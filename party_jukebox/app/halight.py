@@ -15,6 +15,9 @@ wieder her, wenn die Musik aufhört oder der Licht-Schalter ausgeht.
 Einstellungen (Add-on-Konfiguration):
   ha_lights         Lampen aus Home Assistant, mit Komma getrennt, z. B. "light.stehleuchte, light.sofa"
                     Eigener Takt je Lampe: "light.lampions=1000" (für Cloud-Lampen, z. B. Govee ohne LAN-Steuerung)
+                    Pegel-Balken für Lampen mit Segmenten (z. B. Govee-Stehleuchte): "light.stehleuchte=balken"
+                    (Farbe im Takt) oder "=ampel" (unten grün, oben rot). Je lauter, desto mehr Segmente leuchten.
+                    Die Segmente müssen in HA als light.<name>_segment_001 … vorhanden sein.
   ha_lights_player  Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player)
   ha_lights_ms      Abstand zwischen zwei Befehlen je Lampe (Standard 500)
 """
@@ -42,15 +45,21 @@ def parse_lamps(text, default_ms):
         part = part.strip()
         if not part:
             continue
-        ent, _, ms = part.partition("=")
-        ent = ent.strip().lower()
+        bits = [b.strip().lower() for b in part.split("=")]
+        ent = bits[0]
         if not ent.startswith("light."):
             continue
-        try:
-            gap = max(200, int(ms)) if ms.strip() else default_ms
-        except ValueError:
-            gap = default_ms
-        out.append({"id": ent, "ms": gap})
+        kind, gap = "lamp", None
+        for b in bits[1:]:
+            if b in ("balken", "bar"):
+                kind = "bar"
+            elif b in ("ampel", "vu"):
+                kind = "ampel"
+            elif b.isdigit():
+                gap = max(200, int(b))
+        if gap is None:
+            gap = min(default_ms, 300) if kind != "lamp" else default_ms   # Balken wirkt nur mit kurzen Schritten
+        out.append({"id": ent, "ms": gap, "kind": kind, "segs": []})
     return out
 
 
@@ -69,6 +78,7 @@ class HaLights(DmxLight):
             l.update({"at": -1e9, "busy": False, "said": None, "shift": i / max(1, len(self.lamps)) * 0.5})
         self.player = str(opt.get("ha_lights_player") or opt.get("wled_player") or opt.get("dmx_player") or opt.get("party_player") or "").strip()
         self.token = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN") or ""
+        self.level = 0.0                 # Pegel für den Balken: springt sofort hoch, fällt in ca. 0,4 s ab
         self.taken = False               # haben wir die Lampen gerade übernommen? (dann beim Ende zurückgeben)
         self.sent = 0
 
@@ -100,13 +110,19 @@ class HaLights(DmxLight):
     async def take(self):
         """Zustand der Lampen merken, bevor wir sie verändern."""
         self.taken = True
-        await self.call("scene", "create", {"scene_id": SCENE, "snapshot_entities": [l["id"] for l in self.lamps]})
+        ents = [l["id"] for l in self.lamps] + [e for l in self.lamps for e in l["segs"]]
+        await self.call("scene", "create", {"scene_id": SCENE, "snapshot_entities": ents})
+        for l in self.lamps:
+            l["seg_said"] = [None] * len(l["segs"])
+            if l["segs"]:                                            # Balken: Lampe an, die Segmente übernehmen dann
+                await self.call("light", "turn_on", {"entity_id": l["id"], "brightness_pct": 100})
         log.info(self.tag + ": übernehme %s (Zustand vorher gemerkt)", ", ".join(l["id"] for l in self.lamps))
 
     async def give_back(self, why):
         self.taken = False
         for l in self.lamps:
             l["said"] = None
+            l["seg_said"] = [None] * len(l["segs"])
         await asyncio.sleep(0.6)                                    # laufende Befehle erst ankommen lassen
         await self.call("scene", "turn_on", {"entity_id": "scene." + SCENE, "transition": 1})
         log.info(self.tag + ": %s – Lampen wieder wie vorher", why)
@@ -119,8 +135,62 @@ class HaLights(DmxLight):
         if not self.token:
             log.info(self.tag + ": kein Zugriff auf Home Assistant (Supervisor-Token fehlt)")
             return False
-        log.info(self.tag + ": %s", ", ".join("%s (alle %d ms)" % (l["id"], l["ms"]) for l in self.lamps))
+        await self.find_segments()
+        log.info(self.tag + ": %s", ", ".join("%s (%salle %d ms)" % (l["id"], "Balken mit %d Segmenten, " % len(l["segs"]) if l["segs"] else "", l["ms"])
+                                              for l in self.lamps))
         return True
+
+    async def find_segments(self):
+        """Für Balken-Lampen die Segmente in Home Assistant suchen: light.<name>_segment_001, _002 …"""
+        want = [l for l in self.lamps if l["kind"] != "lamp"]
+        if not want:
+            return
+        try:
+            async with self.session.get(f"{HA_HTTP}/states", headers={"Authorization": f"Bearer {self.token}"}, timeout=15) as r:
+                ids = [x.get("entity_id", "") for x in await r.json()] if r.status < 400 else []
+        except Exception as e:
+            log.info(self.tag + ": Segmente nicht abfragbar: %s", e)
+            ids = []
+        for l in want:
+            pre = l["id"] + "_segment_"
+            l["segs"] = sorted((i for i in ids if i.startswith(pre) and i[len(pre):].isdigit()), key=lambda i: int(i[len(pre):]))
+            if not l["segs"]:
+                log.info(self.tag + ": %s hat in Home Assistant keine Segmente (%s001 …) – läuft als normale Lampe", l["id"], pre)
+                l["kind"] = "lamp"
+
+    async def bar(self, l, groups, off):
+        """Balken-Schritt: Segmente mit gleicher Farbe in einem Befehl einschalten, den Rest in einem ausschalten."""
+        l["busy"] = True
+        try:
+            for rgb, ents in groups.items():
+                await self.call("light", "turn_on", {"entity_id": ents, "rgb_color": list(rgb), "brightness_pct": 100})
+                self.sent += 1
+            if off:
+                await self.call("light", "turn_off", {"entity_id": off})
+                self.sent += 1
+        finally:
+            l["busy"] = False
+
+    def bar_step(self, l):
+        """Was muss sich an den Segmenten ändern? → ({Farbe: [Segmente]}, [Segmente aus])"""
+        n = len(l["segs"])
+        lit = max(1, min(n, int(math.ceil(self.level * n - 0.001))))
+        groups, off = {}, []
+        for i, ent in enumerate(l["segs"]):
+            if i < lit:
+                # Ampel: fester Verlauf grün (unten) → rot (oben); sonst die Takt-Farbe
+                hue = (0.33 * (1 - i / max(1, n - 1))) if l["kind"] == "ampel" else (self.hue + l["shift"]) % 1.0
+                want = round(hue, 3)
+            else:
+                want = "off"
+            if l["seg_said"][i] == want:
+                continue
+            l["seg_said"][i] = want
+            if want == "off":
+                off.append(ent)
+            else:
+                groups.setdefault(tuple(int(round(x * 255)) for x in colorsys.hsv_to_rgb(hue, 1.0, 1.0)), []).append(ent)
+        return groups, off
 
     async def test_pattern(self):
         return                                                       # kein Testmuster: Wohnraumlampen sollen nicht ungefragt aufleuchten
@@ -175,10 +245,17 @@ class HaLights(DmxLight):
             lv = max(0.0, min(1.0, (self.loud - self.lo) / max(0.05, self.hi - self.lo)))
             self.smooth += (lv - self.smooth) * (1 - math.exp(-dt / 0.7))
             pct = int(round(MIN_PCT + (100 - MIN_PCT) * self.smooth))
+            self.level = max(lv, self.level * math.exp(-dt / 0.4))
             if not self.taken:
                 await self.take()
             for l in self.lamps:
                 if l["busy"] or (now - l["at"]) * 1000 < l["ms"]:
+                    continue
+                if l["segs"]:                                        # Pegel-Balken
+                    groups, off = self.bar_step(l)
+                    if groups or off:
+                        l["at"] = now
+                        asyncio.create_task(self.bar(l, groups, off))
                     continue
                 hue = (self.hue + l["shift"]) % 1.0
                 said = l["said"]

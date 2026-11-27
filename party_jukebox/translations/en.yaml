@@ -97,7 +97,7 @@ configuration:
     description: Light too early → positive number (e.g. 150); too late → negative number.
   ha_lights:
     name: Home Assistant lights – list
-    description: Optional. Colour lights from Home Assistant (Shelly RGBW, Govee, Hue …), comma separated, e.g. "light.floor_lamp, light.sofa". Colour changes with the beat, brightness follows loudness. Per-light interval with "=milliseconds", e.g. "light.lanterns=1000" for cloud lights. The previous state is saved and restored afterwards. Empty = off.
+    description: Optional. Colour lights from Home Assistant (Shelly RGBW, Govee, Hue …), comma separated, e.g. "light.floor_lamp, light.sofa". Colour changes with the beat, brightness follows loudness. Per-light interval with "=milliseconds", e.g. "light.lanterns=1000" for cloud lights. Level bar for lights with segments – "light.floor_lamp=balken" (beat colour) or "=ampel" (green → red). The previous state is saved and restored afterwards. Empty = off.
   ha_lights_player:
     name: Home Assistant lights – follows this speaker
     description: Music Assistant player (name or id) the lights follow. Empty = same as WLED/DMX or the party player.

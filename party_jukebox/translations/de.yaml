@@ -97,7 +97,7 @@ configuration:
     description: Kommt das Licht zu früh, positive Zahl eintragen (z. B. 150); kommt es zu spät, negative Zahl.
   ha_lights:
     name: Lampen aus Home Assistant – Liste
-    description: Optional. Farb-Lampen aus Home Assistant (Shelly RGBW, Govee, Hue …), mit Komma getrennt, z. B. „light.stehleuchte, light.sofa“. Farbe wechselt im Takt, Helligkeit folgt der Lautstärke. Eigener Takt je Lampe mit „=Millisekunden“, z. B. „light.lampions=1000“ für Cloud-Lampen. Der Zustand vorher wird gemerkt und danach wiederhergestellt. Leer = aus.
+    description: Optional. Farb-Lampen aus Home Assistant (Shelly RGBW, Govee, Hue …), mit Komma getrennt, z. B. „light.stehleuchte, light.sofa“. Farbe wechselt im Takt, Helligkeit folgt der Lautstärke. Eigener Takt je Lampe mit „=Millisekunden“, z. B. „light.lampions=1000“ für Cloud-Lampen. Pegel-Balken für Lampen mit Segmenten – „light.stehleuchte=balken“ (Farbe im Takt) oder „=ampel“ (grün → rot). Der Zustand vorher wird gemerkt und danach wiederhergestellt. Leer = aus.
   ha_lights_player:
     name: Lampen aus Home Assistant – folgt diesem Lautsprecher
     description: Music-Assistant-Player (Name oder ID), dem das Licht folgt. Leer = wie WLED/DMX bzw. Party-Player.

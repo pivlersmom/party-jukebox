@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.11.0
+- **Pegel-Balken für Lampen mit Segmenten** (z. B. Govee-Stehleuchte): in der Lampen-Liste `light.stehleuchte=balken` (Farbe im Takt) oder `=ampel` (unten grün, oben rot). Je lauter, desto mehr Segmente leuchten. Die Segmente werden in Home Assistant selbst gefunden (`light.<name>_segment_001` …); es werden nur die Segmente angesteuert, die sich ändern.
+
 ## 0.10.1
 - Lampen aus Home Assistant: Zugriff auf Home Assistant klappte nicht („Supervisor-Token fehlt“) – behoben.
 
