@@ -104,6 +104,24 @@ configuration:
   ha_lights_ms:
     name: Home Assistant lights – interval (ms)
     description: Minimum gap between two commands per light. Default 500. Local lights (Shelly, Govee with LAN control) handle 300–500, cloud lights rather 1000.
+  govee_host:
+    name: Govee light – address(es)
+    description: Optional. IP address(es) of Govee lights with segments, comma separated. The light then shows a level bar or spectrum – directly on the LAN, no cloud. "LAN control" must be enabled in the Govee app. Do not also list the same light under "Home Assistant lights". Empty = off.
+  govee_segments:
+    name: Govee light – number of segments
+    description: Default 7.
+  govee_effect:
+    name: Govee light – effect
+    description: balken = the louder, the more segments, colour changes with the beat. ampel = bar green → red. spektrum = each segment one frequency band (bass to treble).
+  govee_reverse:
+    name: Govee light – reverse
+    description: Enable if the bar runs upside down.
+  govee_player:
+    name: Govee light – follows this speaker
+    description: Music Assistant player (name or id) the light follows. Empty = same as WLED/DMX or the party player.
+  govee_delay_ms:
+    name: Govee light – fine tuning (ms)
+    description: Light too early → positive number (e.g. 150); too late → negative number.
   viz_probe:
     name: Light data diagnostics
     description: Troubleshooting only. Leave empty.

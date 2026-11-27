@@ -2383,6 +2383,8 @@ async def party_light(request):
         follow.add(str(OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("wled_host") or "").strip():
         follow.add(str(OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
+    if str(OPT.get("govee_host") or "").strip():
+        follow.add(str(OPT.get("govee_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("ha_lights") or "").strip():
         follow.add(str(OPT.get("ha_lights_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"],
@@ -2625,6 +2627,14 @@ async def on_startup(app):
         hal.token = SUP_TOKEN
         LIGHT["has"] = True
         app["halight"] = asyncio.create_task(hal.run())
+    if str(OPT.get("govee_host") or "").strip() and OPT.get("ma_token"):
+        # Govee-Lampen mit Segmenten als Balken/Spektrum, direkt im LAN – siehe goveesync.py
+        from goveesync import GoveeSync
+        ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+        gov = GoveeSync(app["session"], OPT, ma_cmds, ma_host)
+        gov.enabled = light_on
+        LIGHT["has"] = True
+        app["govee"] = asyncio.create_task(gov.run())
     if LIGHT["has"]:
         app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():

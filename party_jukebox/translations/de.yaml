@@ -104,6 +104,24 @@ configuration:
   ha_lights_ms:
     name: Lampen aus Home Assistant – Abstand (ms)
     description: Mindestabstand zwischen zwei Befehlen je Lampe. Standard 500. Lokale Lampen (Shelly, Govee mit LAN-Steuerung) vertragen 300–500, Cloud-Lampen eher 1000.
+  govee_host:
+    name: Govee-Licht – Adresse(n)
+    description: Optional. IP-Adresse(n) von Govee-Lampen mit Segmenten, mit Komma getrennt. Die Lampe zeigt dann einen Pegel-Balken oder ein Spektrum – direkt im Heimnetz, ohne Cloud. In der Govee-App muss „LAN-Steuerung“ eingeschaltet sein. Dieselbe Lampe nicht zusätzlich bei „Lampen aus Home Assistant“ eintragen. Leer = aus.
+  govee_segments:
+    name: Govee-Licht – Anzahl Segmente
+    description: Standard 7.
+  govee_effect:
+    name: Govee-Licht – Effekt
+    description: balken = je lauter, desto mehr Segmente, Farbe wechselt im Takt. ampel = Balken grün → rot. spektrum = jedes Segment ein Frequenzband (Bass bis Höhen).
+  govee_reverse:
+    name: Govee-Licht – umdrehen
+    description: Einschalten, wenn der Balken verkehrt herum läuft.
+  govee_player:
+    name: Govee-Licht – folgt diesem Lautsprecher
+    description: Music-Assistant-Player (Name oder ID), dem das Licht folgt. Leer = wie WLED/DMX bzw. Party-Player.
+  govee_delay_ms:
+    name: Govee-Licht – Feinabgleich (ms)
+    description: Kommt das Licht zu früh, positive Zahl eintragen (z. B. 150); kommt es zu spät, negative Zahl.
   viz_probe:
     name: Diagnose Licht-Daten
     description: Nur für die Fehlersuche. Leer lassen.
