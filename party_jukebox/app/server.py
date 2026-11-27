@@ -2383,6 +2383,8 @@ async def party_light(request):
         follow.add(str(OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("wled_host") or "").strip():
         follow.add(str(OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
+    if str(OPT.get("ha_lights") or "").strip():
+        follow.add(str(OPT.get("ha_lights_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"],
                               "follow": sorted(x for x in follow if x)})
 
@@ -2614,6 +2616,14 @@ async def on_startup(app):
         wled.enabled = light_on
         LIGHT["has"] = True
         app["wled"] = asyncio.create_task(wled.run())
+    if str(OPT.get("ha_lights") or "").strip() and OPT.get("ma_token"):
+        # Lampen aus Home Assistant (Shelly RGBW, Govee, Hue …) im Takt – siehe halight.py
+        from halight import HaLights
+        ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+        hal = HaLights(app["session"], OPT, ma_cmds, ma_host)
+        hal.enabled = light_on
+        LIGHT["has"] = True
+        app["halight"] = asyncio.create_task(hal.run())
     if LIGHT["has"]:
         app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():

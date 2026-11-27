@@ -108,6 +108,8 @@ Spielt eine Soundbar (z. B. Sonos Beam) den Ton vom Fernseher, kann die Jukebox 
 
 ## DMX-Licht: Ereignisse und Sensoren in Home Assistant
 
+**Ohne DMX/WLED:** Farb-Lampen aus Home Assistant (Shelly RGBW, Govee, Hue …) steuert das Add-on auch direkt – Option „Lampen aus Home Assistant – Liste“ (`ha_lights`), z. B. `light.stehleuchte, light.sofa`. Farbe wechselt im Takt, Helligkeit folgt der Lautstärke; der Zustand vorher wird wiederhergestellt. Kein Blitzen auf jeden Schlag (WLAN/Cloud-Lampen vertragen nur wenige Befehle pro Sekunde).
+
 Läuft DMX-Licht (`dmx_host`), meldet das Add-on seine Musik-Analyse an Home Assistant. So ziehen Lampen ohne DMX/WLED (Hue, Zigbee, Govee, Loxone …) per Automation mit. Nichts einzurichten – es braucht nur den Supervisor-Zugang, den das Add-on ohnehin hat.
 
 **Ereignisse** (Auslöser „Ereignis“ in einer Automation):

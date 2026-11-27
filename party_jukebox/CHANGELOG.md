@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.10.0
+- **Neu: Lampen aus Home Assistant im Takt** (Shelly RGBW, Govee, Hue … – jede Farb-Lampe aus HA). Option „Lampen aus Home Assistant – Liste“, z. B. `light.stehleuchte, light.sofa`. Farbe wechselt im Takt (Lampen leicht versetzt im Farbkreis), Helligkeit folgt der Lautstärke. Je Lampe höchstens alle 500 ms ein Befehl (einstellbar, je Lampe mit `=1000`). Der Zustand vorher wird gemerkt und bei Musik-Ende oder Licht-Schalter „aus“ wiederhergestellt. Gleicher Licht-Schalter wie DMX/WLED.
+
 ## 0.9.0
 - **Drop-Ereignis genauer**: `party_jukebox_drop` kommt jetzt im selben Moment wie Strobe und Drop-Geräte (vorher schon beim Eintreffen der Daten, also vor dem Ton) und auch beim Drop-Test von Hand. Neue Daten: `confidence` (0–1), `build_seconds`, `bass_before`, `bass_after`, `player`, `manual`. Die bisherigen Felder (`build_s`, `bass`, `level`, `loud`) bleiben.
 - **Farbe/Energie an Home Assistant gebremst und vollständiger**: Farbe (Sensor + Ereignis `party_jukebox_color`, neu mit `beat_count`) höchstens 1× pro Sekunde; `sensor.party_jukebox_energie` über ca. 1 s geglättet, höchstens 2× pro Sekunde statt alle 5 s; Sensoren werden nur bei Änderung gesendet.
