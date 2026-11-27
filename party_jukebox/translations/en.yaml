@@ -113,6 +113,9 @@ configuration:
   govee_effect:
     name: Govee light – effect
     description: balken = the louder, the more segments, colour changes with the beat. ampel = bar green → red. spektrum = each segment one frequency band (bass to treble). puls = like the DMX spot – the whole light flashes on every beat.
+  govee_break:
+    name: Govee light – effect without melody
+    description: While the melody is missing (bass/drums only, e.g. in a break) the light shows this effect instead of the normal one – e.g. "ampel". Empty = always the normal effect.
   govee_strobe:
     name: Govee light – strobe on drop
     description: When the bass drops out for a while and comes back (drop), the light flashes white for a few seconds. Default on. Detection and duration as for the DMX light. Test – long-press the light button in the speaker list.

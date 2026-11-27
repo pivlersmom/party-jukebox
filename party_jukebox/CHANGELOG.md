@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.14.0
+- **Govee-Licht: eigener Effekt, solange die Melodie fehlt** (Option „Effekt ohne Melodie“, z. B. `ampel`): Läuft nur noch Bass/Schlagzeug, schaltet die Lampe auf diesen Effekt und danach zurück. Das Protokoll zeigt jede Minute den Melodie-Pegel und wie lange ohne Melodie lief.
+
 ## 0.13.0
 - **Govee-Licht wie das DMX-Licht**: neuer Effekt `puls` (ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt) und **Strobe beim Drop** für alle Effekte (Option „Strobe beim Drop“, Standard an; Erkennung wie beim DMX-Licht). Drop-Test: Licht-Knopf in der Lautsprecherliste lange drücken. Der Drop geht auch als Ereignis `party_jukebox_drop` an Home Assistant.
 
