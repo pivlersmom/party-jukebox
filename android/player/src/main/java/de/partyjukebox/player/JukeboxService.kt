@@ -300,7 +300,7 @@ class JukeboxService : MediaLibraryService() {
              * (z. B. das Wohnzimmer). Darum in den ersten Sekunden mehrfach nachsehen.
              */
             if (isCar(controller)) for (ms in longArrayOf(1000, 2500, 5000, 10_000, 20_000)) main.postDelayed({ carRecount() }, ms)
-            if (isCar(controller)) { cars++; SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = carNow(cars); refreshHome() }
+            if (isCar(controller)) { cars++; MaPlayer.carLinkAt = System.currentTimeMillis(); SendspinPlayer.wake(this@JukeboxService, "Android Auto"); MaPlayer.instance?.carMode = carNow(cars); refreshHome() }
             val cmds = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(clearCmd).add(toCarCmd).add(swCmd).add(homeCmd).add(klangCmd).add(favCmd).add(backCmd).add(fwdCmd).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(cmds)
@@ -309,7 +309,7 @@ class JukeboxService : MediaLibraryService() {
         }
 
         override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
-            if (isCar(controller)) { cars = maxOf(0, cars - 1); if (cars == 0) MaPlayer.instance?.carMode = false }
+            if (isCar(controller)) { cars = maxOf(0, cars - 1); if (cars == 0) { MaPlayer.carLinkAt = 0L; MaPlayer.instance?.carMode = false } }
             main.postDelayed({ carRecount() }, 1500)
         }
 

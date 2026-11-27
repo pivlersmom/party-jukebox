@@ -106,6 +106,32 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
         ma.send("player_queues/pause", o("queue_id" to pid)) { _, _ -> refreshSoon() }
     }
 
+    /*
+     * Lernkarte: Das Auto drückt "Play", bevor die App aufs Handy umgeschaltet hat
+     * Android Auto weckt die App und drückt sofort Play. In diesen ersten Sekunden ist noch der Lautsprecher von
+     * zuhause gewählt (die Projektion ist noch nicht gemeldet oder der Handy-Lautsprecher noch nicht angemeldet) –
+     * dann ging im Wohnzimmer die Musik an, und das Auto stellte dort auch noch seine Lautstärke ein.
+     * Darum: Solange das Auto frisch verbunden ist und das Ziel noch nicht das Handy ist, warten Play und
+     * Lautstärke – sie gehen nie an den Lautsprecher zuhause.
+     */
+    private fun carPending(): Boolean {
+        if (isPhone()) return false
+        if (carMode) return !carSwitched
+        val t = carLinkAt
+        return t > 0 && System.currentTimeMillis() - t < 30_000
+    }
+
+    private fun carPlay(n: Int) {
+        if (carMode && !carSwitched) toCar()
+        if (!carPending()) {
+            if (n > 0) AppLog.add(if (isPhone()) "Play vom Auto → Handy" else "Play: nicht im Auto → gewählter Lautsprecher")
+            queueCmd("play"); return
+        }
+        if (n == 0) AppLog.add("Play vom Auto – warte, bis das Handy als Lautsprecher gewählt ist")
+        if (n >= 60) { AppLog.add("Play vom Auto verworfen – Handy-Lautsprecher wurde nicht bereit"); playing = false; invalidateState(); return }
+        h.postDelayed({ carPlay(n + 1) }, 500)
+    }
+
     private fun fromCar() {
         h.removeCallbacks(carGonePause)
         if (isPhone() && playing) h.postDelayed(carGonePause, 8000)
@@ -245,6 +271,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             Library.playEpisode(this, uri)
             return done()
         }
+        if (playWhenReady && carPending()) { playing = true; carPlay(0); return done() }
         /*
          * Lernkarte: Pause vom Auto direkt nach dem Überspringen
          * Android Auto schickt beim Songwechsel manchmal ein "Pause" hinterher. MA kann den Handy-Player nicht
@@ -305,6 +332,7 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
      */
     override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int): ListenableFuture<*> {
         if (isPhone()) { setVolume(deviceVolume); return done() }
+        if (carPending()) { AppLog.add("Lautstärke von außen ($deviceVolume) verworfen – Auto verbindet gerade, Ziel wäre noch der Lautsprecher zuhause"); return done() }
         val cur = volume
         val want = deviceVolume.coerceIn(0, 100)
         val nv = if (cur != null && want > cur + 10) cur + 10 else want
@@ -762,6 +790,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
     companion object {
         /** Vom Medien-Dienst gesetzt: "Sind wir gerade im Auto?" sofort neu prüfen (setzt carMode) */
         @Volatile var carCheck: (() -> Unit)? = null
+        /** Zeitpunkt, zu dem sich Android Auto zuletzt verbunden hat (0 = nicht verbunden) */
+        @Volatile var carLinkAt = 0L
         /** der laufende Player (für MainActivity / Jukebox-Seite) */
         @JvmField var instance: MaPlayer? = null
         /** App-Seite gerade sichtbar? (MainActivity setzt das in onResume/onPause) */
