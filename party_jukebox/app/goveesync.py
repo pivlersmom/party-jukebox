@@ -25,7 +25,8 @@ Einstellungen (Add-on-Konfiguration):
                   puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
   govee_break     Effekt, solange der Bass aussetzt: ampel, balken oder spektrum.
                   Der Balken folgt dann dem, was noch läuft (Mitten: Gesang, Melodie). Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
-  govee_strobe    Beim Drop (Bass fällt weg und kommt zurück) ein paar Sekunden weißes Strobe (Standard: an).
+  govee_strobe_seconds  Dauer des Strobes in Sekunden (Standard 8).
+  govee_strobe    Beim Drop (Bass fällt weg, es baut sich auf, Bass kommt zurück) weißes Strobe (Standard: an).
                   Erkennung und Dauer wie beim DMX-Licht (dmx_drop_build, dmx_drop_sensitivity, dmx_drop_cooldown, dmx_drop_seconds).
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
   govee_entity    Dieselbe(n) Lampe(n) in Home Assistant (z. B. light.stehleuchte). Dann merkt sich das Add-on vor dem
@@ -117,6 +118,10 @@ class GoveeSync(DmxLight):
         self.hi_prev = 0.0
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
+        try:
+            self.drop_s = max(1.0, min(30.0, float(opt.get("govee_strobe_seconds") or 8)))   # Dauer des Strobes
+        except (TypeError, ValueError):
+            self.drop_s = 8.0
         self.acc, self.acc_n, self.prev_vec = [0.0] * self.n, 0, None   # Klang seit dem letzten Schlag / beim Schlag davor
         self.one_score, self.one_pos, self.one_moves = [0.0] * 4, 0, 0  # Einsätze je Schlag-Position, vermutete Eins
         self.build = []                     # (Lautstärke, Höhen) während der Bass weg ist – daraus: baut sich etwas auf?
@@ -272,7 +277,8 @@ class GoveeSync(DmxLight):
         top, bottom = max(self.win), min(self.win)
         self.low_hi = max(top, self.low_hi * math.exp(-dt / 90.0))  # lautester Bass im Titel (verblasst über ca. 90 s)
         swing = top - bottom
-        beat = swing >= SWING_MIN and top >= 0.6 * self.low_hi
+        # zwei Schwellen (an bei +0,02, aus bei −0,02): genau an der Grenze sprang es sonst alle paar Sekunden hin und her
+        beat = swing >= SWING_MIN + (0.02 if self.voc else -0.02) and top >= 0.6 * self.low_hi
         self.low_min, self.low_max = min(self.low_min, swing), max(self.low_max, swing)
         if beat != (not self.voc):                                   # Zustand will wechseln – aber erst, wenn es anhält
             self.voc_since = self.voc_since or now
@@ -434,9 +440,11 @@ class GoveeSync(DmxLight):
 
     def wave(self, dt):
         """Bass-Welle + Funkeln – für Flächen mit vielen Segmenten (z. B. 20 Dreiecke).
-        Grund: alle Segmente glimmen in der Takt-Farbe. Jeder Schlag schickt einen hellen Impuls vom ersten zum letzten
+        Grund: alle Segmente glimmen in der Takt-Farbe und pulsieren auf jeden Schlag kurz auf. Jeder Schlag schickt einen hellen Impuls vom ersten zum letzten
         Segment (in etwa einem Schlag Länge durch), die Eins kräftiger. Dazu Funkeln: Setzen Höhen ein (Hi-Hat, Becken),
         blitzen einzelne zufällige Segmente weiß auf und klingen sofort wieder ab."""
+        self.env *= math.exp(-dt / 0.18)                             # zusätzlich pulsiert die ganze Fläche auf jeden Schlag
+        base = max(0.10, 0.55 * self.env)
         speed = self.n / 0.45                                        # Segmente pro Sekunde: in ca. 0,45 s einmal durch
         for w in self.waves:
             w[0] += speed * dt
@@ -449,7 +457,7 @@ class GoveeSync(DmxLight):
                 self.spark[random.randrange(self.n)] = 1.0
         out = []
         for i in range(self.n):
-            glow = 0.10
+            glow = base
             for pos, power in self.waves:
                 d = pos - i                                          # Impuls: vorn scharf, nach hinten ca. 3 Segmente Schweif
                 if 0 <= d < 3.5:

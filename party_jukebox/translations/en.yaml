@@ -119,6 +119,9 @@ configuration:
   govee_strobe:
     name: Govee light – strobe on drop
     description: When the bass drops out for a while and comes back (drop), the light flashes white for a few seconds. Default on. Detection and duration as for the DMX light. Test – long-press the light button in the speaker list.
+  govee_strobe_seconds:
+    name: Govee light – strobe duration (s)
+    description: How long the light flashes after a drop. Default 8.
   govee_reverse:
     name: Govee light – reverse
     description: Enable if the bar runs upside down.

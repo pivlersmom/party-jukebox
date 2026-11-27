@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.15.1
+- Govee-Licht: Strobe läuft länger (Standard 8 s statt 4 s, neue Option „Strobe-Dauer“).
+- Effekt `welle`: Die ganze Fläche pulsiert jetzt zusätzlich auf jeden Schlag.
+- Bass-Beat-Erkennung: zwei Schwellen, damit sie an der Grenze nicht alle paar Sekunden hin- und herspringt.
+
 ## 0.15.0
 - **Govee-Licht: mehrere Lampen, jede mit eigener Rolle.** Neue Option „weitere Lampen“ – je Zeile IP, Segmentzahl, Effekt, HA-Entität, Feinabgleich. Jede Lampe meldet sich als eigenes Licht-Gerät an und zeigt ihren eigenen Effekt.
 - **Neuer Effekt `welle`** (Bass-Welle + Funkeln) für Flächen mit vielen Segmenten: Jeder Schlag schickt einen Lichtimpuls durch alle Segmente (die Eins kräftiger), bei Höhen blitzen einzelne Segmente weiß auf.
