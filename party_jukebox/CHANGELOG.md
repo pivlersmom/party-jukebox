@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.15.3
+- Effekt `welle`: Das **Lauflicht hängt jetzt am Gesang** statt an den Schlägen – jeder Einsatz der Stimme schickt einen Impuls los, kräftiger Gesang läuft schnell, leiser langsam, ohne Gesang kein Lauflicht. Das Pulsieren der Fläche bleibt auf den Schlägen, das Funkeln auf den Höhen.
+
 ## 0.15.2
 - Effekt `welle`: Setzt der Ton fast ganz aus, läuft das Lauflicht langsamer (bis auf ein Fünftel), nur noch die Eins schickt einen Impuls los und die Fläche pulsiert kaum noch. Kommt die Musik zurück, startet das Lauflicht genau auf dem nächsten Schlag neu – mit vollem Tempo.
 
