@@ -531,7 +531,7 @@ object SendspinPlayer {
             if (st != null && st != "playing") return@send   // pausiert → nichts tun
             if (st == "playing" && !audio.receiving()) {
                 AppLog.i(TAG, "Nach Verbindungsabbruch: Wiedergabe neu anstoßen (Versuch ${attempt + 1})")
-                MaClient.get(app).send("player_queues/resume", JSONObject().put("queue_id", q)) { _, e -> if (e != null) AppLog.w(TAG, "Fortsetzen: $e") }
+                resumeKeep(q, r as? JSONObject)
             }
             val next = longArrayOf(7000, 8000, 10000).getOrNull(attempt) ?: return@send
             h?.postDelayed({ if (myTry == resumeTry) checkResume(attempt + 1) }, next)
@@ -588,6 +588,37 @@ object SendspinPlayer {
         }
     }
 
+    /*
+     * Lernkarte: MA verliert die Stelle
+     * Bricht MA den Stream selbst ab (z. B. Spotify liefert kurz nichts: "Error while feeding audio"), setzt es die
+     * Position des Titels auf 0. "Fortsetzen" startet dann am zuletzt gespeicherten Merkpunkt – beim Podcast oft
+     * die Stelle vom Einschalten, also viele Minuten zu früh. Darum merkt sich die App selbst, wo zuletzt wirklich
+     * Ton lief (notePos, vom Abfragen der Medienkarte), und spult nach dem Fortsetzen dorthin, wenn MA weit davor liegt.
+     */
+    @Volatile private var goodItem = ""
+    @Volatile private var goodPos = 0.0
+    @Volatile private var goodAt = 0L
+
+    /** Von der Medienkarte: Handy spielt Titel [item] gerade an Stelle [pos] (Sekunden). Zählt nur, wenn wirklich Ton ankommt. */
+    @JvmStatic fun notePos(item: String, pos: Double, live: Boolean) {
+        if (item.isEmpty() || live || pos <= 0 || !audio.receiving()) return
+        goodItem = item; goodPos = pos; goodAt = System.currentTimeMillis()
+    }
+
+    private fun resumeKeep(q: String, qu: JSONObject?) {
+        val id = qu?.optJSONObject("current_item")?.optString("queue_item_id").orEmpty()
+        val el = qu?.optDouble("elapsed_time", 0.0) ?: 0.0
+        val want = if (id.isNotEmpty() && id == goodItem && System.currentTimeMillis() - goodAt < 600_000 && goodPos - el > 20) goodPos.toLong() else -1L
+        val ma = MaClient.get(app)
+        ma.send("player_queues/resume", JSONObject().put("queue_id", q)) { _, e ->
+            if (e != null) { AppLog.w(TAG, "Fortsetzen: $e"); return@send }
+            if (want > 0) {
+                AppLog.add("MA hat die Stelle verloren (${el.toLong()} s) – zurück auf $want s")
+                h?.postDelayed({ ma.send("player_queues/seek", JSONObject().put("queue_id", q).put("position", want)) { _, _ -> } }, 2500)
+            }
+        }
+    }
+
     @Volatile private var helloAt = 0L
     private var lastNoStreamTry = 0L
     private fun checkNoStream() {
@@ -598,7 +629,7 @@ object SendspinPlayer {
         MaClient.get(app).send("player_queues/get", JSONObject().put("queue_id", q)) { r, _ ->
             if ((r as? JSONObject)?.optString("state") != "playing" || audio.streaming()) return@send
             AppLog.w(TAG, "MA spielt, aber kein Stream – Fortsetzen anstoßen")
-            MaClient.get(app).send("player_queues/resume", JSONObject().put("queue_id", q)) { _, e -> if (e != null) AppLog.w(TAG, "Fortsetzen: $e") }
+            resumeKeep(q, r as? JSONObject)
         }
     }
 

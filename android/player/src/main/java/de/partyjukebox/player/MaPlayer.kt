@@ -699,6 +699,8 @@ class MaPlayer(private val ctx: Context) : SimpleBasePlayer(Looper.getMainLooper
             positionMs = (qu.optDouble("elapsed_time", 0.0) * 1000).toLong()
             val cur = qu.optJSONObject("current_item")?.let { toEntry(it) }
             favCheck(cur)
+            // Handy spielt selbst: Stelle merken (falls MA sie bei einem Stream-Fehler verliert)
+            if (playing && cur != null && isPhone()) SendspinPlayer.notePos(cur.id, positionMs / 1000.0, cur.durationMs <= 0)
             if (carMode) {
                 // im Auto lief schon etwas / anderer Titel als beim Einsteigen → ▶ setzt diesen fort statt den Vorschlag zu starten
                 if (boardCur == null) boardCur = cur?.id ?: ""
