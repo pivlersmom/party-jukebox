@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.10.1
+- Lampen aus Home Assistant: Zugriff auf Home Assistant klappte nicht („Supervisor-Token fehlt“) – behoben.
+
 ## 0.10.0
 - **Neu: Lampen aus Home Assistant im Takt** (Shelly RGBW, Govee, Hue … – jede Farb-Lampe aus HA). Option „Lampen aus Home Assistant – Liste“, z. B. `light.stehleuchte, light.sofa`. Farbe wechselt im Takt (Lampen leicht versetzt im Farbkreis), Helligkeit folgt der Lautstärke. Je Lampe höchstens alle 500 ms ein Befehl (einstellbar, je Lampe mit `=1000`). Der Zustand vorher wird gemerkt und bei Musik-Ende oder Licht-Schalter „aus“ wiederhergestellt. Gleicher Licht-Schalter wie DMX/WLED.
 

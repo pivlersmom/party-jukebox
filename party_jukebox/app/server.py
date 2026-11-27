@@ -2622,6 +2622,7 @@ async def on_startup(app):
         ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
         hal = HaLights(app["session"], OPT, ma_cmds, ma_host)
         hal.enabled = light_on
+        hal.token = SUP_TOKEN
         LIGHT["has"] = True
         app["halight"] = asyncio.create_task(hal.run())
     if LIGHT["has"]:
