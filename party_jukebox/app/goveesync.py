@@ -83,6 +83,7 @@ class GoveeSync(DmxLight):
         self.level = 0.0                    # Pegel des Balkens: springt sofort hoch, fällt in ca. 0,3 s ab
         self.taken = False
         self.sent = 0
+        self.lit_sum, self.e_min, self.e_max = 0, 1.0, 0.0   # fürs Protokoll: wie viele Segmente an, Bass von–bis
 
     # ------------------------------------------------------------------ Senden
     def push(self, data):
@@ -99,6 +100,7 @@ class GoveeSync(DmxLight):
             colors = colors[::-1]
         self.push(wrap(frame(colors)))
         self.sent += 1
+        self.lit_sum += sum(1 for c in colors if max(c) > 40)
 
     async def take(self):
         """Lampe einschalten und in den Echtzeit-Modus bringen (zweimal – direkt nach dem Einschalten geht das erste oft unter)."""
@@ -149,7 +151,9 @@ class GoveeSync(DmxLight):
 
     def status_extra(self):
         n, self.sent = self.sent, 0
-        return " · %d Bilder an die Lampe" % n
+        lit, self.lit_sum = self.lit_sum / max(1, n), 0
+        lo, hi, self.e_min, self.e_max = self.e_min, self.e_max, 1.0, 0.0
+        return " · %d Bilder an die Lampe · im Schnitt %.1f von %d Segmenten an · Bass %.2f–%.2f" % (n, lit, self.n, lo, hi)
 
     def test_drop(self):
         return "Govee-Licht hat keinen Drop-Effekt"
@@ -205,6 +209,7 @@ class GoveeSync(DmxLight):
         e = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
         if e <= 0.0:
             e = self.loud                                            # kein Spektrum da → Lautstärke nehmen
+        self.e_min, self.e_max = min(self.e_min, e), max(self.e_max, e)
         k = math.exp(-dt / 6.0)                                      # Abgleich über ca. 6 s
         self.bar_hi = max(e, self.bar_hi * k + e * (1 - k))
         self.bar_lo = min(e, self.bar_lo * k + e * (1 - k))

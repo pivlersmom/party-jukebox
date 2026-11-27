@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.12.2
+- Govee-Licht: Protokoll zeigt jede Minute, wie viele Segmente im Schnitt leuchten und wie stark der Bass schwankt (Fehlersuche).
+
 ## 0.12.1
 - Govee-Licht: Der Balken stand nach kurzer Zeit dauernd auf Anschlag (alle Segmente an, eine Farbe). Er folgt jetzt dem Bass statt der Gesamt-Lautstärke und gleicht sich über wenige Sekunden ab – jeder Bassschlag lässt ihn hochspringen.
 
