@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.14.4
+- Govee-Licht: **Bass-Beat-Erkennung neu**. Statt „Bass leiser als gewohnt“ zählt jetzt, ob die Bassdrum wirklich läuft (der Bass springt im Sekundentakt auf und ab). Läuft sie: Blitzen + Farbwechsel. Ruhige Stelle oder nur Gesang: der zweite Effekt (z. B. Ampel/Equalizer). Einsatz des Beats wird nach 0,25 s erkannt, Aussetzen nach ca. 2 s. Lange ruhige Stellen springen nicht mehr von selbst zurück aufs Blitzen.
+
 ## 0.14.3
 - Govee-Licht: **Farbwechsel auf der Eins**. Music Assistant liefert nur die Schläge, nicht den Taktanfang – bisher wurde einfach jeder 4. Schlag genommen. Jetzt sucht das Add-on die Eins selbst: die Schlag-Position, auf der in der Musik am häufigsten etwas Neues einsetzt. Das Protokoll zeigt die vermutete Position.
 

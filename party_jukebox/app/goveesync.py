@@ -40,6 +40,7 @@ import math
 import socket
 import struct
 import time
+from collections import deque
 
 from dmxlight import DmxLight, T_BEAT, T_LOUD, T_PEAK, T_SPEC, us
 
@@ -49,6 +50,7 @@ PORT = 4003
 FPS = 20
 ON = bytes.fromhex("bb0001b1010a")
 OFF = bytes.fromhex("bb0001b1000b")
+SWING_MIN = 0.12           # so weit muss der Bass in 2 s auf- und abspringen, damit es als Bass-Beat zählt (0,12 ≈ 7 dB)
 RISE_MIN = 0.05            # so viel müssen Lautstärke oder Höhen im Aufbau steigen (0,05 ≈ 3 dB), sonst kein Strobe
 KEEP_S = 2.0               # so oft „Echtzeit-Modus an“ wiederholen
 SCENE = "party_jukebox_govee_vorher"
@@ -88,7 +90,8 @@ class GoveeSync(DmxLight):
         brk = str(opt.get("govee_break") or "").strip().lower()
         self.break_effect = brk if brk in ("balken", "ampel", "spektrum", "puls") else ""
         self.low, self.low_hi, self.mel = 0.0, 0.0, 0.0   # Bass geglättet, sein gewohnter Pegel, Mitte (Stimme) geglättet
-        self.voc, self.voc_since = False, None            # läuft gerade nur Gesang?
+        self.voc, self.voc_since, self.voc_log = False, None, -1e9   # läuft gerade KEIN Bass-Beat?
+        self.win = deque([0.0], maxlen=int(1.5 * FPS))    # Bass der letzten 1,5 s
         self.low_min, self.low_max, self.voc_s = 1.0, 0.0, 0.0   # fürs Protokoll
         self.reverse = bool(opt.get("govee_reverse"))
         self.player = str(opt.get("govee_player") or opt.get("wled_player") or opt.get("dmx_player") or opt.get("party_player") or "").strip()
@@ -219,32 +222,36 @@ class GoveeSync(DmxLight):
         txt += " · Eins auf Position %d (Einsätze %s, %d× verschoben)" % (self.one_pos + 1, "/".join("%.1f" % x for x in self.one_score), self.one_moves)
         self.one_moves = 0
         if self.break_effect:
-            txt += " · Bass geglättet %.2f–%.2f (gewohnt %.2f) · %d s ohne Bass" % (self.low_min, self.low_max, self.low_hi, self.voc_s)
+            txt += " · Bass-Hub %.2f–%.2f (lautester Bass %.2f) · %d s ohne Bass-Beat" % (self.low_min, self.low_max, self.low_hi, self.voc_s)
             self.low_min, self.low_max, self.voc_s = 1.0, 0.0, 0.0
         return txt
 
     def vocals_only(self, dt, now):
-        """Setzt der Bass aus? Die zwei untersten Bänder liegen dann deutlich unter ihrem gewohnten Pegel –
-        egal, was sonst noch läuft (Gesang, Melodie, Fläche).
-        Erst nach 0,6 s umschalten und erst zurück, wenn der Bass klar wieder da ist – sonst flackert es zwischen den Effekten."""
+        """Läuft gerade KEIN Bass-Beat? (True = ruhige Stelle / nur Gesang → Equalizer statt Blitzen)
+        Lernkarte: Erst wurde der Bass mit seinem „gewohnten“ Pegel der letzten 20 s verglichen. In einer langen ruhigen
+        Stelle wurde die Ruhe selbst zum Gewohnten – das Licht sprang zurück aufs Blitzen, obwohl kein Beat lief.
+        Jetzt zählt, was ein Bass-Beat wirklich ist: Die Bassdrum lässt das unterste Band im Sekundentakt auf- und
+        abspringen. Wir sehen uns die letzten 1,5 s an: Wie weit springt der Bass (Hub), und kommt er dabei in die Nähe
+        dessen, was in diesem Titel laut ist? Nur Gesang oder eine Fläche: wenig Hub oder zu leise → kein Beat."""
         bass = max(self.spec[0], self.spec[1] if self.n > 1 else 0.0)
+        self.win.append(bass)
         self.low += (bass - self.low) * (1 - math.exp(-dt / 0.3))
-        k = math.exp(-dt / 20.0)                                     # gewohnter Pegel: über ca. 20 s
-        self.low_hi = max(self.low, self.low_hi * k + self.low * (1 - k))
-        self.mel += (self.mids() - self.mel) * (1 - math.exp(-dt / 0.3))
-        self.low_min, self.low_max = min(self.low_min, self.low), max(self.low_max, self.low)
-        gap = max(0.12, 0.3 * self.low_hi)
-        if not self.voc:
-            if self.low < self.low_hi - gap:
-                self.voc_since = self.voc_since or now
-                if now - self.voc_since > 0.6:
-                    self.voc = True
-                    log.info(self.tag + ": Bass weg (%.2f, gewohnt %.2f) → %s", self.low, self.low_hi, self.break_effect)
-            else:
-                self.voc_since = None
-        elif self.low > self.low_hi - gap * 0.5:
-            self.voc, self.voc_since = False, None
-            log.info(self.tag + ": Bass wieder da → %s", self.effect)
+        top, bottom = max(self.win), min(self.win)
+        self.low_hi = max(top, self.low_hi * math.exp(-dt / 90.0))  # lautester Bass im Titel (verblasst über ca. 90 s)
+        swing = top - bottom
+        beat = swing >= SWING_MIN and top >= 0.6 * self.low_hi
+        self.low_min, self.low_max = min(self.low_min, swing), max(self.low_max, swing)
+        if beat != (not self.voc):                                   # Zustand will wechseln – aber erst, wenn es anhält
+            self.voc_since = self.voc_since or now
+            # Beat setzt ein: schnell reagieren (0,25 s). Beat setzt aus: erst wenn 1,5 s lang kein Schlag mehr kam, plus 0,5 s (insgesamt ca. 2 s).
+            if now - self.voc_since > (0.25 if beat else 0.5):
+                self.voc, self.voc_since = not beat, None
+                if now - self.voc_log > 2:
+                    self.voc_log = now
+                    log.info(self.tag + ": %s (Hub %.2f, Spitze %.2f, lautester Bass %.2f) → %s",
+                             "Bass-Beat da" if beat else "kein Bass-Beat", swing, top, self.low_hi, self.effect if beat else self.break_effect)
+        else:
+            self.voc_since = None
         if self.voc:
             self.voc_s += dt
         return self.voc
