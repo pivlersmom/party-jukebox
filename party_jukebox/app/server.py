@@ -2366,7 +2366,7 @@ async def party_light(request):
             body = {}
         if isinstance(body, dict) and body.get("drop"):
             # Drop-Test: Strobe/Nebel von Hand auslösen, ohne auf einen echten Drop zu warten
-            dmx = request.app.get("dmx_obj")
+            dmx = request.app.get("dmx_obj") or request.app.get("govee_obj")
             return web.json_response({"ok": bool(dmx), "msg": dmx.test_drop() if dmx else "Kein DMX-Licht eingerichtet"})
         on = bool(body.get("on")) if isinstance(body, dict) and "on" in body else not LIGHT["on"]
         LIGHT["on"] = on
@@ -2634,6 +2634,8 @@ async def on_startup(app):
         gov = GoveeSync(app["session"], OPT, ma_cmds, ma_host)
         gov.enabled = light_on
         gov.token = SUP_TOKEN
+        app["govee_obj"] = gov
+        gov.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
         LIGHT["has"] = True
         app["govee"] = asyncio.create_task(gov.run())
     if LIGHT["has"]:

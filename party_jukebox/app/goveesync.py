@@ -20,6 +20,9 @@ Einstellungen (Add-on-Konfiguration):
   govee_effect    balken   = je lauter, desto mehr Segmente; Farbe wechselt im Takt (Standard)
                   ampel    = Balken mit festem Verlauf grün → rot
                   spektrum = jedes Segment ein Frequenzband (unten Bass, oben Höhen)
+                  puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
+  govee_strobe    Beim Drop (Bass fällt weg und kommt zurück) ein paar Sekunden weißes Strobe (Standard: an).
+                  Erkennung und Dauer wie beim DMX-Licht (dmx_drop_build, dmx_drop_sensitivity, dmx_drop_cooldown, dmx_drop_seconds).
   govee_reverse   Balken von oben nach unten (falls er verkehrt herum läuft)
   govee_entity    Dieselbe(n) Lampe(n) in Home Assistant (z. B. light.stehleuchte). Dann merkt sich das Add-on vor dem
                   Start, ob/wie die Lampe leuchtete, und stellt das danach wieder her (war sie aus, geht sie wieder aus).
@@ -73,7 +76,9 @@ class GoveeSync(DmxLight):
         except (TypeError, ValueError):
             self.n = 7
         eff = str(opt.get("govee_effect") or "balken").strip().lower()
-        self.effect = eff if eff in ("balken", "ampel", "spektrum") else "balken"
+        self.effect = eff if eff in ("balken", "ampel", "spektrum", "puls") else "balken"
+        self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
+        self.flip = False
         self.reverse = bool(opt.get("govee_reverse"))
         self.player = str(opt.get("govee_player") or opt.get("wled_player") or opt.get("dmx_player") or opt.get("party_player") or "").strip()
         self.delay_us = int(opt.get("govee_delay_ms") or 0) * 1000
@@ -170,7 +175,16 @@ class GoveeSync(DmxLight):
         return                                                       # das Grundgerüst sendet DMX – hier nichts zu tun
 
     def arrived(self, ts, kind, val):
-        return False                                                 # keine Drop-Erkennung, alles normal einreihen
+        """Paket ist da (noch VOR dem Ton): Drop-Erkennung wie beim DMX-Licht – der Bass fällt eine Weile weg und kommt zurück."""
+        if kind == T_LOUD:
+            self.loud_in = val
+        elif kind == T_SPEC and self.strobe and val:
+            self.bass = (val[0] + (val[1] if len(val) > 1 else val[0])) / 2
+            hit = self.detector.feed(ts, self.bass, self.loud_in)
+            if hit:
+                self.events.append((ts, "drop", hit))               # wird im Bild genau zum Ton ausgelöst
+                log.info(self.tag + ": Drop erkannt · Aufbau %(build_s)s s · Bass %(bass_before)s → %(bass)s (gewohnt %(level)s)", hit)
+        return False                                                 # alles normal einreihen (das Spektrum brauchen wir auch fürs Bild)
 
     def status_extra(self):
         n, self.sent = self.sent, 0
@@ -179,7 +193,25 @@ class GoveeSync(DmxLight):
         return " · %d Bilder an die Lampe · im Schnitt %.1f von %d Segmenten an · Bass %.2f–%.2f" % (n, lit, self.n, lo, hi)
 
     def test_drop(self):
-        return "Govee-Licht hat keinen Drop-Effekt"
+        """Von der Jukebox (Licht-Knopf lange drücken): Strobe von Hand auslösen."""
+        self.drop_at = time.monotonic()
+        log.info(self.tag + ": Drop-Test → Strobe")
+        self.fire_drop({"bass": round(self.bass, 2), "bass_before": round(self.bass, 2)}, manual=True)
+        return "Strobe an der Govee-Lampe (%d s)" % int(self.drop_s)
+
+    def strobe_frame(self, now):
+        """Weißes Strobe über die ganze Lampe: jedes zweite Bild hell (bei 20 Bildern/s = 10 Blitze pro Sekunde)."""
+        self.flip = not self.flip
+        return [(255, 255, 255) if self.flip else (0, 0, 0)] * self.n
+
+    def pulse(self, dt):
+        """Wie der DMX-Spot: ganze Lampe in der Takt-Farbe, blitzt auf jeden Schlag auf und klingt in ca. 0,2 s ab."""
+        self.env *= math.exp(-dt / 0.18)
+        self.hi = max(self.hi * 0.9995, self.loud)
+        self.lo = min(self.lo * 1.0005 + 0.00001, self.loud)
+        lv = max(0.0, min(1.0, (self.loud - self.lo) / max(0.05, self.hi - self.lo)))
+        self.smooth += (lv - self.smooth) * 0.25
+        return [colorsys_rgb(self.hue, max(self.env, 0.10 + 0.25 * self.smooth))] * self.n
 
     def parse(self, kind, d):
         if kind == T_SPEC and len(d) >= 2:
@@ -196,6 +228,12 @@ class GoveeSync(DmxLight):
             now = time.monotonic()
             on = self.enabled()
             active = on and self.playing and now - self.last_frame < 3
+            if on and now - self.drop_at < self.drop_s and not active:   # Drop-Test ohne Musik: Strobe trotzdem zeigen
+                if not self.taken:
+                    await self.take()
+                self.show(self.strobe_frame(now))
+                idle = 0.0
+                continue
             if not active:
                 idle += dt
                 # Schalter aus: sofort freigeben. Musikpause: erst nach 5 s (Titelwechsel soll nicht flackern).
@@ -211,13 +249,19 @@ class GoveeSync(DmxLight):
                         self.loud = val
                     elif kind == T_SPEC:
                         self.spec = list(val) + [0.0] * (self.n - len(val))
+                    elif kind == "drop":
+                        self.drop_at = now
+                        log.info(self.tag + ": Drop ausgelöst → Strobe")
+                        self.fire_drop(val, manual=False)          # Ereignis „party_jukebox_drop“ an Home Assistant, wie beim DMX-Licht
                     elif kind == T_BEAT:
                         self.beats += 1
                         self.last_beat = now
+                        self.env = 1.0 if val else 0.8
                         if val or self.beats % 4 == 0:               # Taktanfang (oder jeder 4. Schlag): nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
                     elif kind == T_PEAK and now - self.last_beat > 5 and val > 0.35:   # kein Takt-Raster → Bassschläge zählen
                         self.beats += 1
+                        self.env = max(self.env, val)
                         if self.beats % 8 == 0:
                             self.hue = (self.hue + 0.17) % 1.0
             if not self.taken:
@@ -228,7 +272,10 @@ class GoveeSync(DmxLight):
                 # regelmäßig neu anfordern.
                 self.on_at = now
                 self.push(wrap(ON))
-            self.show(self.spectrum(dt) if self.effect == "spektrum" else self.bar(dt))
+            if now - self.drop_at < self.drop_s:                     # Drop: ein paar Sekunden weißes Strobe, dann weiter wie vorher
+                self.show(self.strobe_frame(now))
+            else:
+                self.show(self.spectrum(dt) if self.effect == "spektrum" else self.pulse(dt) if self.effect == "puls" else self.bar(dt))
 
     def bar(self, dt):
         """Pegel aus dem Bass (die zwei untersten Bänder) – jeder Bassschlag lässt den Balken hochspringen.

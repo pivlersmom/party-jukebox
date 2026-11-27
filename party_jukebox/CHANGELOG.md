@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.13.0
+- **Govee-Licht wie das DMX-Licht**: neuer Effekt `puls` (ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt) und **Strobe beim Drop** für alle Effekte (Option „Strobe beim Drop“, Standard an; Erkennung wie beim DMX-Licht). Drop-Test: Licht-Knopf in der Lautsprecherliste lange drücken. Der Drop geht auch als Ereignis `party_jukebox_drop` an Home Assistant.
+
 ## 0.12.3
 - Govee-Licht: Die Lampe fiel nach ein paar Sekunden von selbst aus dem Echtzeit-Modus zurück in ihr eigenes Programm (einfarbig). Der Modus wird jetzt alle 2 s neu angefordert.
 - Govee-Licht: neue Option „Lampe in Home Assistant“ – Zustand vorher wird gemerkt und nach Musik-Ende/Licht-Schalter aus wiederhergestellt (war die Lampe aus, geht sie wieder aus).

@@ -112,7 +112,10 @@ configuration:
     description: Standard 7.
   govee_effect:
     name: Govee-Licht – Effekt
-    description: balken = je lauter, desto mehr Segmente, Farbe wechselt im Takt. ampel = Balken grün → rot. spektrum = jedes Segment ein Frequenzband (Bass bis Höhen).
+    description: balken = je lauter, desto mehr Segmente, Farbe wechselt im Takt. ampel = Balken grün → rot. spektrum = jedes Segment ein Frequenzband (Bass bis Höhen). puls = wie der DMX-Spot – ganze Lampe blitzt auf jeden Schlag.
+  govee_strobe:
+    name: Govee-Licht – Strobe beim Drop
+    description: Fällt der Bass eine Weile weg und kommt zurück (Drop), blitzt die Lampe ein paar Sekunden weiß. Standard an. Erkennung und Dauer wie beim DMX-Licht (Optionen „DMX-Licht – Drop …“). Test – Licht-Knopf in der Lautsprecherliste lange drücken.
   govee_reverse:
     name: Govee-Licht – umdrehen
     description: Einschalten, wenn der Balken verkehrt herum läuft.
