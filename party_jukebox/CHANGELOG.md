@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.15.2
+- Effekt `welle`: Setzt der Ton fast ganz aus, läuft das Lauflicht langsamer (bis auf ein Fünftel), nur noch die Eins schickt einen Impuls los und die Fläche pulsiert kaum noch. Kommt die Musik zurück, zieht alles wieder an.
+
 ## 0.15.1
 - Govee-Licht: Strobe läuft länger (Standard 8 s statt 4 s, neue Option „Strobe-Dauer“).
 - Effekt `welle`: Die ganze Fläche pulsiert jetzt zusätzlich auf jeden Schlag.

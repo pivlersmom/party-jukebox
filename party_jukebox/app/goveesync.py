@@ -116,6 +116,7 @@ class GoveeSync(DmxLight):
         self.waves = []                     # Welle: laufende Lichtimpulse [Position, Stärke]
         self.spark = [0.0] * self.n         # Funkeln: Helligkeit je Segment, klingt schnell ab
         self.hi_prev = 0.0
+        self.busy = 0.5                     # wie viel gerade los ist (0 = fast still, 1 = volle Stelle), geglättet
         self.strobe = opt.get("govee_strobe") is not False          # Strobe beim Drop (Standard: an)
         self.flip = False
         try:
@@ -414,7 +415,8 @@ class GoveeSync(DmxLight):
                         self.env = 1.0 if one else 0.8
                         if one:                                      # Taktanfang: nächste Farbe
                             self.hue = (self.hue + 0.17) % 1.0
-                        self.waves.append([0.0, 1.0 if one else 0.7])   # Welle: jeder Schlag schickt einen Lichtimpuls los
+                        if one or self.busy > 0.25:                  # Welle: jeder Schlag schickt einen Lichtimpuls los – fast still nur die Eins
+                            self.waves.append([0.0, 1.0 if one else 0.7])
                     elif kind == T_PEAK and now - self.last_beat > 5 and val > 0.35:   # kein Takt-Raster → Bassschläge zählen
                         self.beats += 1
                         self.env = max(self.env, val)
@@ -442,10 +444,19 @@ class GoveeSync(DmxLight):
         """Bass-Welle + Funkeln – für Flächen mit vielen Segmenten (z. B. 20 Dreiecke).
         Grund: alle Segmente glimmen in der Takt-Farbe und pulsieren auf jeden Schlag kurz auf. Jeder Schlag schickt einen hellen Impuls vom ersten zum letzten
         Segment (in etwa einem Schlag Länge durch), die Eins kräftiger. Dazu Funkeln: Setzen Höhen ein (Hi-Hat, Becken),
-        blitzen einzelne zufällige Segmente weiß auf und klingen sofort wieder ab."""
+        blitzen einzelne zufällige Segmente weiß auf und klingen sofort wieder ab.
+        Setzt der Ton fast ganz aus, wird das Lauflicht langsam (bis auf ein Fünftel), nur noch die Eins schickt einen
+        Impuls los, und das Aufpulsieren der Fläche verschwindet – kommt die Musik zurück, zieht alles wieder an."""
+        # Wie viel ist gerade los? 0 = fast still, 1 = volle Stelle (gemessen an dem, was in diesem Titel laut und leise ist)
+        self.hi = max(self.hi * 0.9995, self.loud)
+        self.lo = min(self.lo * 1.0005 + 0.00001, self.loud)
+        lv = max(0.0, min(1.0, (self.loud - self.lo) / max(0.05, self.hi - self.lo)))
+        self.busy += (lv - self.busy) * (1 - math.exp(-dt / 0.8))
+        full = max(0.0, min(1.0, self.busy / 0.6))                   # ab 60 % gilt: volles Tempo
         self.env *= math.exp(-dt / 0.18)                             # zusätzlich pulsiert die ganze Fläche auf jeden Schlag
-        base = max(0.10, 0.55 * self.env)
-        speed = self.n / 0.45                                        # Segmente pro Sekunde: in ca. 0,45 s einmal durch
+        base = max(0.10, 0.55 * self.env * full)                     # … an stillen Stellen kaum noch
+        # Tempo des Lauflichts: volle Stelle in ca. 0,45 s einmal durch, fast still nur noch ein Fünftel so schnell (ca. 2,2 s)
+        speed = self.n / 0.45 * (0.2 + 0.8 * full)
         for w in self.waves:
             w[0] += speed * dt
         self.waves = [w for w in self.waves if w[0] < self.n + 3][-6:]
