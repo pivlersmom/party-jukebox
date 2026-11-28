@@ -2384,7 +2384,9 @@ async def party_light(request):
     if str(OPT.get("wled_host") or "").strip():
         follow.add(str(OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("govee_host") or "").strip() or OPT.get("govee_lamps"):
-        follow.add(str(OPT.get("govee_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
+        from goveesync import lamp_options
+        for o in lamp_options(OPT):                                  # jede Lampe kann einem eigenen Lautsprecher folgen
+            follow.add(str(o.get("govee_player") or o.get("wled_player") or o.get("dmx_player") or o.get("party_player") or "").strip().lower())
     if str(OPT.get("ha_lights") or "").strip():
         follow.add(str(OPT.get("ha_lights_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     return web.json_response({"ok": True, "has": LIGHT["has"], "on": LIGHT["on"], "entity": LIGHT["entity"],

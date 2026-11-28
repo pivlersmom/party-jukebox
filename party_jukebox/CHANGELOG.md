@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.18.0
+- **Govee-Licht: eigener Lautsprecher je Lampe** – in „weitere Lampen“ ein 8. Feld „Lautsprecher“. So folgt z. B. das Wohnzimmer dem einen und der Fitnessraum einem anderen Lautsprecher; Wellenform, Profil und Strobe gelten je Lautsprecher getrennt. Der Licht-Knopf erscheint in der Lautsprecherliste bei jedem dieser Lautsprecher.
+
 ## 0.17.1
 - Licht-Profile: Kennt der Anbieter keine Musikrichtung, entscheidet notfalls der Titel (z. B. „Malle“, „Party“ → Schlager/Party).
 

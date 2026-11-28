@@ -38,7 +38,8 @@ Einstellungen (Add-on-Konfiguration):
   govee_entity    Dieselbe(n) Lampe(n) in Home Assistant (z. B. light.stehleuchte). Dann merkt sich das Add-on vor dem
                   Start, ob/wie die Lampe leuchtete, und stellt das danach wieder her (war sie aus, geht sie wieder aus).
   govee_lamps     Weitere Lampen, jede mit eigener Rolle. Je Zeile:
-                  IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen
+                  IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen | Lautsprecher
+                  (Lautsprecher leer = wie die erste Lampe; sonst folgt diese Lampe dem genannten – eigener Raum)
   govee_player    Lautsprecher (Name oder ID), dem das Licht folgt (leer = Party-Player)
   govee_delay_ms  Feinabgleich: positiv = Licht später, negativ = früher
 """
@@ -72,19 +73,23 @@ EFFECTS = ("balken", "ampel", "spektrum", "puls", "welle")
 def lamp_options(opt):
     """Aus der Add-on-Konfiguration eine Liste von Einstellungen machen – eine je Lampe.
     Lampe 1 sind die Optionen govee_host, govee_segments … Weitere Lampen stehen in govee_lamps, je Zeile:
-        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen
-    Nur die IP ist Pflicht; leere Felder übernehmen Standardwerte. Beispiel:  192.168.178.164 | 20 | welle | light.couch | -250"""
+        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen | Lautsprecher
+    Nur die IP ist Pflicht; leere Felder übernehmen Standardwerte. Beispiel:  192.168.178.164 | 20 | welle | light.couch | -250
+    Lautsprecher (Name oder ID aus Music Assistant): Diese Lampe folgt einem anderen Lautsprecher als die erste – so bekommt
+    jeder Raum sein eigenes Licht (z. B. Wohnzimmer → Sonos, Fitnessraum → Mixstream)."""
     out = []
     if str(opt.get("govee_host") or "").strip():
         out.append(dict(opt))
     for line in opt.get("govee_lamps") or []:
-        f = [x.strip() for x in str(line).split("|")] + [""] * 7
+        f = [x.strip() for x in str(line).split("|")] + [""] * 8
         if not f[0]:
             continue
         o = dict(opt)
         o.update({"govee_host": f[0], "govee_segments": f[1] or 10, "govee_effect": f[2] or "welle", "govee_entity": f[3],
                   "govee_delay_ms": int(f[4]) if f[4].lstrip("+-").isdigit() else opt.get("govee_delay_ms") or 0,
                   "govee_break": f[5], "govee_reverse": f[6].lower() in ("1", "ja", "true", "x", "umdrehen")})
+        if f[7]:
+            o["govee_player"] = f[7]
         out.append(o)
     return out
 
