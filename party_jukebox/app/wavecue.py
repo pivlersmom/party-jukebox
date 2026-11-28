@@ -15,7 +15,12 @@ WaveCues holt je Lautsprecher die Wellenform des laufenden Titels, sucht die Auf
 ob an der aktuellen Stelle des Titels gerade einer läuft.
 """
 import asyncio
+import base64
+import bisect
+import json
 import logging
+import os
+import sqlite3
 import time
 
 log = logging.getLogger("jukebox")
@@ -169,6 +174,83 @@ def pick_profile(genres, bpm=None, name=""):
     return "standard", text or "keine Richtung bekannt"
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Die fertige Klang-Analyse von Music Assistant
+#
+# Music Assistant hat jeden Titel schon gründlich untersucht (Schläge, Taktanfänge, Gesangs-Kurve, Bass-/Mitten-/
+# Höhen-Kurven, Stimmungs-Werte), gibt das aber über seine Schnittstelle nicht heraus. Ein kleines eigenes Helfer-Add-on
+# ("Vanpis MA-Analyse") holt die Daten ab und legt sie in /share/ma_analyse/analyse.db. Wir lesen hier NUR diese Datei.
+# Gibt es sie nicht (z. B. bei anderen Nutzern), läuft alles wie bisher mit Mithören und Schätzen.
+ANALYSIS_DB = "/share/ma_analyse/analyse.db"
+CURVES = ("wave", "vocal", "low", "low_mid", "mid", "high")
+
+
+def load_analysis(provider, item_id, path=None):
+    """Analyse eines Titels aus der abgelegten Datei lesen → dict oder None.
+    Kurven werden zu Bytes (0..255, 1800 Punkte über die Titellänge), beats/downbeats zu Sekunden-Listen."""
+    path = path or ANALYSIS_DB
+    if not provider or not item_id or not os.path.exists(path):
+        return None
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=3)
+        try:
+            row = None
+            for key in dict.fromkeys((str(provider), str(provider).split("--")[0])):   # erst das Konto, dann nur der Anbieter
+                row = con.execute("SELECT data FROM tracks WHERE provider=? AND item_id=?", (key, str(item_id))).fetchone()
+                if row:
+                    break
+        finally:
+            con.close()
+        if not row:
+            return None
+        d = json.loads(row[0])
+        for k in CURVES:
+            if isinstance(d.get(k), str):
+                d[k] = base64.b64decode(d[k])
+        d["beats"] = [float(x) for x in d.get("beats") or []]
+        d["downbeats"] = [float(x) for x in d.get("downbeats") or []]
+        d["ones"] = {round(x, 3) for x in d["downbeats"]}
+        return d
+    except (sqlite3.Error, ValueError, TypeError, OSError) as e:
+        log.info("Analyse-Datei: %s", e)
+        return None
+
+
+def match_beats(stamps, beats, guess, span=6.0):
+    """Welche Stelle im Titel läuft gerade – auf die Millisekunde?
+    Lernkarte: Music Assistant meldet die Stelle im Titel nur alle paar Sekunden und ungefähr. Für „welcher Schlag ist
+    die Eins“ reicht das nicht. Aber: Die Schläge, die im Licht-Datenstrom ankommen, sind genau die Schläge aus der
+    Analyse – mit denselben winzigen Unregelmäßigkeiten in den Abständen. Wir legen die letzten empfangenen Schläge
+    wie einen Fingerabdruck an die Analyse an und suchen (in der Nähe der ungefähren Stelle) die Position, an der die
+    Abstände am besten passen.
+      stamps  Zeitstempel der zuletzt empfangenen Schläge (Sekunden, Server-Uhr), lückenlos aufeinander folgend
+      beats   Schläge laut Analyse (Sekunden im Titel)
+      guess   ungefähre Stelle des letzten Schlags im Titel
+    → (Index des letzten Schlags in beats, Abweichung in s, eindeutig?) oder None."""
+    m = len(stamps)
+    if m < 8 or len(beats) < m + 2:
+        return None
+    lo = max(m - 1, bisect.bisect_left(beats, guess - span))
+    hi = min(len(beats) - 1, bisect.bisect_right(beats, guess + span))
+    rel = [stamps[-1] - x for x in stamps[:-1]]
+    found = []
+    for k in range(lo, hi + 1):
+        err = sum(abs(rel[i] - (beats[k] - beats[k - (m - 1) + i])) for i in range(m - 1)) / (m - 1)
+        found.append((err, k))
+    if not found:
+        return None
+    found.sort()
+    err, k = found[0]
+    if err > 0.02:
+        return None
+    # eindeutig, wenn die zweitbeste Stelle deutlich schlechter passt; sonst (völlig gleichmäßiges Raster) die nächstgelegene
+    clear = len(found) == 1 or found[1][0] > 2.5 * err + 0.003
+    if not clear:
+        near = [f for f in found if f[0] <= err + 0.003]
+        err, k = min(near, key=lambda f: abs(beats[f[1]] - guess))
+    return k, err, clear
+
+
 def mmss(t):
     return "%d:%02d" % (int(t) // 60, int(t) % 60)
 
@@ -176,6 +258,7 @@ def mmss(t):
 class WaveCues:
     """Je Lautsprecher einmal: verfolgt den laufenden Titel und kennt dessen Aufbauten."""
     all = {}
+    on_missing = None               # vom Add-on gesetzt: melden, wenn für einen Titel die Analyse fehlt (→ Helfer starten)
 
     @classmethod
     def get(cls, session, ma_cmds, player):
@@ -196,6 +279,66 @@ class WaveCues:
         self.playing = False
         self.pos, self.pos_at = 0.0, 0.0   # Stelle im Titel und wann (Uhrzeit) sie galt
         self.task = None
+        self.data = None            # fertige Analyse von Music Assistant für den laufenden Titel (oder None)
+        self.dur = 0.0              # Länge des laufenden Titels
+        self.stamps = []            # Zeitstempel der zuletzt empfangenen Schläge (Sekunden, Server-Uhr)
+        self.anchor = None          # Server-Uhrzeit (s), zu der der Titel bei 0:00 war – daraus folgt die genaue Stelle
+        self.anchor_note = ""
+        self.missing_at = 0.0
+
+    # ------------------------------------------------------------------ genaue Stelle im Titel (über die Schläge)
+    def beat(self, ts_us):
+        """Von den Lampen: ein Schlag mit Server-Zeitstempel kam an. Daraus die genaue Stelle im Titel bestimmen."""
+        d = self.data
+        if not d or len(d["beats"]) < 24:
+            return
+        t = ts_us / 1e6
+        if self.stamps and t - self.stamps[-1] < 0.05:               # derselbe Schlag von einer zweiten Lampe
+            return
+        if self.stamps and (t < self.stamps[-1] or t - self.stamps[-1] > 1.6):
+            self.stamps = []                                         # Lücke oder Sprung: Kette neu beginnen
+        self.stamps = (self.stamps + [t])[-20:]
+        if len(self.stamps) < 12 or (self.anchor is not None and len(self.stamps) % 8):
+            return
+        guess = self.position()
+        if guess is None:
+            return
+        hit = match_beats(self.stamps, d["beats"], guess)
+        if not hit:
+            return
+        k, err, clear = hit
+        anchor = t - d["beats"][k]
+        if self.anchor is None or abs(anchor - self.anchor) > 0.05:
+            note = "Stelle im Titel %s · passt auf %.0f ms · %s · Music Assistant meldete %+.1f s daneben" % (
+                mmss(d["beats"][k]), err * 1000, "eindeutig" if clear else "Raster gleichmäßig, nächstgelegene Stelle genommen", guess - d["beats"][k])
+            if note != self.anchor_note:
+                self.anchor_note = note
+                log.info("Takt-Abgleich: %s", note)
+        self.anchor = anchor
+
+    def track_time(self, srv_us):
+        """Genaue Stelle im Titel (s) zu einem Server-Zeitstempel – None, solange der Abgleich fehlt."""
+        return None if self.anchor is None else srv_us / 1e6 - self.anchor
+
+    def is_one(self, ts_us):
+        """Ist der Schlag mit diesem Zeitstempel ein Taktanfang? True/False laut Analyse, None = unbekannt."""
+        d, t = self.data, self.track_time(ts_us)
+        if not d or t is None or not d["ones"]:
+            return None
+        b = d["beats"]
+        i = bisect.bisect_left(b, t)
+        k = min((j for j in (i - 1, i) if 0 <= j < len(b)), key=lambda j: abs(b[j] - t), default=None)
+        if k is None or abs(b[k] - t) > 0.09:
+            return None
+        return round(b[k], 3) in d["ones"]
+
+    def curve(self, name, srv_us):
+        """Wert einer Kurve (vocal, low, mid, high, wave) an der Stelle, die gerade gezeigt wird: 0..1 oder None."""
+        d, t = self.data, self.track_time(srv_us)
+        c = d.get(name) if d else None
+        if not c or t is None or self.dur <= 0:
+            return None
+        return c[max(0, min(len(c) - 1, int(t / self.dur * len(c))))] / 255.0
 
     def position(self):
         """Aktuelle Stelle im Titel in Sekunden (hochgerechnet seit der letzten Meldung), None wenn nichts läuft."""
@@ -203,13 +346,18 @@ class WaveCues:
             return None
         return self.pos + min(30.0, max(0.0, time.time() - self.pos_at))
 
-    def strobe(self, ahead_s=0.0):
-        """Läuft an der aktuellen Stelle (ahead_s Sekunden vorgezogen, für träge Lampen) gerade ein Aufbau?"""
-        p = self.position()
-        if p is None:
+    def strobe(self, ahead_s=0.0, srv_us=None):
+        """Läuft gerade ein Aufbau? Mit Takt-Abgleich an der genauen Stelle (srv_us), sonst an der ungefähren
+        (ahead_s Sekunden vorgezogen, weil die Meldung von Music Assistant nachhinkt)."""
+        t = self.track_time(srv_us) if srv_us is not None else None
+        if t is None:
+            t = self.position()
+            if t is None:
+                return False
+            t += ahead_s
+        elif not self.playing:
             return False
-        p += ahead_s
-        return any(a <= p < b for a, b in self.builds)
+        return any(a <= t < b for a, b in self.builds)
 
     async def run(self):
         tick = 0
@@ -232,6 +380,7 @@ class WaveCues:
                 key = ci.get("queue_item_id")
                 if key and key != self.item:
                     self.item, self.builds, self.have = key, [], False
+                    self.data, self.stamps, self.anchor, self.anchor_note = None, [], None, ""
                     await self.load(ci)
             except asyncio.CancelledError:
                 raise
@@ -254,6 +403,25 @@ class WaveCues:
         dur = float(ci.get("duration") or mi.get("duration") or 0)
         if not item_id or not prov or dur < 30:
             return
+        self.dur = dur
+        d = self.data = await asyncio.get_running_loop().run_in_executor(None, load_analysis, prov, item_id)
+        if d:
+            if d.get("duration"):
+                self.dur = float(d["duration"])
+            feel = ", ".join("%s %.2f" % (n, d[k]) for n, k in (("tanzbar", "danceability"), ("Stimmung", "valence"), ("aufgedreht", "arousal"),
+                                                                ("instrumental", "instrumentalness"), ("akustisch", "acousticness")) if d.get(k) is not None)
+            log.info("Analyse „%s“: %d Schläge, %d Taktanfänge%s, Kurven: %s%s", ci.get("name"), len(d["beats"]), len(d["downbeats"]),
+                     " (%d/4-Takt)" % d["beats_per_bar"] if d.get("beats_per_bar") else "",
+                     ", ".join(k for k in CURVES if d.get(k)) or "keine", " · " + feel if feel else "")
+            # Stimmungs-Werte schlagen die grobe Richtungs-Angabe: sehr akustisch und ruhig → Profil „Ruhig“
+            if self.forced not in PROFILES and (d.get("acousticness") or 0) > 0.75 and (d.get("arousal") if d.get("arousal") is not None else 1) < 0.35:
+                self.profile = PROFILES["ruhig"]
+                log.info("Licht-Profil „Ruhig“ (laut Analyse akustisch und ruhig)")
+        elif os.path.exists(ANALYSIS_DB) and time.time() - self.missing_at > 600:
+            self.missing_at = time.time()
+            log.info("Analyse: für „%s“ liegt noch nichts vor – Helfer wird angefragt", ci.get("name"))
+            if WaveCues.on_missing:
+                WaveCues.on_missing({"name": ci.get("name"), "item_id": str(item_id), "provider": prov})
         wave = (await self.ma_cmds(self.session, [("audio_analysis/wave_form", {"item_id": str(item_id), "provider_instance_id_or_domain": prov})]))[0]
         wave = [float(x) for x in wave or [] if isinstance(x, (int, float))]
         if len(wave) < 50:

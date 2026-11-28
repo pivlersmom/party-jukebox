@@ -2756,6 +2756,9 @@ async def on_startup(app):
                 gov.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
             LIGHT["has"] = True
             app["govee%d" % i] = asyncio.create_task(gov.run())
+        # fehlt für einen Titel die fertige Analyse, melden wir das an Home Assistant – eine Automation startet dann den Helfer
+        from wavecue import WaveCues
+        WaveCues.on_missing = lambda info: asyncio.create_task(ha_event(app["session"], "party_jukebox_analyse_fehlt", info))
     if LIGHT["has"]:
         app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():

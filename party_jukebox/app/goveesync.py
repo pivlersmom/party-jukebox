@@ -138,6 +138,7 @@ class GoveeSync(DmxLight):
             self.cue_early = float(opt.get("govee_strobe_early_ms") if opt.get("govee_strobe_early_ms") is not None else 2000) / 1000.0
         except (TypeError, ValueError):
             self.cue_early = 2.0                # Strobe aus der Wellenform so viel früher (Start und Ende)
+        self.now_srv, self.one_src = None, "geschätzt"   # Server-Zeit des gerade Gezeigten; woher die „Eins“ kommt
         self.sat, self.bar_no, self.color_no = 1.0, 0, 0   # Sättigung der Takt-Farbe, Takt-Zähler, Platz in der Farbfolge
         fp = str(opt.get("govee_profile") or "").strip().lower()
         self.forced_profile = fp if fp in PROFILES else ""
@@ -286,7 +287,10 @@ class GoveeSync(DmxLight):
         lit, self.lit_sum = self.lit_sum / max(1, n), 0
         lo, hi, self.e_min, self.e_max = self.e_min, self.e_max, 1.0, 0.0
         txt = " · %d Bilder an die Lampe · im Schnitt %.1f von %d Segmenten an · Bass %.2f–%.2f" % (n, lit, self.n, lo, hi)
-        txt += " · Eins auf Position %d (Einsätze %s, %d× verschoben)" % (self.one_pos + 1, "/".join("%.1f" % x for x in self.one_score), self.one_moves)
+        if self.one_src == "Analyse":
+            txt += " · Eins aus der Analyse"
+        else:
+            txt += " · Eins geschätzt auf Position %d (Einsätze %s, %d× verschoben)" % (self.one_pos + 1, "/".join("%.1f" % x for x in self.one_score), self.one_moves)
         self.one_moves = 0
         if self.effect == "welle" or self.break_effect == "welle":
             txt += " · %d Lichtimpulse (Gesang %.0f %% da)" % (self.launches, self.busy * 100)
@@ -456,8 +460,9 @@ class GoveeSync(DmxLight):
             idle = 0.0
             if self.offset is not None:
                 due = us() + self.offset - self.delay_us
+                self.now_srv = due                                   # Server-Zeit dessen, was die Lampe gerade zeigt
                 while self.events and self.events[0][0] <= due:
-                    _, kind, val = self.events.popleft()
+                    ts, kind, val = self.events.popleft()
                     if kind == T_LOUD:
                         self.loud = val
                     elif kind == T_SPEC:
@@ -473,7 +478,15 @@ class GoveeSync(DmxLight):
                     elif kind == T_BEAT:
                         self.beats += 1
                         self.last_beat = now
-                        one = bool(val) or self.find_one()           # ist das die „Eins“ des Takts?
+                        # Ist das die „Eins“? Am besten weiß es die Analyse von Music Assistant (echte Taktanfänge);
+                        # liegt keine vor oder fehlt der Abgleich noch, schätzen wir wie bisher.
+                        guess = self.find_one()
+                        sure = None
+                        if self.cues and isinstance(ts, int):
+                            self.cues.beat(ts)
+                            sure = self.cues.is_one(ts)
+                        self.one_src = "Analyse" if sure is not None else "geschätzt"
+                        one = bool(val) or (sure if sure is not None else guess)
                         # aufblitzen nur, solange wirklich ein Bass-Beat läuft – das Takt-Raster zählt auch in ruhigen Stellen weiter
                         self.env = 0.0 if self.voc else (1.0 if one else 0.8) * self.prof()["flash"]
                         if one:                                      # Taktanfang: je nach Profil jeden, jeden 2. oder 4. Takt die nächste Farbe
@@ -494,7 +507,7 @@ class GoveeSync(DmxLight):
                 self.push(wrap(ON))
             # Strobe: während eines Aufbaus laut Wellenform (endet genau auf dem Einsatz) – oder, ohne Wellenform, ein paar
             # Sekunden nach einem mitgehörten Drop – oder von Hand (Drop-Test)
-            cue = bool(self.strobe and self.prof()["strobe"] and self.cues and self.cues.strobe(-self.delay_us / 1e6 + self.cue_early))
+            cue = bool(self.strobe and self.prof()["strobe"] and self.cues and self.cues.strobe(-self.delay_us / 1e6 + self.cue_early, self.now_srv))
             if cue != self.cue_on:
                 self.cue_on = cue
                 if cue:
@@ -522,6 +535,11 @@ class GoveeSync(DmxLight):
         m = self.mids()
         self.mel_hi = max(self.mel_hi * 0.9995, m)
         lv = max(0.0, min(1.0, (m - self.mel_hi + 0.30) / 0.20))
+        # Besser als raten: die Gesangs-Kurve aus der Analyse von Music Assistant (echte Stimm-Erkennung). Liegt sie vor
+        # und stimmt der Takt-Abgleich, zählt nur sie – Gitarre oder Synth im selben Tonbereich lösen dann nichts mehr aus.
+        voice = self.cues.curve("vocal", self.now_srv) if self.cues and self.now_srv else None
+        if voice is not None:
+            lv = max(0.0, min(1.0, (voice - 0.15) / 0.35))
         # leiser werden: gemächlich (0,8 s) – wieder da: sofort (0,1 s)
         self.busy += (lv - self.busy) * (1 - math.exp(-dt / (0.1 if lv > self.busy else 0.8)))
         full = self.busy
@@ -531,7 +549,7 @@ class GoveeSync(DmxLight):
         now = time.monotonic()
         jump = m - self.voice
         self.voice += (m - self.voice) * (1 - math.exp(-dt / 0.25))
-        if jump > 0.045 and now - self.wave_at > 0.22 and full > 0.15:
+        if jump > 0.045 and now - self.wave_at > 0.22 and full > 0.15 and (voice is None or voice > 0.3):
             self.wave_at = now
             if self.was_calm and full > 0.6:                         # Gesang ist zurück: langsame Reste weg, frisch starten
                 self.was_calm, self.waves = False, []

@@ -1,5 +1,5 @@
 name: Party-Jukebox
-version: "0.18.1"
+version: "0.19.0"
 slug: party_jukebox
 description: Jukebox, Party-Seite für Gäste und TV-Anzeige für Music Assistant
 url: https://github.com/pivlersmom/party-jukebox
@@ -11,6 +11,9 @@ init: false
 startup: application
 boot: auto
 homeassistant_api: true
+# nur lesen: dort legt ein optionales Helfer-Add-on die Klang-Analyse von Music Assistant ab (/share/ma_analyse)
+map:
+  - share:ro
 hassio_api: true
 ports:
   8099/tcp: 8099

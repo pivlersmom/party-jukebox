@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.19.0
+- **Govee-Licht nutzt die fertige Klang-Analyse von Music Assistant** – wenn sie als Datei unter `/share/ma_analyse/analyse.db` liegt (dort legt sie ein optionales Helfer-Add-on ab; ohne die Datei bleibt alles wie bisher):
+  - **Echte Taktanfänge** statt geschätzter Eins. Dazu gleicht das Add-on die empfangenen Schläge mit der Analyse ab und kennt die Stelle im Titel auf Millisekunden genau.
+  - **Echte Gesangs-Kurve** für das Lauflicht im Effekt `welle` – Gitarre oder Synth lösen es nicht mehr aus.
+  - Strobe-Stellen aus der Wellenform sitzen mit dem Abgleich genau.
+  - Sehr akustische, ruhige Titel bekommen das Profil „Ruhig“.
+  - Fehlt die Analyse für einen Titel, geht das Ereignis `party_jukebox_analyse_fehlt` an Home Assistant.
+- Das Add-on darf dafür den Ordner `share` lesen (nur lesen).
+
 ## 0.18.1
 - Diagnose `viz_probe: ana` gründlicher: vollständige Befehlsliste von Music Assistant und alle Felder des Titels.
 
