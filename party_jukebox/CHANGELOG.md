@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.22.4
+- **Govee-Licht, „welle“ mit Raumfarbe:** der Schlag hebt die Fläche jetzt bis zur vollen Helligkeit an (vorher nur bis 55 %), Grundleuchten etwas tiefer – das Pulsieren ist deutlich sichtbar, ohne dass die Lampe ausgeht.
+
 ## 0.22.3
 - **Govee-Licht: `+halten20`** – hinter `+halten` kann eine Sekundenzahl stehen: der Echtzeit-Modus wird dann nur so selten aufgefrischt (z. B. alle 20 s statt alle 2 s).
 
