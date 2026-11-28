@@ -2459,6 +2459,31 @@ async def ana_probe(app, spec):
             log.info("Analyse-Test: genres (voller Titel) %s", json.dumps((full.get("metadata") or {}).get("genres"), ensure_ascii=False)[:300])
         except Exception as e:
             log.info("Analyse-Test: music/item_by_uri → %s", str(e)[:200])
+        try:    # vollständige Befehlsliste: alle Namen, und zu allem, was nach Analyse klingt, die ganze Beschreibung
+            async with session.get(MAC.base + "/api-docs/commands.json", timeout=20) as r:
+                doc = await r.json(content_type=None)
+            items = doc if isinstance(doc, list) else (doc.get("commands") or doc.get("paths") or doc)
+            entries = items if isinstance(items, list) else [dict(v, command=k) if isinstance(v, dict) else {"command": k} for k, v in items.items()]
+            names = sorted(str(e.get("command") or e.get("name") or "") for e in entries)
+            groups = {}
+            for nme in names:
+                groups.setdefault(nme.split("/")[0], []).append(nme)
+            log.info("Analyse-Test: %d Befehle in Gruppen: %s", len(names), ", ".join("%s (%d)" % (k, len(v)) for k, v in sorted(groups.items())))
+            for e in entries:
+                txt = json.dumps(e, ensure_ascii=False)
+                nme = str(e.get("command") or e.get("name") or "")
+                if re.search(r"audio_analysis|sonic|smart_fades|smart_playlist|danceab|valence|arousal|instrumental|acoustic|energy|feel|mood", txt, re.I):
+                    log.info("Analyse-Test: Befehl %s → %s", nme, txt[:700])
+        except Exception as e:
+            log.info("Analyse-Test: Befehlsliste: %s", str(e)[:200])
+        try:    # steckt es im Titel selbst? Alle Felder des vollen Titels, die nicht leer sind
+            full = await MAC.cmd(session, "music/item_by_uri", {"uri": mi.get("uri")}) or {}
+            flat = {k: v for k, v in full.items() if k not in ("metadata", "provider_mappings", "album", "artists") and v not in (None, "", [], {})}
+            log.info("Analyse-Test: Titel-Felder %s", json.dumps(flat, ensure_ascii=False)[:900])
+            pm = (full.get("provider_mappings") or [{}])[0]
+            log.info("Analyse-Test: provider_mapping %s", json.dumps(pm, ensure_ascii=False)[:700])
+        except Exception as e:
+            log.info("Analyse-Test: Titel-Felder: %s", str(e)[:200])
         for path in ("/api-docs/commands.json", "/api-docs/openapi.json", "/api-docs/commands", "/api-docs"):
             try:
                 async with session.get(MAC.base + path, timeout=15) as r:
