@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.19.2
+- Govee-Licht: **Strobe auch vor einem Bass-Einsatz.** Mit der Analyse von Music Assistant erkennt das Add-on das typische Muster elektronischer Musik: Bass setzt mindestens 4 s aus, oben läuft es weiter, dann knallt der Bass wieder rein. Geblitzt wird die letzten 4 Takte davor, Ende genau auf dem Einsatz. (Bisher nur, wenn die Gesamt-Lautstärke gleichmäßig anstieg – das kam selten vor.) Das Protokoll nennt beide Arten von Stellen und zeigt die Bass-Kurve.
+
 ## 0.19.1
 - Govee-Licht: Stand die Lampe vorher auf einem Weißton (Farbtemperatur), zeigte sie im Echtzeit-Modus nur zwei Weißtöne. Sie wird jetzt beim Start in den Farb-Modus geschaltet.
 - Licht: Ist der Lautsprecher, dem ein Licht folgt, ausgeschaltet, wird nicht mehr jede Minute vergeblich gruppiert (Protokoll bleibt ruhig).

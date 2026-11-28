@@ -108,6 +108,68 @@ def find_builds(wave, duration):
     return merged
 
 
+def find_drops(d, duration, bars=4):
+    """Aufbauten vor einem Bass-Einsatz suchen – aus den Band-Kurven der Analyse → Liste (Start, Ende) in Sekunden.
+    Lernkarte: Die Wellenform allein findet nur Aufbauten, bei denen es insgesamt lauter wird. In elektronischer Musik
+    läuft es meist anders: Der Bass setzt aus, oben wirbelt und zischt es weiter (Trommelwirbel, Riser) – und dann
+    knallt der Bass auf der Eins wieder rein. Die Gesamt-Lautstärke macht dabei nur einen Sprung, keine Rampe.
+    Darum suchen wir hier genau dieses Muster in der Bass-Kurve:
+      1. Bass mindestens 4 s lang weg (unter 35 % von „voll“)
+      2. dann schlagartig wieder da (über 70 %)
+      3. in den Takten davor ist oben herum etwas los (keine Stille)
+    Geblitzt wird die letzten `bars` Takte vor dem Einsatz (bei kürzerer Pause: die ganze Pause), Ende genau auf dem Einsatz."""
+    low, high = d.get("low"), d.get("high") or d.get("mid")
+    if not low or not duration or len(low) < 100:
+        return []
+    n = len(low)
+    bin_s = duration / n
+    k = max(1, int(round(0.5 / bin_s)))
+    sm = lambda c: [sum(c[max(0, i - k):i + k + 1]) / len(c[max(0, i - k):i + k + 1]) for i in range(n)]
+    L = sm(low)
+    full = sorted(L)[int(n * 0.9)]
+    if full < 12:                                                    # Titel fast ohne Bass: nichts zu erkennen
+        return []
+    H = sm(high) if high else None
+    h_mid = sorted(H)[n // 2] if H else 0
+    beats, ones = d.get("beats") or [], d.get("downbeats") or []
+    bar_s = (ones[len(ones) // 2] - ones[len(ones) // 2 - 1]) if len(ones) > 4 else (4 * (beats[len(beats) // 2] - beats[len(beats) // 2 - 1]) if len(beats) > 4 else 2.0)
+    bar_s = min(4.0, max(1.2, bar_s))
+    out, i, gone = [], 0, None
+    while i < n:
+        if L[i] < 0.35 * full:
+            gone = i if gone is None else gone
+        elif L[i] > 0.7 * full:
+            if gone is not None and (i - gone) * bin_s >= 4.0:
+                # schlagartig? Von „weg“ bis „da“ höchstens 1,5 s
+                j = i
+                while j > gone and L[j] >= 0.35 * full:
+                    j -= 1
+                if (i - j) * bin_s <= 1.5:
+                    t = (j + 1) * bin_s
+                    if ones:                                         # der Einsatz liegt auf einer Eins: dorthin rücken
+                        near = min(ones, key=lambda x: abs(x - t))
+                        if abs(near - t) < bar_s / 2:
+                            t = near
+                    a = max(gone * bin_s, t - bars * bar_s)
+                    lo_i, hi_i = int(a / bin_s), max(int(a / bin_s) + 1, int(t / bin_s))
+                    busy = (sum(H[lo_i:hi_i]) / (hi_i - lo_i)) if H else 255
+                    if t - a >= 2.0 and busy >= 0.4 * h_mid and t > 8.0:
+                        out.append((round(a, 2), round(t, 2)))
+            gone = None
+        i += 1
+    return out
+
+
+def merge_spans(spans, gap=1.0):
+    out = []
+    for a, b in sorted(spans):
+        if out and a - out[-1][1] < gap:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
+
+
 def sketch(wave, duration, per_s=3.0):
     """Wellenform als Ziffernzeile fürs Protokoll (0 = still, 9 = voll, ein Zeichen je 3 s) – zum Vergleichen mit der Oberfläche."""
     n = len(wave)
@@ -427,8 +489,13 @@ class WaveCues:
         if len(wave) < 50:
             log.info("Wellenform: für „%s“ liegt (noch) keine vor – Strobe über Mithören", ci.get("name"))
             return
-        self.builds = find_builds(wave, dur)
+        ramps = find_builds(wave, dur)
+        drops = find_drops(self.data, self.dur) if self.data else []
+        self.builds = merge_spans(ramps + drops)
         self.have = True
-        log.info("Wellenform „%s“ (%s): %s", ci.get("name"), mmss(dur),
-                 "Aufbau/Strobe bei " + ", ".join("%s–%s" % (mmss(a), mmss(b)) for a, b in self.builds) if self.builds else "kein Aufbau gefunden")
+        txt = lambda sp: ", ".join("%s–%s" % (mmss(a), mmss(b)) for a, b in sp) or "–"
+        log.info("Strobe-Stellen „%s“ (%s): %s · lauter werdend: %s · vor Bass-Einsatz: %s", ci.get("name"), mmss(dur),
+                 txt(self.builds) if self.builds else "keine", txt(ramps), txt(drops) if self.data else "keine Analyse")
+        if self.data and self.data.get("low"):
+            log.info("Bass-Kurve  (je Zeichen 3 s, 0 weg … 9 voll): %s", sketch([x / 255.0 for x in self.data["low"]], self.dur))
         log.info("Wellenform (je Zeichen 3 s, 0 still … 9 voll): %s", sketch(wave, dur))
