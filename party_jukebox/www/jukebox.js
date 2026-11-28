@@ -1211,6 +1211,8 @@ function renderSettings() {
     '<div class="rshint" style="margin:-4px 2px 6px">ausgeschaltete erscheinen nicht mehr in der Auswahl</div><div id="hpBox"></div>';
   html += '<div class="shh gsh">Push bei neuen Podcast-Folgen' + (prof() ? " · " + esc(profName(prof())) : "") + '</div><div id="ppBox"><div class="rshint">lädt …</div></div>';
   html += '<div class="shh gsh">Schalter</div><div id="qsBox"><div class="rshint">lädt …</div></div>';
+  html += '<div class="shh gsh">Licht</div><a class="act" href="licht.html" style="display:inline-block;text-decoration:none">Lampen einstellen</a>' +
+    '<div class="rshint">Effekt, Farbe, Stärke und Feinabgleich je Lampe – auf einer eigenen Seite</div>';
   html += '<div class="shh gsh">Gastgeber-PIN</div>' +
     '<div class="pinrow"><input class="fi" id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password" placeholder="' +
     (d.host_pin ? "Neue PIN (4–8 Ziffern)" : "PIN festlegen (4–8 Ziffern)") + '"><button class="act" id="pinSave">Speichern</button></div>' +

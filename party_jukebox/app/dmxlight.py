@@ -591,8 +591,9 @@ class DmxLight:
     async def run(self):
         if not await self.setup():
             return
-        await asyncio.sleep(12)
-        if self.enabled():                    # ausgeschaltet heißt: auch kein Testmuster
+        quick = getattr(self, "quick", False)   # von der Licht-Seite neu gestartet: sofort los, ohne Testmuster
+        await asyncio.sleep(1 if quick else 12)
+        if self.enabled() and not quick:      # ausgeschaltet heißt: auch kein Testmuster
             await self.test_pattern()
         tasks = [asyncio.create_task(self.render()), asyncio.create_task(self.keep_grouped())]
         try:

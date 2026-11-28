@@ -91,9 +91,13 @@ def lamp_options(opt):
     Nur die IP ist Pflicht; leere Felder übernehmen Standardwerte. Beispiel:  192.168.178.164 | 20 | welle | light.couch | -250
     Lautsprecher (Name oder ID aus Music Assistant): Diese Lampe folgt einem anderen Lautsprecher als die erste – so bekommt
     jeder Raum sein eigenes Licht (z. B. Wohnzimmer → Sonos, Fitnessraum → Mixstream)."""
+    if OVERRIDE is not None:                                         # auf der Licht-Seite eingestellt: das gilt
+        return [page_opt(opt, d) for d in OVERRIDE if str(d.get("ip") or "").strip()]
     out = []
     if str(opt.get("govee_host") or "").strip():
-        out.append(dict(opt))
+        o = dict(opt)
+        o["govee_keep"] = KEEP_S                                     # die erste Lampe frischt den Echtzeit-Modus alle 2 s auf
+        out.append(o)
     for line in opt.get("govee_lamps") or []:
         f = [x.strip() for x in str(line).split("|")] + [""] * 10
         if not f[0]:
@@ -105,9 +109,55 @@ def lamp_options(opt):
                   "govee_mirror": f[6].lower() == "spiegeln", "govee_color": f[9].lower()})
         if f[7]:
             o["govee_player"] = f[7]
-        o["govee_proto"] = f[8].lower()
+        m = re.search(r"\+halten(\d*)$", f[8].lower())
+        o["govee_keep"] = (float(m.group(1)) if m.group(1) else KEEP_S) if m else 0
+        o["govee_proto"] = re.sub(r"\+halten\d*$", "", f[8].lower())
         out.append(o)
     return out
+
+
+OVERRIDE = None    # Liste von Lampen, wie die Licht-Seite sie speichert (/data/licht.json) – None = Add-on-Konfiguration gilt
+
+
+def lamp_page(o):
+    """Einstellungen einer Lampe so, wie die Licht-Seite sie zeigt und speichert."""
+    def pct(v):
+        try:
+            return None if v is None or v == "" else int(round(float(v)))
+        except (TypeError, ValueError):
+            return None
+    try:
+        seg = max(1, min(60, int(o.get("govee_segments") or 7)))
+    except (TypeError, ValueError):
+        seg = 7
+    try:
+        delay = int(o.get("govee_delay_ms") or 0)
+    except (TypeError, ValueError):
+        delay = 0
+    eff = str(o.get("govee_effect") or "balken").strip().lower()
+    brk = str(o.get("govee_break") or "").strip().lower()
+    pr = str(o.get("govee_proto") or "").strip().lower()
+    col = str(o.get("govee_color") or "").strip().lower()
+    return {"name": str(o.get("govee_name") or "")[:40], "ip": str(o.get("govee_host") or "").strip(), "seg": seg,
+            "effect": eff if eff in EFFECTS else "balken", "brk": brk if brk in EFFECTS else "",
+            "entity": str(o.get("govee_entity") or "").strip(), "delay": max(-2000, min(2000, delay)),
+            "dir": "spiegeln" if o.get("govee_mirror") else "umdrehen" if o.get("govee_reverse") else "",
+            "player": str(o.get("govee_player") or "").strip()[:80], "proto": pr if pr in PROTOS else "standard",
+            "keep": max(0, min(120, int(float(o.get("govee_keep") or 0)))), "color": col if col in ("raum", "gegen") else "",
+            "floor": pct(o.get("govee_floor")), "punch": pct(o.get("govee_punch")), "strobe": o.get("govee_strobe") is not False}
+
+
+def page_opt(opt, d):
+    """Umgekehrt: aus einem Eintrag der Licht-Seite die Einstellungen für eine Lampe machen."""
+    o = dict(opt)
+    o.update({"govee_name": d.get("name") or "", "govee_host": d.get("ip") or "", "govee_segments": d.get("seg") or 7,
+              "govee_effect": d.get("effect") or "balken", "govee_break": d.get("brk") or "", "govee_entity": d.get("entity") or "",
+              "govee_delay_ms": d.get("delay") or 0, "govee_reverse": d.get("dir") == "umdrehen", "govee_mirror": d.get("dir") == "spiegeln",
+              "govee_proto": d.get("proto") or "standard", "govee_keep": d.get("keep") or 0, "govee_color": d.get("color") or "",
+              "govee_floor": d.get("floor"), "govee_punch": d.get("punch"), "govee_strobe": d.get("strobe") is not False})
+    if d.get("player"):
+        o["govee_player"] = d["player"]
+    return o
 
 
 def wrap(raw):
@@ -190,10 +240,17 @@ class GoveeSync(DmxLight):
         # wie ein Zucken „immer auf der Eins“. Darum: nur die erste Lampe wiederholt von selbst; weitere Lampen nur mit dem
         # Zusatz „+halten“ an der Paket-Form (z. B. „standard+halten“).
         # „+halten20“ = nur alle 20 s wiederholen: viele Modelle fallen erst nach rund einer Minute heraus – so zuckt es selten.
-        m = re.search(r"\+halten(\d*)$", pr)
-        self.keep = idx == 1 or bool(m)
-        self.keep_s = float(m.group(1)) if m and m.group(1) else KEEP_S
+        ks = float(opt.get("govee_keep") or 0)                       # Sekunden; 0 = nie auffrischen
+        self.keep, self.keep_s = ks > 0, max(1.0, ks)
         pr = re.sub(r"\+halten\d*$", "", pr) or "standard"
+        self.idx, self.label, self.quick, self.testing = idx, str(opt.get("govee_name") or "").strip(), False, False
+
+        def frac(key):                                               # Prozent von der Licht-Seite → 0..1 (leer = Automatik)
+            try:
+                return None if opt.get(key) in (None, "") else max(0.0, min(1.0, float(opt.get(key)) / 100.0))
+            except (TypeError, ValueError):
+                return None
+        self.floor_opt, self.punch_opt = frac("govee_floor"), frac("govee_punch")
         self.proto = pr if pr in PROTOS else "standard"
         self.slow_at = 0.0
         eff = str(opt.get("govee_effect") or "balken").strip().lower()
@@ -341,11 +398,20 @@ class GoveeSync(DmxLight):
     async def test_pattern(self):
         """Beim Start: Lauflicht einmal hoch und wieder runter – zeigt, ob die Lampe den Echtzeit-Modus versteht."""
         log.info(self.tag + ": Testmuster an %s (Port %d)", ", ".join(t[0] for t in self.targets), PORT)
-        await self.take()
-        for i in list(range(1, self.n + 1)) + list(range(self.n - 1, -1, -1)):
-            self.show([colorsys_rgb(0.33 * (1 - k / max(1, self.n - 1))) if k < i else (0, 0, 0) for k in range(self.n)])
-            await asyncio.sleep(0.12)
-        await self.give_back("Testmuster fertig")
+        self.testing = True                                          # solange malt das Takt-Licht nicht dazwischen
+        try:
+            await self.take()
+            for i in list(range(1, self.n + 1)) + list(range(self.n - 1, -1, -1)):
+                self.show([colorsys_rgb(0.33 * (1 - k / max(1, self.n - 1))) if k < i else (0, 0, 0) for k in range(self.n)])
+                await asyncio.sleep(0.12)
+            await self.give_back("Testmuster fertig")
+        finally:
+            self.testing = False
+
+    def status(self):
+        """Für die Licht-Seite: was macht diese Lampe gerade?"""
+        return {"an": bool(self.enabled()), "aktiv": bool(self.taken), "bilder": self.sent, "folgt": self.player,
+                "verbunden": bool(getattr(self, "playing", False)), "form": self.proto}
 
     def send(self, v=None, rgb=None):
         return                                                       # das Grundgerüst sendet DMX – hier nichts zu tun
@@ -538,7 +604,9 @@ class GoveeSync(DmxLight):
         self.lo = min(self.lo * 1.0005 + 0.00001, self.loud)
         lv = max(0.0, min(1.0, (self.loud - self.lo) / max(0.05, self.hi - self.lo)))
         self.smooth += (lv - self.smooth) * 0.25
-        return [colorsys_rgb(self.hue, max(self.env, 0.10 + 0.25 * self.smooth), self.sat)] * self.n
+        floor = 0.10 if self.floor_opt is None else self.floor_opt
+        punch = 1.0 if self.punch_opt is None else self.punch_opt
+        return [colorsys_rgb(self.hue, max(punch * self.env, floor + 0.25 * self.smooth * (1 - floor)), self.sat)] * self.n
 
     def parse(self, kind, d):
         if kind == T_SPEC and len(d) >= 2:
@@ -553,6 +621,8 @@ class GoveeSync(DmxLight):
         while True:
             await asyncio.sleep(dt)
             now = time.monotonic()
+            if self.testing:
+                continue
             on = self.enabled()
             active = on and self.playing and now - self.last_frame < 3
             if on and now - self.drop_at < self.drop_s and not active:   # Drop-Test ohne Musik: Strobe trotzdem zeigen
@@ -672,8 +742,9 @@ class GoveeSync(DmxLight):
         # Lernkarte: Mit Grundhelligkeit 0,10 ging ein Stripe zwischen zwei Schlägen fast aus – im Raum wirkte das hart.
         # Lampen mit Raumfarbe glimmen darum deutlich heller (0,34); der Schlag hebt nur noch an statt ein- und auszuschalten.
         # … und der Schlag darf dafür bis zur vollen Helligkeit gehen (vorher nur bis 55 % – über dem helleren Grund sah man ihn kaum).
-        floor = 0.28 if self.room else 0.10
-        base = max(0.32 if self.voc else floor, (1.0 if self.room else 0.55) * self.env)
+        floor = (0.28 if self.room else 0.10) if self.floor_opt is None else self.floor_opt
+        punch = (1.0 if self.room else 0.55) if self.punch_opt is None else self.punch_opt
+        base = max(max(0.32, floor) if self.voc else floor, punch * self.env)
         # Tempo des Lauflichts: Gesang voll da → in ca. 0,45 s einmal durch; Gesang fast weg → nur noch ein Fünftel so schnell
         speed = self.n / 0.45 * (0.2 + 0.8 * full)
         for w in self.waves:
@@ -724,6 +795,8 @@ class GoveeSync(DmxLight):
 
     def spectrum(self, dt):
         self.band_hi = max(self.band_hi * 0.9995, max(self.spec) if self.spec else 0.0, 0.05)
+        floor = 0.28 if self.floor_opt is None else self.floor_opt
+        punch = 1.0 if self.punch_opt is None else self.punch_opt
         out = []
         for i in range(self.n):
             v = max(0.0, min(1.0, self.spec[i] / self.band_hi))
@@ -732,9 +805,9 @@ class GoveeSync(DmxLight):
             v = v ** 1.5
             self.bands[i] = max(v, self.bands[i] * math.exp(-dt / 0.45))
             if self.room:                                            # Raumfarbe: enger Farbverlauf um die eigene Farbe statt Regenbogen
-                out.append(colorsys_rgb(self.hue - 0.10 + 0.20 * i / max(1, self.n - 1), 0.28 + 0.72 * self.bands[i], self.sat))
+                out.append(colorsys_rgb(self.hue - 0.10 + 0.20 * i / max(1, self.n - 1), min(1.0, floor + (1 - floor) * punch * self.bands[i]), self.sat))
             else:
-                out.append(colorsys_rgb(0.0 + 0.75 * i / max(1, self.n - 1), 0.28 + 0.72 * self.bands[i]))   # Bass rot … Höhen violett
+                out.append(colorsys_rgb(0.0 + 0.75 * i / max(1, self.n - 1), min(1.0, floor + (1 - floor) * punch * self.bands[i])))   # Bass rot … Höhen violett
         return out
 
 

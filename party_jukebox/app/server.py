@@ -1734,6 +1734,172 @@ async def party_wave(request):
     return web.json_response(out, headers={"Cache-Control": "no-cache"})
 
 
+# ---------------------------------------------------------------- Licht-Seite (licht.html): Govee-Lampen selbst einstellen
+LICHT_FILE = Path("/data/licht.json")
+GOV = {}            # Nummer der Lampe → laufendes GoveeSync-Objekt
+GOV_PAGE = {}       # Nummer der Lampe → Einstellungen, mit denen sie gerade läuft (wie die Seite sie kennt)
+
+
+def licht_load():
+    """Beim Start: Hat die Licht-Seite schon einmal gespeichert? Dann gilt das statt der Add-on-Konfiguration."""
+    import goveesync
+    try:
+        d = json.loads(LICHT_FILE.read_text(encoding="utf-8"))
+        goveesync.OVERRIDE = [x for x in d.get("lamps") or [] if isinstance(x, dict)]
+        log.info("Licht-Seite: %d Lampe(n) aus den eigenen Einstellungen", len(goveesync.OVERRIDE))
+    except FileNotFoundError:
+        goveesync.OVERRIDE = None
+    except Exception as e:
+        goveesync.OVERRIDE = None
+        log.info("Licht-Seite: eigene Einstellungen nicht lesbar (%s) – Add-on-Konfiguration gilt", e)
+
+
+def govee_start(app, i, o, quick=False):
+    from goveesync import GoveeSync, lamp_page
+    ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+    gov = GoveeSync(app["session"], o, ma_cmds, ma_host, i)
+    gov.enabled = light_on
+    gov.token = SUP_TOKEN
+    gov.quick = quick
+    if i == 1:
+        app["govee_obj"] = gov                                        # Drop-Test und Drop-Ereignis: nur die erste Lampe
+        gov.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
+    LIGHT["has"] = True
+    GOV[i], GOV_PAGE[i] = gov, lamp_page(o)
+    app["govee%d" % i] = asyncio.create_task(gov.run())
+    if quick and "light" not in app:                                  # erste Lampe überhaupt: der Licht-Schalter muss mitlaufen
+        app["light"] = asyncio.create_task(light_loop(app))
+
+
+async def govee_stop(app, i):
+    from goveesync import GoveeSync, Room
+    task, gov = app.pop("govee%d" % i, None), GOV.pop(i, None)
+    GOV_PAGE.pop(i, None)
+    if task:
+        task.cancel()
+        try:
+            await task
+        except BaseException:
+            pass
+    if gov:
+        try:
+            if gov.taken:
+                await gov.give_back("Einstellung geändert")
+            await ma_cmds(app["session"], [("players/cmd/ungroup", {"player_id": gov.client_id})])
+        except Exception as e:
+            log.info("%s: Anhalten: %s", gov.tag, e)
+        if gov in GoveeSync.all:
+            GoveeSync.all.remove(gov)
+        for r in Room.all.values():
+            if r.leader is gov:
+                r.leader = None
+        if app.get("govee_obj") is gov:
+            app.pop("govee_obj", None)
+
+
+def licht_clean(d):
+    """Einen Eintrag von der Seite prüfen und in Form bringen (nichts Ungeprüftes übernehmen)."""
+    from goveesync import lamp_page, page_opt
+    if not isinstance(d, dict):
+        raise ValueError("Eintrag ist keine Lampe")
+    ip = str(d.get("ip") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.\-]{1,80}", ip):
+        raise ValueError("IP-Adresse fehlt oder ist ungültig")
+    ent = ",".join(e.strip().lower() for e in str(d.get("entity") or "").replace(";", ",").split(",") if e.strip())
+    if ent and not all(re.fullmatch(r"light\.[a-z0-9_]+", e) for e in ent.split(",")):
+        raise ValueError("„Lampe in Home Assistant“ muss mit light. beginnen")
+    for k in ("floor", "punch"):
+        v = d.get(k)
+        if v not in (None, ""):
+            d[k] = max(0, min(100, int(float(v))))
+        else:
+            d[k] = None
+    d = dict(d, ip=ip, entity=ent)
+    return lamp_page(page_opt({}, d))                                 # einmal hin und zurück: begrenzt alle Werte
+
+
+async def licht_state(app):
+    from goveesync import EFFECTS, PROTOS
+    import goveesync
+    lamps = []
+    for i in sorted(GOV_PAGE):
+        st = GOV[i].status() if i in GOV else {}
+        lamps.append(dict(GOV_PAGE[i], nr=i, status=st))
+    players, lights = [], []
+    try:
+        pl = (await ma_cmds(app["session"], [("players/all", {})]))[0] or []
+        players = sorted({str(x.get("name") or "") for x in pl if x.get("name") and not str(x.get("player_id") or "").startswith("pj-")
+                          and x.get("enabled", True)}, key=str.lower)
+    except Exception as e:
+        log.info("Licht-Seite: Lautsprecher-Liste: %s", e)
+    if SUP_TOKEN:
+        try:
+            async with app["session"].get(f"{HA_HTTP}/states", headers={"Authorization": f"Bearer {SUP_TOKEN}"}, timeout=15) as r:
+                for e in await r.json():
+                    eid = e.get("entity_id", "")
+                    if eid.startswith("light.") and "_segment_" not in eid:
+                        lights.append({"id": eid, "name": (e.get("attributes") or {}).get("friendly_name") or eid})
+            lights.sort(key=lambda x: x["name"].lower())
+        except Exception as e:
+            log.info("Licht-Seite: Lampen-Liste aus Home Assistant: %s", e)
+    return {"ok": True, "lamps": lamps, "players": players, "lights": lights, "effects": list(EFFECTS), "protos": list(PROTOS),
+            "on": LIGHT["on"], "standard_player": str(OPT.get("govee_player") or OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or ""),
+            "quelle": "seite" if goveesync.OVERRIDE is not None else "konfiguration"}
+
+
+async def party_licht(request):
+    """Licht-Seite: Lampen lesen (GET) · speichern und sofort anwenden, Testmuster, zurücksetzen (POST)."""
+    if not is_host(request):
+        return web.json_response({"ok": False, "error": "Gastgeber-PIN nötig", "host": False}, status=403)
+    import goveesync
+    app = request.app
+    if request.method == "POST":
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        if body.get("test"):
+            gov = GOV.get(int(body["test"]))
+            if not gov:
+                return web.json_response({"ok": False, "error": "Diese Lampe läuft gerade nicht"}, status=404)
+            if not gov.testing:
+                asyncio.create_task(gov.test_pattern())
+            return web.json_response({"ok": True})
+        if body.get("reset"):
+            try:
+                LICHT_FILE.unlink()
+            except FileNotFoundError:
+                pass
+            goveesync.OVERRIDE = None
+            log.info("Licht-Seite: zurückgesetzt – es gilt wieder die Add-on-Konfiguration")
+        elif isinstance(body.get("lamps"), list):
+            try:
+                new = [licht_clean(x) for x in body["lamps"][:12]]
+            except Exception as e:
+                return web.json_response({"ok": False, "error": str(e)}, status=400)
+            tmp = LICHT_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"lamps": new}, ensure_ascii=False, indent=1), encoding="utf-8")
+            tmp.replace(LICHT_FILE)
+            goveesync.OVERRIDE = new
+        else:
+            return web.json_response({"ok": False, "error": "Nichts zu tun"}, status=400)
+        # nur die Lampen neu starten, an denen sich etwas geändert hat (dauert je Lampe ein, zwei Sekunden)
+        want = {i: o for i, o in enumerate(goveesync.lamp_options(OPT), 1)} if OPT.get("ma_token") else {}
+        changed = 0
+        for i in sorted(set(GOV_PAGE) | set(want)):
+            page = goveesync.lamp_page(want[i]) if i in want else None
+            if page == GOV_PAGE.get(i):
+                continue
+            changed += 1
+            await govee_stop(app, i)
+            if i in want:
+                govee_start(app, i, want[i], quick=True)
+        log.info("Licht-Seite: gespeichert – %d Lampe(n) neu gestartet", changed)
+    return web.json_response(await licht_state(app), headers={"Cache-Control": "no-cache"})
+
+
 async def party_goveeproto(request):
     """Paket-Form einer Govee-Lampe im laufenden Betrieb umschalten (zum Ausprobieren, gilt bis zum Neustart).
     ?ip=192.168.x.y&proto=standard|razer|dreams|v2|app|ganz  – ohne Angaben: Liste der Lampen."""
@@ -2441,7 +2607,7 @@ async def party_light(request):
         follow.add(str(OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
     if str(OPT.get("wled_host") or "").strip():
         follow.add(str(OPT.get("wled_player") or OPT.get("dmx_player") or OPT.get("party_player") or "").strip().lower())
-    if str(OPT.get("govee_host") or "").strip() or OPT.get("govee_lamps"):
+    if True:
         from goveesync import lamp_options
         for o in lamp_options(OPT):                                  # jede Lampe kann einem eigenen Lautsprecher folgen
             follow.add(str(o.get("govee_player") or o.get("wled_player") or o.get("dmx_player") or o.get("party_player") or "").strip().lower())
@@ -2801,19 +2967,12 @@ async def on_startup(app):
         hal.token = SUP_TOKEN
         LIGHT["has"] = True
         app["halight"] = asyncio.create_task(hal.run())
-    if (str(OPT.get("govee_host") or "").strip() or OPT.get("govee_lamps")) and OPT.get("ma_token"):
+    licht_load()
+    if OPT.get("ma_token"):
         # Govee-Lampen mit Segmenten, direkt im LAN – jede Lampe mit eigener Rolle (Effekt). Siehe goveesync.py
-        from goveesync import GoveeSync, lamp_options
-        ma_host = (urlparse(MAC.base).hostname or "172.30.32.1") if MAC.base else "172.30.32.1"
+        from goveesync import lamp_options
         for i, o in enumerate(lamp_options(OPT), 1):
-            gov = GoveeSync(app["session"], o, ma_cmds, ma_host, i)
-            gov.enabled = light_on
-            gov.token = SUP_TOKEN
-            if i == 1:
-                app["govee_obj"] = gov                                # Drop-Test und Drop-Ereignis: nur die erste Lampe
-                gov.on_drop = lambda hit: asyncio.create_task(ha_event(app["session"], "party_jukebox_drop", hit))
-            LIGHT["has"] = True
-            app["govee%d" % i] = asyncio.create_task(gov.run())
+            govee_start(app, i, o)
         # fehlt für einen Titel die fertige Analyse, melden wir das an Home Assistant – eine Automation startet dann den Helfer
         from wavecue import WaveCues
         WaveCues.on_missing = lambda info: asyncio.create_task(ha_event(app["session"], "party_jukebox_analyse_fehlt", info))
@@ -2849,6 +3008,8 @@ def make_app():
     app.router.add_get("/party/progress", party_progress)
     app.router.add_get("/party/wave", party_wave)
     app.router.add_get("/party/goveeproto", party_goveeproto)
+    app.router.add_get("/party/licht", party_licht)
+    app.router.add_post("/party/licht", party_licht)
     app.router.add_get("/party/sonostv", party_sonostv)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)

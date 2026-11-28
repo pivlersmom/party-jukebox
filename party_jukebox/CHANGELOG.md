@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.23.0
+- **Licht-Seite** – Govee-Lampen selbst einstellen, ohne die Add-on-Konfiguration: Jukebox → ⚙ → „Lampen einstellen“ (oder `licht.html`). Je Lampe: Effekt, Effekt ohne Bass-Beat, Farbe (eigene / Raumfarbe / Gegenfarbe), Richtung (normal / umgedreht / gespiegelt), Grundleuchten, Schlag-Stärke, Feinabgleich, Strobe, Lautsprecher, IP, Segmente, Lampe in Home Assistant, Paket-Form, Auffrischen des Echtzeit-Modus. Dazu Testmuster, Lampe hinzufügen/entfernen und der Schalter „Licht im Takt“.
+- Gespeichert wird sofort angewendet: nur die geänderte Lampe startet kurz neu (kein Add-on-Neustart, kein Testmuster).
+- Mit dem ersten Speichern gelten die Einstellungen der Seite statt der Lampen-Zeilen in der Add-on-Konfiguration; „zurücksetzen“ macht das rückgängig.
+- Neu einstellbar: **Grundleuchten** (wie hell die Lampe zwischen zwei Schlägen bleibt) und **Schlag-Stärke** je Lampe.
+
 ## 0.22.4
 - **Govee-Licht, „welle“ mit Raumfarbe:** der Schlag hebt die Fläche jetzt bis zur vollen Helligkeit an (vorher nur bis 55 %), Grundleuchten etwas tiefer – das Pulsieren ist deutlich sichtbar, ohne dass die Lampe ausgeht.
 
