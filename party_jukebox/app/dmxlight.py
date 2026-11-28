@@ -443,6 +443,13 @@ class DmxLight:
                         said = msg
                         log.info(self.tag + ": %s", msg)
                     continue
+                if tgt.get("available") is False:                     # Lautsprecher ist aus/nicht erreichbar: nicht jede Minute anklopfen
+                    msg = "Lautsprecher „%s“ ist gerade nicht erreichbar – warte, bis er da ist" % tgt.get("name")
+                    if said != msg:
+                        said = msg
+                        log.info(self.tag + ": %s", msg)
+                    tries = 1
+                    continue
                 leader = tgt.get("synced_to") or tgt.get("player_id")
                 if mine.get("synced_to") == leader or mine.get("active_group") == leader:
                     msg = "folgt „%s“" % tgt.get("name")

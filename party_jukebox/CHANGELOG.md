@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.19.1
+- Govee-Licht: Stand die Lampe vorher auf einem Weißton (Farbtemperatur), zeigte sie im Echtzeit-Modus nur zwei Weißtöne. Sie wird jetzt beim Start in den Farb-Modus geschaltet.
+- Licht: Ist der Lautsprecher, dem ein Licht folgt, ausgeschaltet, wird nicht mehr jede Minute vergeblich gruppiert (Protokoll bleibt ruhig).
+
 ## 0.19.0
 - **Govee-Licht nutzt die fertige Klang-Analyse von Music Assistant** – wenn sie als Datei unter `/share/ma_analyse/analyse.db` liegt (dort legt sie ein optionales Helfer-Add-on ab; ohne die Datei bleibt alles wie bisher):
   - **Echte Taktanfänge** statt geschätzter Eins. Dazu gleicht das Add-on die empfangenen Schläge mit der Analyse ab und kennt die Stelle im Titel auf Millisekunden genau.

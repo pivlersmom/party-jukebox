@@ -199,6 +199,12 @@ class GoveeSync(DmxLight):
             await self.ha("scene", "create", {"scene_id": self.scene, "snapshot_entities": self.entities})
         self.push(json.dumps({"msg": {"cmd": "turn", "data": {"value": 1}}}).encode())
         await asyncio.sleep(0.2)
+        # Lernkarte: Stand die Lampe vorher auf „Weißton“ (Farbtemperatur), zeigte sie im Echtzeit-Modus nur zwei Weißtöne
+        # statt Farben. Darum zuerst kurz eine Farbe setzen – das schaltet sie in den Farb-Modus. (Der Zustand von vorher
+        # kommt am Ende über „Lampe in Home Assistant“ zurück.)
+        r, g_, b = colorsys_rgb(self.hue, 0.3, 1.0)
+        self.push(json.dumps({"msg": {"cmd": "colorwc", "data": {"color": {"r": r, "g": g_, "b": b}, "colorTemInKelvin": 0}}}).encode())
+        await asyncio.sleep(0.3)
         self.push(wrap(ON))
         await asyncio.sleep(0.5)
         self.push(wrap(ON))
