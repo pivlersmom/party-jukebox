@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.21.0
+- **Govee-Licht: Paket-Form je Lampe** – nicht jedes Modell versteht dieselbe Form des Echtzeit-Pakets. In „weitere Lampen“ ein 9. Feld „Paket-Form“: `standard` (wie bisher), `razer`, `dreams`, `v2`, sowie ohne Echtzeit-Modus `app` (Segment-Befehl der Govee-App, langsam) und `ganz` (ganze Lampe in einer Farbe). Zum Ausprobieren lässt sich die Form im laufenden Betrieb umschalten.
+
 ## 0.20.0
 - **Wellenform im Fortschrittsbalken** – die Jukebox zeigt beim laufenden Titel die Wellenform statt des Strichs (antippen/ziehen spult wie bisher). Gelbe Striche darunter markieren die Stellen, an denen das Licht strobt. Bei Radio, Podcast und TV-Ton bleibt der normale Strich.
 

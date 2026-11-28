@@ -68,12 +68,21 @@ SWING_MIN = 0.12           # so weit muss der Bass in 2 s auf- und abspringen, d
 RISE_MIN = 0.05            # so viel müssen Lautstärke oder Höhen im Aufbau steigen (0,05 ≈ 3 dB), sonst kein Strobe
 KEEP_S = 2.0               # so oft „Echtzeit-Modus an“ wiederholen
 EFFECTS = ("balken", "ampel", "spektrum", "puls", "welle")
+# Lernkarte: Nicht jedes Govee-Modell versteht dieselbe Form des Echtzeit-Pakets. Darum je Lampe wählbar:
+#   standard  B0 mit echter Längenangabe (Stehleuchte, Dreiecke, Stripes)
+#   razer     B0 mit fester Längenangabe 0x0E (so sendet Razer Chroma)
+#   dreams    B0 mit fester Längenangabe 0xFA (manche neueren Stripes zeigen nur so die ganze Länge)
+#   v2        B4 mit einem Zonen-Byte hinter jeder Farbe („DreamView V2“, neuere Modelle)
+#   app       kein Echtzeit-Modus: der Segment-Farbbefehl der Govee-App (langsam, höchstens ~4 Bilder/s)
+#   ganz      kein Echtzeit-Modus: ganze Lampe in der Durchschnittsfarbe (amtlicher Befehl, höchstens ~8/s, weich)
+PROTOS = ("standard", "razer", "dreams", "v2", "app", "ganz")
+SLOW = {"app": 0.25, "ganz": 0.12}   # Mindestabstand zwischen zwei Bildern (s)
 
 
 def lamp_options(opt):
     """Aus der Add-on-Konfiguration eine Liste von Einstellungen machen – eine je Lampe.
     Lampe 1 sind die Optionen govee_host, govee_segments … Weitere Lampen stehen in govee_lamps, je Zeile:
-        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen | Lautsprecher
+        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen | Lautsprecher | Paket-Form
     Nur die IP ist Pflicht; leere Felder übernehmen Standardwerte. Beispiel:  192.168.178.164 | 20 | welle | light.couch | -250
     Lautsprecher (Name oder ID aus Music Assistant): Diese Lampe folgt einem anderen Lautsprecher als die erste – so bekommt
     jeder Raum sein eigenes Licht (z. B. Wohnzimmer → Sonos, Fitnessraum → Mixstream)."""
@@ -81,7 +90,7 @@ def lamp_options(opt):
     if str(opt.get("govee_host") or "").strip():
         out.append(dict(opt))
     for line in opt.get("govee_lamps") or []:
-        f = [x.strip() for x in str(line).split("|")] + [""] * 8
+        f = [x.strip() for x in str(line).split("|")] + [""] * 9
         if not f[0]:
             continue
         o = dict(opt)
@@ -90,6 +99,7 @@ def lamp_options(opt):
                   "govee_break": f[5], "govee_reverse": f[6].lower() in ("1", "ja", "true", "x", "umdrehen")})
         if f[7]:
             o["govee_player"] = f[7]
+        o["govee_proto"] = f[8].lower()
         out.append(o)
     return out
 
@@ -98,9 +108,36 @@ def wrap(raw):
     return json.dumps({"msg": {"cmd": "razer", "data": {"pt": base64.b64encode(raw).decode()}}}).encode()
 
 
-def frame(colors, gradient=False):
+def xor_end(raw):
+    x = 0
+    for b in raw:
+        x ^= b
+    return raw + bytes([x])
+
+
+def app_packets(colors):
+    """Segment-Farbbefehl der Govee-App (20 Bytes: 33 05 15 01 r g b 0 0 0 0 0 <Segment-Maske>, mit Nullen aufgefüllt, Prüfbyte).
+    Je Farbe ein Paket; ähnliche Farben werden zusammengelegt, damit es wenige Pakete bleiben."""
+    groups = {}
+    for i, rgb in enumerate(colors):
+        key = tuple(max(0, min(255, int(c))) // 32 * 32 for c in rgb)
+        groups[key] = groups.get(key, 0) | (1 << i)
+    out = []
+    for (r, g, b), mask in groups.items():
+        m = mask.to_bytes(max(2, (len(colors) + 7) // 8), "little")
+        out.append(xor_end((bytes([0x33, 0x05, 0x15, 0x01, r, g, b, 0, 0, 0, 0, 0]) + m).ljust(19, b"\0")))
+    return out
+
+
+def frame(colors, gradient=False, proto="standard"):
     """Alle Segmente auf einmal: colors = [(r, g, b), …] mit Werten 0..255."""
-    body = bytes([0xB0, 1 if gradient else 0, len(colors)]) + bytes(max(0, min(255, int(c))) for rgb in colors for c in rgb)
+    rgb3 = [bytes(max(0, min(255, int(c))) for c in rgb) for rgb in colors]
+    if proto == "v2":
+        body = bytes([0xB4, 1 if gradient else 0, len(colors)]) + b"".join(c + bytes([1 if i < 36 else 2]) for i, c in enumerate(rgb3))
+    else:
+        body = bytes([0xB0, 1 if gradient else 0, len(colors)]) + b"".join(rgb3)
+    if proto in ("razer", "dreams"):
+        return xor_end(b"\xbb\x00" + (b"\x0e" if proto == "razer" else b"\xfa") + body)
     raw = b"\xbb" + struct.pack(">H", len(body) - 1) + body
     x = 0
     for b in raw:
@@ -110,6 +147,7 @@ def frame(colors, gradient=False):
 
 class GoveeSync(DmxLight):
     client_id, name, tag = "pj-govee", "Jukebox Govee-Licht", "Govee-Licht"
+    all = []                                # alle Lampen (für die Umschaltung der Paket-Form im laufenden Betrieb)
 
     def __init__(self, session, opt, ma_cmds, ma_host, idx=1):
         super().__init__(session, opt, ma_cmds, ma_host)
@@ -122,6 +160,10 @@ class GoveeSync(DmxLight):
             self.n = max(1, min(60, int(opt.get("govee_segments") or 7)))
         except (TypeError, ValueError):
             self.n = 7
+        GoveeSync.all.append(self)
+        pr = str(opt.get("govee_proto") or "").strip().lower()
+        self.proto = pr if pr in PROTOS else "standard"
+        self.slow_at = 0.0
         eff = str(opt.get("govee_effect") or "balken").strip().lower()
         self.effect = eff if eff in EFFECTS else "balken"
         self.nb = max(1, int(round(self.n * 2 / 7)))                 # so viele Bänder unten sind „Bass“ (bis ca. 220 Hz), oben „Höhen“
@@ -188,7 +230,18 @@ class GoveeSync(DmxLight):
     def show(self, colors):
         if self.reverse:
             colors = colors[::-1]
-        self.push(wrap(frame(colors)))
+        if self.proto in SLOW:                                       # langsame Wege: nicht jedes Bild schicken
+            now = time.monotonic()
+            if now - self.slow_at < SLOW[self.proto]:
+                return
+            self.slow_at = now
+            if self.proto == "ganz":
+                r, g, b = (sum(c[k] for c in colors) // max(1, len(colors)) for k in range(3))
+                self.push(json.dumps({"msg": {"cmd": "colorwc", "data": {"color": {"r": int(r), "g": int(g), "b": int(b)}, "colorTemInKelvin": 0}}}).encode())
+            else:
+                self.push(json.dumps({"msg": {"cmd": "ptReal", "data": {"command": [base64.b64encode(x).decode() for x in app_packets(colors)]}}}).encode())
+        else:
+            self.push(wrap(frame(colors, proto=self.proto)))
         self.sent += 1
         self.lit_sum += sum(1 for c in colors if max(c) > 40)
 
@@ -205,17 +258,18 @@ class GoveeSync(DmxLight):
         r, g_, b = colorsys_rgb(self.hue, 0.3, 1.0)
         self.push(json.dumps({"msg": {"cmd": "colorwc", "data": {"color": {"r": r, "g": g_, "b": b}, "colorTemInKelvin": 0}}}).encode())
         await asyncio.sleep(0.3)
-        self.push(wrap(ON))
-        await asyncio.sleep(0.5)
-        self.push(wrap(ON))
+        if self.proto not in SLOW:
+            self.push(wrap(ON))
+            await asyncio.sleep(0.5)
+            self.push(wrap(ON))
         self.on_at = time.monotonic()
-        log.info(self.tag + ": Echtzeit-Modus an (%s, %d Segmente, Effekt %s)", ", ".join(t[0] for t in self.targets), self.n, self.effect)
+        log.info(self.tag + ": Echtzeit-Modus an (%s, %d Segmente, Effekt %s, Paket-Form %s)", ", ".join(t[0] for t in self.targets), self.n, self.effect, self.proto)
 
     async def give_back(self, why):
         self.taken = False
         self.show([(0, 0, 0)] * self.n)
         await asyncio.sleep(0.1)
-        for _ in range(2):
+        for _ in range(2 if self.proto not in SLOW else 0):
             self.push(wrap(OFF))
             await asyncio.sleep(0.3)
         if self.entities:
@@ -510,7 +564,8 @@ class GoveeSync(DmxLight):
                 # in ihr eigenes Programm – unsere Bilder kamen an, wurden aber nicht mehr gezeigt. Darum den Modus
                 # regelmäßig neu anfordern.
                 self.on_at = now
-                self.push(wrap(ON))
+                if self.proto not in SLOW:
+                    self.push(wrap(ON))
             # Strobe: während eines Aufbaus laut Wellenform (endet genau auf dem Einsatz) – oder, ohne Wellenform, ein paar
             # Sekunden nach einem mitgehörten Drop – oder von Hand (Drop-Test)
             cue = bool(self.strobe and self.prof()["strobe"] and self.cues and self.cues.strobe(-self.delay_us / 1e6 + self.cue_early, self.now_srv))

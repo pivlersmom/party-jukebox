@@ -1734,6 +1734,26 @@ async def party_wave(request):
     return web.json_response(out, headers={"Cache-Control": "no-cache"})
 
 
+async def party_goveeproto(request):
+    """Paket-Form einer Govee-Lampe im laufenden Betrieb umschalten (zum Ausprobieren, gilt bis zum Neustart).
+    ?ip=192.168.x.y&proto=standard|razer|dreams|v2|app|ganz  – ohne Angaben: Liste der Lampen."""
+    if not is_host(request):
+        return web.json_response({"ok": False}, status=403)
+    from goveesync import GoveeSync, PROTOS
+    ip, proto = request.query.get("ip") or "", (request.query.get("proto") or "").lower()
+    seg = request.query.get("n") or ""
+    hit = [g for g in GoveeSync.all if ip in g.hosts]
+    for g in hit:
+        if proto in PROTOS:
+            g.proto = proto
+            g.taken = False                                           # neu „übernehmen“ (Echtzeit-Modus an bzw. weglassen)
+        if seg.isdigit() and 1 <= int(seg) <= 60 and int(seg) != g.n:
+            return web.json_response({"ok": False, "msg": "Segmente nur über die Konfiguration"})
+        log.info("%s: Paket-Form jetzt %s", g.tag, g.proto)
+    return web.json_response({"ok": bool(hit) or not ip, "lampen": [{"ip": ",".join(g.hosts), "form": g.proto, "segmente": g.n, "effekt": g.effect,
+                                                                     "bilder": g.sent} for g in GoveeSync.all]})
+
+
 async def autoplay_watch_loop(app):
     conn = MAConn(app["session"])
     while True:
@@ -2828,6 +2848,7 @@ def make_app():
     app.router.add_post("/party/queue/add", queue_add_behind)
     app.router.add_get("/party/progress", party_progress)
     app.router.add_get("/party/wave", party_wave)
+    app.router.add_get("/party/goveeproto", party_goveeproto)
     app.router.add_get("/party/sonostv", party_sonostv)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)
