@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.19.4
+- Govee-Licht: Kein Strobe mehr vor Stellen, an denen der Bass nur dünner wird. Vor dem Einsatz muss er wirklich abgeschaltet sein (in den letzten 4 s einmal unter 18 %).
+
 ## 0.19.3
 - Govee-Licht: Nach dem Spulen im Titel passten Strobe, Eins und Gesangs-Kurve nicht mehr – der Takt-Abgleich galt weiter für die alte Stelle. Er erkennt das Spulen jetzt und rastet neu ein (bis dahin gilt die ungefähre Stelle von Music Assistant).
 

@@ -153,7 +153,12 @@ def find_drops(d, duration, bars=4):
                     a = max(gone * bin_s, t - bars * bar_s)
                     lo_i, hi_i = int(a / bin_s), max(int(a / bin_s) + 1, int(t / bin_s))
                     busy = (sum(H[lo_i:hi_i]) / (hi_i - lo_i)) if H else 255
-                    if t - a >= 2.0 and busy >= 0.4 * h_mid and t > 8.0:
+                    # Lernkarte: Bei „Catch Me“ blitzte es vor einer Stelle, an der der Bass nur dünner war (ein Drittel),
+                    # nicht weg. Vor einem echten Einsatz ist der Bass kurz davor wirklich abgeschaltet – das verlangen
+                    # wir jetzt: in den letzten 4 s vor dem Einsatz muss er einmal unter 18 % fallen.
+                    tail = L[max(gone, j - int(4.0 / bin_s)):j + 1]
+                    cut = min(tail) <= 0.18 * full if tail else False
+                    if t - a >= 2.0 and busy >= 0.4 * h_mid and t > 8.0 and cut:
                         out.append((round(a, 2), round(t, 2)))
             gone = None
         i += 1
