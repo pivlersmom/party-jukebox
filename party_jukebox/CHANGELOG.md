@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.16.3
+- Diagnose: `viz_probe: ana` schreibt ins Protokoll, welche Klang-Werte (Sonic Analysis u. a.) Music Assistant je Titel herausgibt (Vorbereitung: Licht-Profile nach Stil/Stimmung).
+
 ## 0.16.2
 - Govee-Licht: **Takt-Erkennung (4/4) sicherer** – setzt der Bass nach einer Pause wieder ein, gilt dieser Schlag sofort als Eins (statt sie erst über viele Takte zu erraten). Farbwechsel liegt damit nach jedem Break wieder auf der Eins.
 - Effekt `welle`: Ohne Bass-Beat glimmt die Fläche heller, damit der Farbwechsel im Takt sichtbar bleibt (Aufblitzen bleibt aus).

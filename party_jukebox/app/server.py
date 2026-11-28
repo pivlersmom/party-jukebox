@@ -2434,6 +2434,52 @@ async def wave_probe(app, spec):
         log.info("Wellen-Test fehlgeschlagen: %s", e)
 
 
+async def ana_probe(app, spec):
+    """Diagnose (Option viz_probe = "ana"): Welche Klang-Werte (Sonic Analysis, Smart Fades …) gibt Music Assistant je Titel heraus?
+    Schreibt audio_metadata des laufenden Titels und alle Befehle, deren Name nach Analyse klingt, ins Protokoll."""
+    import re
+    session = app["session"]
+    await asyncio.sleep(20)
+    try:
+        pl = await MAC.cmd(session, "players/all", {})
+        want = str(OPT.get("party_player") or "").strip().lower()
+        q = next((x["player_id"] for x in pl or [] if str(x.get("name", "")).lower() == want or x.get("player_id") == want), None)
+        qu = await MAC.cmd(session, "player_queues/get", {"queue_id": q}) or {}
+        ci = qu.get("current_item") or {}
+        mi = ci.get("media_item") or {}
+        log.info("Analyse-Test: Titel %s · uri %s", ci.get("name"), mi.get("uri"))
+        log.info("Analyse-Test: audio_metadata (Queue) %s", json.dumps(mi.get("audio_metadata"), ensure_ascii=False)[:1500])
+        log.info("Analyse-Test: metadata-Schlüssel %s · genres %s · mood %s · style %s", sorted((mi.get("metadata") or {}).keys()),
+                 (mi.get("metadata") or {}).get("genres"), (mi.get("metadata") or {}).get("mood"), (mi.get("metadata") or {}).get("style"))
+        try:
+            full = await MAC.cmd(session, "music/item_by_uri", {"uri": mi.get("uri")}) or {}
+            log.info("Analyse-Test: audio_metadata (voller Titel) %s", json.dumps(full.get("audio_metadata"), ensure_ascii=False)[:1500])
+            log.info("Analyse-Test: genres (voller Titel) %s", json.dumps((full.get("metadata") or {}).get("genres"), ensure_ascii=False)[:300])
+        except Exception as e:
+            log.info("Analyse-Test: music/item_by_uri → %s", str(e)[:200])
+        for path in ("/api-docs/commands.json", "/api-docs/openapi.json", "/api-docs/commands", "/api-docs"):
+            try:
+                async with session.get(MAC.base + path, timeout=15) as r:
+                    txt = await r.text()
+                names = sorted(set(re.findall(r"[a-z_]+/[a-z_/]*(?:analy|sonic|similar|fades|wave|beat|mood)[a-z_/]*", txt)))
+                log.info("Analyse-Test: %s → %s, %d Zeichen, passende Befehle: %s", path, r.status, len(txt), names[:60])
+                if names:
+                    break
+            except Exception as e:
+                log.info("Analyse-Test: %s → %s", path, str(e)[:150])
+        ids = {"item_id": str(mi.get("item_id")), "provider_instance_id_or_domain": mi.get("provider")}
+        for cmd in ("audio_analysis/get_analysis", "audio_analysis/analysis", "audio_analysis/features", "audio_analysis/get_features", "audio_analysis/sonic",
+                    "audio_analysis/beat_grid", "audio_analysis/beatgrid", "audio_analysis/status", "audio_analysis/stats", "audio_analysis/get_track_analysis"):
+            try:
+                r = await MAC.cmd(session, cmd, ids)
+                log.info("Analyse-Test: %s → %s", cmd, json.dumps(r, ensure_ascii=False)[:1200])
+            except Exception as e:
+                if "unsupported command" not in str(e):
+                    log.info("Analyse-Test: %s → Fehler: %s", cmd, str(e)[:250])
+    except Exception as e:
+        log.info("Analyse-Test fehlgeschlagen: %s", e)
+
+
 async def viz_probe(app, spec):
     """Diagnose (Option `viz_probe`): Was liefert Music Assistant an Licht-/Beat-Daten?
     Meldet sich bei MA als reines "Licht-Gerät" an (Sendspin-Rolle visualizer@v1), hängt sich optional an einen
@@ -2687,7 +2733,7 @@ async def on_startup(app):
         app["light"] = asyncio.create_task(light_loop(app))
     if str(OPT.get("viz_probe") or "").strip():
         vp = str(OPT.get("viz_probe")).strip()
-        app["viz_probe"] = asyncio.create_task(wave_probe(app, vp) if vp.lower().startswith("wave") else viz_probe(app, vp))
+        app["viz_probe"] = asyncio.create_task(wave_probe(app, vp) if vp.lower().startswith("wave") else ana_probe(app, vp) if vp.lower().startswith("ana") else viz_probe(app, vp))
     app["haev"] = asyncio.create_task(ha_events_loop(app))
     app["autowatch"] = asyncio.create_task(autoplay_watch_loop(app))
 
