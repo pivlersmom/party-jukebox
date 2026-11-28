@@ -2,6 +2,7 @@
 
 ## 0.22.1
 - **Govee-Licht, Effekt „spektrum“ weicher** – Grundleuchten statt fast aus zwischen den Schlägen, Ausschläge klingen langsamer ab.
+- **Govee-Licht, Effekt „welle“ mit Raumfarbe weicher** – die Fläche glimmt zwischen den Schlägen heller, statt fast auszugehen.
 
 ## 0.22.0
 - **Govee-Licht: Raumfarbe** – Lampen am selben Lautsprecher können die Farbe gemeinsam wechseln (10. Feld „Farbe“: `raum`, oder `gegen` für die Gegenfarbe). Das Spektrum zeigt dann einen engen Farbverlauf um die Raumfarbe statt des Regenbogens.

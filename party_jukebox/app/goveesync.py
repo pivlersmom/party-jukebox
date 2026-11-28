@@ -658,7 +658,10 @@ class GoveeSync(DmxLight):
             self.launches += 1
         self.env *= math.exp(-dt / self.prof()["decay"])             # zusätzlich pulsiert die ganze Fläche auf jeden Schlag
         # ohne Bass-Beat: kein Aufblitzen – dafür glimmt die Fläche heller, damit man den Farbwechsel im Takt sieht
-        base = max(0.32 if self.voc else 0.10, 0.55 * self.env)
+        # Lernkarte: Mit Grundhelligkeit 0,10 ging ein Stripe zwischen zwei Schlägen fast aus – im Raum wirkte das hart.
+        # Lampen mit Raumfarbe glimmen darum deutlich heller (0,34); der Schlag hebt nur noch an statt ein- und auszuschalten.
+        floor = 0.34 if self.room else 0.10
+        base = max(0.32 if self.voc else floor, 0.55 * self.env)
         # Tempo des Lauflichts: Gesang voll da → in ca. 0,45 s einmal durch; Gesang fast weg → nur noch ein Fünftel so schnell
         speed = self.n / 0.45 * (0.2 + 0.8 * full)
         for w in self.waves:
