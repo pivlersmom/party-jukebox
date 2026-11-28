@@ -586,3 +586,42 @@ setTimeout(sync, 1500);
   }
   ["touchend", "click", "keydown"].forEach(function (n) { d.addEventListener(n, go, true); });
 })();
+
+
+/* ---------- Wellenform im Fortschrittsbalken (party/wave) – gelbe Striche darunter: dort strobt das Licht ---------- */
+(function () {
+  var seek = document.getElementById("seek"); if (!seek) return;
+  var tr = seek.querySelector(".tr"), cues = document.createElement("div"), cur = "", busy = false, again = 0;
+  cues.className = "cues"; seek.appendChild(cues);
+  function clear() { seek.classList.remove("wave"); tr.style.webkitMaskImage = tr.style.maskImage = ""; cues.innerHTML = ""; }
+  function draw(d) {
+    var w = d.wave, n = w.length, top = Math.max.apply(null, w) || 1, r = "";
+    for (var i = 0; i < n; i++) { var h = Math.max(3, w[i] / top * 100); r += '<rect x="' + (i + .15) + '" y="' + ((100 - h) / 2).toFixed(1) + '" width=".7" height="' + h.toFixed(1) + '"/>'; }
+    var u = 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + ' 100" preserveAspectRatio="none">' + r + '</svg>') + '")';
+    tr.style.webkitMaskImage = u; tr.style.maskImage = u;
+    cues.innerHTML = (d.strobe || []).map(function (sp) {
+      return '<i style="left:' + (sp[0] / d.dur * 100).toFixed(2) + '%;width:' + ((sp[1] - sp[0]) / d.dur * 100).toFixed(2) + '%"></i>'; }).join("");
+    seek.classList.add("wave");
+  }
+  function look() {
+    if (document.hidden || busy) return;
+    var n = JB.nowInfo(), q = JB.S.q, ci = q && q.current_item, mi = ci && ci.media_item, sd = ci && ci.streamdetails;
+    var typ = (mi && mi.media_type) || (sd && sd.media_type), id = (sd && sd.item_id) || (mi && mi.item_id), prov = (sd && sd.provider) || (mi && mi.provider);
+    var key = n && !n.tv && !n.radio && n.dur >= 30 && id && prov && (!typ || typ === "track") ? prov + "|" + id : "";
+    if (key === cur && !(again && Date.now() > again)) return;
+    if (key !== cur) clear();
+    cur = key; again = 0;
+    if (!key) return;
+    busy = true;
+    fetch("party/wave?item=" + encodeURIComponent(id) + "&prov=" + encodeURIComponent(prov) + "&dur=" + Math.round(n.dur), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (cur !== key) return;
+        if (d && d.wave && d.wave.length) draw(d);
+        if (!d || !d.wave || !d.wave.length || !d.analyse) again = Date.now() + 120000;   /* Analyse kommt evtl. nach → später noch einmal */
+      })
+      .catch(function () { again = Date.now() + 30000; })
+      .then(function () { busy = false; });
+  }
+  setInterval(look, 1500); look();
+})();

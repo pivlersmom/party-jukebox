@@ -1696,6 +1696,44 @@ async def party_progress(request):
     return web.json_response(PROG, headers={"Cache-Control": "no-cache"})
 
 
+WAVES = {}   # (Anbieter, Titel-ID) → (Zeitpunkt, Antwort) – Wellenform für den Fortschrittsbalken
+
+
+async def party_wave(request):
+    """Wellenform eines Titels (240 Balken, 0–100) plus die Stellen, an denen das Licht strobt – für die Jukebox."""
+    import wavecue
+    item, prov = request.query.get("item") or "", request.query.get("prov") or ""
+    try:
+        dur = float(request.query.get("dur") or 0)
+    except ValueError:
+        dur = 0.0
+    out = {"wave": [], "strobe": [], "dur": dur, "analyse": False}
+    if not item or not prov or dur < 30 or not OPT.get("ma_token"):
+        return web.json_response(out)
+    key = (prov, item)
+    hit = WAVES.get(key)
+    if hit and now() - hit[0] < (6 * 3600 if hit[1]["analyse"] else 300):   # ohne Analyse bald neu fragen (Helfer liefert nach)
+        return web.json_response(hit[1], headers={"Cache-Control": "no-cache"})
+    try:
+        wave = (await ma_cmds(request.app["session"], [("audio_analysis/wave_form", {"item_id": item, "provider_instance_id_or_domain": prov})]))[0]
+        wave = [float(x) for x in wave or [] if isinstance(x, (int, float))]
+        if len(wave) >= 50:
+            d = await asyncio.get_running_loop().run_in_executor(None, wavecue.load_analysis, prov, item)
+            if d and d.get("duration"):
+                dur = float(d["duration"])
+            spans = wavecue.merge_spans(wavecue.find_builds(wave, dur) + (wavecue.find_drops(d, dur) if d else []))
+            n = 240                                                  # auf 240 Balken verdichten (je Balken der lauteste Wert)
+            bars = [max(wave[i * len(wave) // n:max(i * len(wave) // n + 1, (i + 1) * len(wave) // n)]) for i in range(n)]
+            out = {"wave": [int(round(min(1.0, max(0.0, x)) * 100)) for x in bars],
+                   "strobe": [[round(a, 1), round(b, 1)] for a, b in spans], "dur": dur, "analyse": bool(d)}
+            if len(WAVES) > 60:
+                WAVES.clear()
+            WAVES[key] = (now(), out)
+    except Exception as e:
+        log.info("Wellenform für die Jukebox: %s", e)
+    return web.json_response(out, headers={"Cache-Control": "no-cache"})
+
+
 async def autoplay_watch_loop(app):
     conn = MAConn(app["session"])
     while True:
@@ -2789,6 +2827,7 @@ def make_app():
     app.router.add_get("/party/dupe", party_dupe)
     app.router.add_post("/party/queue/add", queue_add_behind)
     app.router.add_get("/party/progress", party_progress)
+    app.router.add_get("/party/wave", party_wave)
     app.router.add_get("/party/sonostv", party_sonostv)
     app.router.add_get("/party/ha/entities", party_ha_entities)
     app.router.add_post("/party/settings", party_settings_post)

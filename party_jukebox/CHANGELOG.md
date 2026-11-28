@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.20.0
+- **Wellenform im Fortschrittsbalken** – die Jukebox zeigt beim laufenden Titel die Wellenform statt des Strichs (antippen/ziehen spult wie bisher). Gelbe Striche darunter markieren die Stellen, an denen das Licht strobt. Bei Radio, Podcast und TV-Ton bleibt der normale Strich.
+
 ## 0.19.4
 - Govee-Licht: Kein Strobe mehr vor Stellen, an denen der Bass nur dünner wird. Vor dem Einsatz muss er wirklich abgeschaltet sein (in den letzten 4 s einmal unter 18 %).
 

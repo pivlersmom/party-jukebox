@@ -290,6 +290,14 @@ button.vg.tap:hover{color:var(--tx)}
 #seek .knob{display:none}
 #seek .tr{transition:height .12s,margin-top .12s}
 #seek.drag .tr{height:10px;margin-top:-5px}
+/* Wellenform statt Strich (jukebox-extra.js): die Balken sind eine Maske über dem normalen Fortschritts-Strich */
+#seek.wave{height:58px}
+#seek.wave .tr,#seek.wave.drag .tr{height:44px;margin-top:-26px;border-radius:0;background:color-mix(in srgb,var(--dim) 40%,transparent);
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+#seek .cues{display:none;position:absolute;left:0;right:0;bottom:1px;height:4px;pointer-events:none}
+#seek.wave .cues{display:block}
+#seek .cues i{position:absolute;top:0;height:100%;min-width:3px;border-radius:2px;background:#ffc400;box-shadow:0 0 6px rgba(255,196,0,.7)}
+#seek.wave::after{content:"";position:absolute;top:1px;bottom:8px;left:calc(var(--f)*100%);width:2px;margin-left:-1px;border-radius:1px;background:var(--a2);pointer-events:none}
 
 /* Party-Einstellungen */
 .srow .rm{flex:1}
