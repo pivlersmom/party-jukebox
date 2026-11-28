@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.22.2
+- **Govee-Licht: kein Zucken alle 2 Sekunden mehr** – „Echtzeit-Modus an“ wird nur noch bei der ersten Lampe regelmäßig wiederholt. Weitere Lampen bekommen es nur beim Start; wer es braucht (Lampe fällt nach ein paar Sekunden aus dem Takt-Licht), hängt `+halten` an die Paket-Form, z. B. `standard+halten`.
+
 ## 0.22.1
 - **Govee-Licht, Effekt „spektrum“ weicher** – Grundleuchten statt fast aus zwischen den Schlägen, Ausschläge klingen langsamer ab.
 - **Govee-Licht, Effekt „welle“ mit Raumfarbe weicher** – die Fläche glimmt zwischen den Schlägen heller, statt fast auszugehen.

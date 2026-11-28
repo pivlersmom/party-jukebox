@@ -75,6 +75,7 @@ EFFECTS = ("balken", "ampel", "spektrum", "puls", "welle")
 #   v2        B4 mit einem Zonen-Byte hinter jeder Farbe („DreamView V2“, neuere Modelle)
 #   app       kein Echtzeit-Modus: der Segment-Farbbefehl der Govee-App (langsam, höchstens ~4 Bilder/s)
 #   ganz      kein Echtzeit-Modus: ganze Lampe in der Durchschnittsfarbe (amtlicher Befehl, höchstens ~8/s, weich)
+# Zusatz „+halten“ (z. B. standard+halten): „Echtzeit-Modus an“ alle 2 s wiederholen – für Lampen, die sonst herausfallen.
 PROTOS = ("standard", "razer", "dreams", "v2", "app", "ganz")
 SLOW = {"app": 0.25, "ganz": 0.12}   # Mindestabstand zwischen zwei Bildern (s)
 
@@ -183,6 +184,12 @@ class GoveeSync(DmxLight):
             key = str(opt.get("govee_player") or opt.get("wled_player") or opt.get("dmx_player") or opt.get("party_player") or "").strip().lower()
             self.room = Room.all.setdefault(key, Room())
         pr = str(opt.get("govee_proto") or "").strip().lower()
+        # Lernkarte: „Echtzeit-Modus an“ alle 2 s zu wiederholen braucht die Stehleuchte (sie fällt sonst heraus). Andere Modelle
+        # (Stripes, Neon-Schlauch) zucken aber bei jeder Wiederholung kurz – bei Tempo 120 sind 2 s genau ein Takt, das sah aus
+        # wie ein Zucken „immer auf der Eins“. Darum: nur die erste Lampe wiederholt von selbst; weitere Lampen nur mit dem
+        # Zusatz „+halten“ an der Paket-Form (z. B. „standard+halten“).
+        self.keep = idx == 1 or pr.endswith("+halten")
+        pr = pr.replace("+halten", "") or "standard"
         self.proto = pr if pr in PROTOS else "standard"
         self.slow_at = 0.0
         eff = str(opt.get("govee_effect") or "balken").strip().lower()
@@ -599,7 +606,7 @@ class GoveeSync(DmxLight):
             self.room_color()
             if not self.taken:
                 await self.take()
-            elif now - self.on_at > KEEP_S:
+            elif self.keep and now - self.on_at > KEEP_S:
                 # Lernkarte: Die Stehleuchte (H6076) fiel nach einigen Sekunden von selbst aus dem Echtzeit-Modus zurück
                 # in ihr eigenes Programm – unsere Bilder kamen an, wurden aber nicht mehr gezeigt. Darum den Modus
                 # regelmäßig neu anfordern.
