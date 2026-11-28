@@ -712,12 +712,14 @@ class GoveeSync(DmxLight):
         out = []
         for i in range(self.n):
             v = max(0.0, min(1.0, self.spec[i] / self.band_hi))
-            v = v * v                                                # Ausschläge deutlicher machen
-            self.bands[i] = max(v, self.bands[i] * math.exp(-dt / 0.25))
+            # Lernkarte: Mit „v * v“ und schnellem Abklingen ging die Lampe zwischen zwei Schlägen fast aus – das wirkte hart
+            # wie ein Blinken. Jetzt: sanftere Kurve, langsameres Abklingen und ein Grundleuchten, auf dem die Ausschläge sitzen.
+            v = v ** 1.5
+            self.bands[i] = max(v, self.bands[i] * math.exp(-dt / 0.45))
             if self.room:                                            # Raumfarbe: enger Farbverlauf um die eigene Farbe statt Regenbogen
-                out.append(colorsys_rgb(self.hue - 0.10 + 0.20 * i / max(1, self.n - 1), max(0.04, self.bands[i]), self.sat))
+                out.append(colorsys_rgb(self.hue - 0.10 + 0.20 * i / max(1, self.n - 1), 0.28 + 0.72 * self.bands[i], self.sat))
             else:
-                out.append(colorsys_rgb(0.0 + 0.75 * i / max(1, self.n - 1), max(0.04, self.bands[i])))   # Bass rot … Höhen violett
+                out.append(colorsys_rgb(0.0 + 0.75 * i / max(1, self.n - 1), 0.28 + 0.72 * self.bands[i]))   # Bass rot … Höhen violett
         return out
 
 
