@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.22.3
+- **Govee-Licht: `+halten20`** – hinter `+halten` kann eine Sekundenzahl stehen: der Echtzeit-Modus wird dann nur so selten aufgefrischt (z. B. alle 20 s statt alle 2 s).
+
 ## 0.22.2
 - **Govee-Licht: kein Zucken alle 2 Sekunden mehr** – „Echtzeit-Modus an“ wird nur noch bei der ersten Lampe regelmäßig wiederholt. Weitere Lampen bekommen es nur beim Start; wer es braucht (Lampe fällt nach ein paar Sekunden aus dem Takt-Licht), hängt `+halten` an die Paket-Form, z. B. `standard+halten`.
 

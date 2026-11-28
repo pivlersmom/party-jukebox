@@ -50,6 +50,7 @@ import json
 import logging
 import math
 import random
+import re
 import socket
 import struct
 import time
@@ -188,8 +189,11 @@ class GoveeSync(DmxLight):
         # (Stripes, Neon-Schlauch) zucken aber bei jeder Wiederholung kurz – bei Tempo 120 sind 2 s genau ein Takt, das sah aus
         # wie ein Zucken „immer auf der Eins“. Darum: nur die erste Lampe wiederholt von selbst; weitere Lampen nur mit dem
         # Zusatz „+halten“ an der Paket-Form (z. B. „standard+halten“).
-        self.keep = idx == 1 or pr.endswith("+halten")
-        pr = pr.replace("+halten", "") or "standard"
+        # „+halten20“ = nur alle 20 s wiederholen: viele Modelle fallen erst nach rund einer Minute heraus – so zuckt es selten.
+        m = re.search(r"\+halten(\d*)$", pr)
+        self.keep = idx == 1 or bool(m)
+        self.keep_s = float(m.group(1)) if m and m.group(1) else KEEP_S
+        pr = re.sub(r"\+halten\d*$", "", pr) or "standard"
         self.proto = pr if pr in PROTOS else "standard"
         self.slow_at = 0.0
         eff = str(opt.get("govee_effect") or "balken").strip().lower()
@@ -606,7 +610,7 @@ class GoveeSync(DmxLight):
             self.room_color()
             if not self.taken:
                 await self.take()
-            elif self.keep and now - self.on_at > KEEP_S:
+            elif self.keep and now - self.on_at > self.keep_s:
                 # Lernkarte: Die Stehleuchte (H6076) fiel nach einigen Sekunden von selbst aus dem Echtzeit-Modus zurück
                 # in ihr eigenes Programm – unsere Bilder kamen an, wurden aber nicht mehr gezeigt. Darum den Modus
                 # regelmäßig neu anfordern.
