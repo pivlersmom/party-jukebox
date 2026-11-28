@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.22.0
+- **Govee-Licht: Raumfarbe** – Lampen am selben Lautsprecher können die Farbe gemeinsam wechseln (10. Feld „Farbe“: `raum`, oder `gegen` für die Gegenfarbe). Das Spektrum zeigt dann einen engen Farbverlauf um die Raumfarbe statt des Regenbogens.
+- **Govee-Licht: spiegeln** – im Feld „umdrehen“ jetzt auch `spiegeln`: das Bild wird an der Mitte gespiegelt. Für Lampen, die als Rahmen oder Bogen hängen (beide Enden unten, Mitte oben).
+
 ## 0.21.0
 - **Govee-Licht: Paket-Form je Lampe** – nicht jedes Modell versteht dieselbe Form des Echtzeit-Pakets. In „weitere Lampen“ ein 9. Feld „Paket-Form“: `standard` (wie bisher), `razer`, `dreams`, `v2`, sowie ohne Echtzeit-Modus `app` (Segment-Befehl der Govee-App, langsam) und `ganz` (ganze Lampe in einer Farbe). Zum Ausprobieren lässt sich die Form im laufenden Betrieb umschalten.
 

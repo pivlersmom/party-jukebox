@@ -82,7 +82,10 @@ SLOW = {"app": 0.25, "ganz": 0.12}   # Mindestabstand zwischen zwei Bildern (s)
 def lamp_options(opt):
     """Aus der Add-on-Konfiguration eine Liste von Einstellungen machen – eine je Lampe.
     Lampe 1 sind die Optionen govee_host, govee_segments … Weitere Lampen stehen in govee_lamps, je Zeile:
-        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen | Lautsprecher | Paket-Form
+        IP | Segmente | Effekt | Lampe in Home Assistant | Feinabgleich ms | Effekt ohne Bass-Beat | umdrehen | Lautsprecher | Paket-Form | Farbe
+    umdrehen: „umdrehen“ = Bild andersherum, „spiegeln“ = Bild an der Mitte gespiegelt (für Lampen, die als Rahmen oder Bogen hängen:
+    beide Enden zeigen dasselbe, die Mitte ist „oben“).  Farbe: „raum“ = alle Lampen am selben Lautsprecher wechseln gemeinsam die
+    Farbe, „gegen“ = wie raum, aber die Gegenfarbe dazu; leer = jede Lampe wechselt für sich.
     Nur die IP ist Pflicht; leere Felder übernehmen Standardwerte. Beispiel:  192.168.178.164 | 20 | welle | light.couch | -250
     Lautsprecher (Name oder ID aus Music Assistant): Diese Lampe folgt einem anderen Lautsprecher als die erste – so bekommt
     jeder Raum sein eigenes Licht (z. B. Wohnzimmer → Sonos, Fitnessraum → Mixstream)."""
@@ -90,13 +93,14 @@ def lamp_options(opt):
     if str(opt.get("govee_host") or "").strip():
         out.append(dict(opt))
     for line in opt.get("govee_lamps") or []:
-        f = [x.strip() for x in str(line).split("|")] + [""] * 9
+        f = [x.strip() for x in str(line).split("|")] + [""] * 10
         if not f[0]:
             continue
         o = dict(opt)
         o.update({"govee_host": f[0], "govee_segments": f[1] or 10, "govee_effect": f[2] or "welle", "govee_entity": f[3],
                   "govee_delay_ms": int(f[4]) if f[4].lstrip("+-").isdigit() else opt.get("govee_delay_ms") or 0,
-                  "govee_break": f[5], "govee_reverse": f[6].lower() in ("1", "ja", "true", "x", "umdrehen")})
+                  "govee_break": f[5], "govee_reverse": f[6].lower() in ("1", "ja", "true", "x", "umdrehen"),
+                  "govee_mirror": f[6].lower() == "spiegeln", "govee_color": f[9].lower()})
         if f[7]:
             o["govee_player"] = f[7]
         o["govee_proto"] = f[8].lower()
@@ -145,6 +149,14 @@ def frame(colors, gradient=False, proto="standard"):
     return raw + bytes([x])
 
 
+class Room:
+    """Gemeinsame Farbe aller Lampen, die demselben Lautsprecher folgen: eine Lampe zählt die Takte, die anderen übernehmen."""
+    all = {}
+
+    def __init__(self):
+        self.color_no, self.leader = 0, None
+
+
 class GoveeSync(DmxLight):
     client_id, name, tag = "pj-govee", "Jukebox Govee-Licht", "Govee-Licht"
     all = []                                # alle Lampen (für die Umschaltung der Paket-Form im laufenden Betrieb)
@@ -161,6 +173,15 @@ class GoveeSync(DmxLight):
         except (TypeError, ValueError):
             self.n = 7
         GoveeSync.all.append(self)
+        self.mirror = bool(opt.get("govee_mirror"))
+        self.n_out = self.n
+        if self.mirror:                                              # gespiegelt: nur die halbe Lampe berechnen, die zweite Hälfte ist das Spiegelbild
+            self.n = (self.n + 1) // 2
+        col = str(opt.get("govee_color") or "").strip().lower()
+        self.room, self.hue_off, self.room_seen = None, (0.5 if col == "gegen" else 0.0), -1
+        if col in ("raum", "gegen"):
+            key = str(opt.get("govee_player") or opt.get("wled_player") or opt.get("dmx_player") or opt.get("party_player") or "").strip().lower()
+            self.room = Room.all.setdefault(key, Room())
         pr = str(opt.get("govee_proto") or "").strip().lower()
         self.proto = pr if pr in PROTOS else "standard"
         self.slow_at = 0.0
@@ -230,6 +251,8 @@ class GoveeSync(DmxLight):
     def show(self, colors):
         if self.reverse:
             colors = colors[::-1]
+        if self.mirror:
+            colors = list(colors) + list(colors[::-1])[self.n_out % 2:]
         if self.proto in SLOW:                                       # langsame Wege: nicht jedes Bild schicken
             now = time.monotonic()
             if now - self.slow_at < SLOW[self.proto]:
@@ -472,8 +495,24 @@ class GoveeSync(DmxLight):
         self.bar_no += 1
         if self.bar_no % p["bars"]:
             return
+        if self.room:
+            # Lernkarte: Jede Lampe zählt die Takte für sich – ohne Abstimmung laufen die Farben nach kurzer Zeit auseinander.
+            # Darum zählt im Raum nur EINE Lampe (die erste, die einen Farbwechsel meldet); alle übernehmen deren Stand.
+            if self.room.leader is None:
+                self.room.leader = self
+            if self.room.leader is self:
+                self.room.color_no += 1
+            return
         self.color_no = (self.color_no + 1) % len(p["colors"])
         self.hue, self.sat = p["colors"][self.color_no]
+
+    def room_color(self):
+        """Stand der Raumfarbe übernehmen (jedes Bild geprüft, kostet nichts)."""
+        if self.room and self.room.color_no != self.room_seen:
+            self.room_seen = self.room.color_no
+            cols = self.prof()["colors"]
+            hue, self.sat = cols[self.room_seen % len(cols)]
+            self.hue = (hue + self.hue_off) % 1.0
 
     def strobe_frame(self, now):
         """Weißes Strobe über die ganze Lampe: jedes zweite Bild hell (bei 20 Bildern/s = 10 Blitze pro Sekunde)."""
@@ -557,6 +596,7 @@ class GoveeSync(DmxLight):
                             self.env = max(self.env, val * self.prof()["flash"])
                         if self.beats % 8 == 0:
                             self.next_color()
+            self.room_color()
             if not self.taken:
                 await self.take()
             elif now - self.on_at > KEEP_S:
@@ -674,7 +714,10 @@ class GoveeSync(DmxLight):
             v = max(0.0, min(1.0, self.spec[i] / self.band_hi))
             v = v * v                                                # Ausschläge deutlicher machen
             self.bands[i] = max(v, self.bands[i] * math.exp(-dt / 0.25))
-            out.append(colorsys_rgb(0.0 + 0.75 * i / max(1, self.n - 1), max(0.04, self.bands[i])))   # Bass rot … Höhen violett
+            if self.room:                                            # Raumfarbe: enger Farbverlauf um die eigene Farbe statt Regenbogen
+                out.append(colorsys_rgb(self.hue - 0.10 + 0.20 * i / max(1, self.n - 1), max(0.04, self.bands[i]), self.sat))
+            else:
+                out.append(colorsys_rgb(0.0 + 0.75 * i / max(1, self.n - 1), max(0.04, self.bands[i])))   # Bass rot … Höhen violett
         return out
 
 
