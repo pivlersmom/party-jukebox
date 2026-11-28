@@ -159,6 +159,8 @@ def pick_profile(genres, bpm=None, name=""):
     for key, words in GENRE_WORDS:
         if any(w in text for w in words):
             return key, text
+    if not text and any(w in title for w in GENRE_WORDS[3][1] + ("malle", "saufen", "bier", "playa")):
+        return "party", "keine Richtung bekannt, Titel klingt nach Party"
     if not text and bpm:
         if bpm >= 118:
             return "elektro", "keine Richtung bekannt, Tempo %d" % bpm
