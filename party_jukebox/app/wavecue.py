@@ -346,6 +346,7 @@ class WaveCues:
         self.stamps = []            # Zeitstempel der zuletzt empfangenen Schläge (Sekunden, Server-Uhr)
         self.anchor = None          # Server-Uhrzeit (s), zu der der Titel bei 0:00 war – daraus folgt die genaue Stelle
         self.anchor_note = ""
+        self.beat_no, self.off = 0, 0   # Schlag-Zähler; wie oft hintereinander die Stelle nicht zur Meldung passte
         self.missing_at = 0.0
 
     # ------------------------------------------------------------------ genaue Stelle im Titel (über die Schläge)
@@ -360,10 +361,20 @@ class WaveCues:
         if self.stamps and (t < self.stamps[-1] or t - self.stamps[-1] > 1.6):
             self.stamps = []                                         # Lücke oder Sprung: Kette neu beginnen
         self.stamps = (self.stamps + [t])[-20:]
-        if len(self.stamps) < 12 or (self.anchor is not None and len(self.stamps) % 8):
-            return
+        self.beat_no += 1
         guess = self.position()
         if guess is None:
+            return
+        # Lernkarte: Nach dem Zurückspulen stimmte nichts mehr – der Abgleich galt noch für die alte Stelle und wurde nie
+        # erneuert. Darum prüfen wir bei jedem Schlag: Liegt unsere genaue Stelle mehr als 3 s neben dem, was Music
+        # Assistant meldet (zweimal hintereinander), wurde gespult → Abgleich verwerfen und neu einrasten lassen.
+        if self.anchor is not None:
+            self.off = self.off + 1 if abs((t - self.anchor) - guess) > 3.0 else 0
+            if self.off >= 2:
+                log.info("Takt-Abgleich: Stelle hat sich geändert (gespult) – raste neu ein")
+                self.anchor, self.stamps, self.off, self.anchor_note = None, [t], 0, ""
+                return
+        if len(self.stamps) < 12 or (self.anchor is not None and self.beat_no % 8):
             return
         hit = match_beats(self.stamps, d["beats"], guess)
         if not hit:
@@ -442,7 +453,7 @@ class WaveCues:
                 key = ci.get("queue_item_id")
                 if key and key != self.item:
                     self.item, self.builds, self.have = key, [], False
-                    self.data, self.stamps, self.anchor, self.anchor_note = None, [], None, ""
+                    self.data, self.stamps, self.anchor, self.anchor_note, self.off = None, [], None, "", 0
                     await self.load(ci)
             except asyncio.CancelledError:
                 raise

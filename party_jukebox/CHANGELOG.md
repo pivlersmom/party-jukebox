@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.19.3
+- Govee-Licht: Nach dem Spulen im Titel passten Strobe, Eins und Gesangs-Kurve nicht mehr – der Takt-Abgleich galt weiter für die alte Stelle. Er erkennt das Spulen jetzt und rastet neu ein (bis dahin gilt die ungefähre Stelle von Music Assistant).
+
 ## 0.19.2
 - Govee-Licht: **Strobe auch vor einem Bass-Einsatz.** Mit der Analyse von Music Assistant erkennt das Add-on das typische Muster elektronischer Musik: Bass setzt mindestens 4 s aus, oben läuft es weiter, dann knallt der Bass wieder rein. Geblitzt wird die letzten 4 Takte davor, Ende genau auf dem Einsatz. (Bisher nur, wenn die Gesamt-Lautstärke gleichmäßig anstieg – das kam selten vor.) Das Protokoll nennt beide Arten von Stellen und zeigt die Bass-Kurve.
 
