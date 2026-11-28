@@ -1,5 +1,5 @@
 name: Party-Jukebox
-version: "0.16.3"
+version: "0.17.0"
 slug: party_jukebox
 description: Jukebox, Party-Seite für Gäste und TV-Anzeige für Music Assistant
 url: https://github.com/pivlersmom/party-jukebox
@@ -88,6 +88,7 @@ schema:
   govee_segments: int(1,60)?
   govee_effect: list(balken|ampel|spektrum|puls|welle)?
   govee_break: list(|ampel|balken|spektrum|puls|welle)?
+  govee_profile: list(auto|standard|elektro|party|pop|rock|hiphop|ruhig)?
   govee_strobe: bool?
   govee_strobe_seconds: int(1,30)?
   govee_strobe_early_ms: int(-5000,8000)?

@@ -116,6 +116,9 @@ configuration:
   govee_break:
     name: Govee light – effect while the bass is out
     description: When the bass drops out (break, build-up, quiet part) the light shows this effect instead of the normal one – e.g. "ampel"; the bar then follows vocals/melody. When the bass returns the normal effect resumes. Empty = always the normal effect.
+  govee_profile:
+    name: Govee light – profile
+    description: auto = by the track's genre (as given by the provider, e.g. Tidal). The profile sets the colour sequence, how often the colour changes, flash strength and whether strobe is allowed. Or pick one profile permanently.
   govee_strobe:
     name: Govee light – strobe on drop
     description: When the bass drops out for a while and comes back (drop), the light flashes white for a few seconds. Default on. Detection and duration as for the DMX light. Test – long-press the light button in the speaker list.

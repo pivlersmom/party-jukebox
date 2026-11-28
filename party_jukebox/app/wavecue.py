@@ -113,6 +113,60 @@ def sketch(wave, duration, per_s=3.0):
     return "".join(str(min(9, int(max(env[i:i + k]) * 10))) for i in range(0, n, k))
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Licht-Profile nach Musikrichtung
+#
+# Music Assistant kennt zu vielen Titeln die Richtung (kommt vom Anbieter, z. B. Tidal: "Schlager", "Pop") und das Tempo.
+# Daraus wählen wir ein Profil – angelehnt an das, was in der Lichttechnik üblich ist:
+#   Elektro:  kräftige Neonfarben, alles hart auf den Beat, Strobe gezielt an den Höhepunkten
+#   Rock:     warme Farben und Weiß, kräftige Akzente, Wechsel eher phrasenweise
+#   Ruhiges:  warme, weiche Töne, langsame Wechsel, kein Strobe
+# Felder:
+#   colors  Farbfolge als (Farbton 0..1, Sättigung 0..1) – 0 = rot, 0,33 = grün, 0,66 = blau; Sättigung 0 = weiß
+#   bars    alle wie viele Takte die Farbe wechselt
+#   flash   wie stark das Aufblitzen auf den Schlag ist (0..1)
+#   decay   wie lange ein Blitz nachklingt (Sekunden)
+#   strobe  Strobe im Aufbau erlaubt?
+PROFILES = {
+    "standard": {"name": "Standard", "colors": [(h / 6.0 + 0.02, 1.0) for h in (0, 1, 2, 3, 4, 5)], "bars": 1, "flash": 1.0, "decay": 0.18, "strobe": True},
+    "elektro":  {"name": "Elektro", "colors": [(0.83, 1.0), (0.55, 1.0), (0.33, 1.0), (0.97, 1.0), (0.66, 1.0), (0.14, 1.0)], "bars": 1, "flash": 1.0, "decay": 0.15, "strobe": True},
+    "party":    {"name": "Schlager/Party", "colors": [(0.0, 1.0), (0.11, 1.0), (0.90, 1.0), (0.33, 1.0), (0.16, 1.0), (0.58, 1.0)], "bars": 1, "flash": 0.9, "decay": 0.2, "strobe": True},
+    "pop":      {"name": "Pop", "colors": [(0.90, 0.85), (0.55, 0.85), (0.12, 0.85), (0.75, 0.85), (0.45, 0.85)], "bars": 2, "flash": 0.75, "decay": 0.22, "strobe": True},
+    "rock":     {"name": "Rock", "colors": [(0.0, 1.0), (0.07, 1.0), (0.10, 0.25), (0.0, 1.0), (0.62, 1.0), (0.10, 0.25)], "bars": 2, "flash": 0.95, "decay": 0.2, "strobe": True},
+    "hiphop":   {"name": "Hip-Hop", "colors": [(0.78, 1.0), (0.66, 1.0), (0.0, 1.0)], "bars": 4, "flash": 1.0, "decay": 0.32, "strobe": False},
+    "ruhig":    {"name": "Ruhig", "colors": [(0.08, 0.9), (0.05, 0.8), (0.11, 0.7), (0.60, 0.6)], "bars": 4, "flash": 0.3, "decay": 0.5, "strobe": False},
+}
+# Stichwörter in der Richtungs-Angabe → Profil. Reihenfolge zählt: das erste passende gewinnt.
+GENRE_WORDS = [
+    ("ruhig", ("ballad", "acoustic", "akustik", "singer", "songwriter", "classical", "klassik", "jazz", "ambient", "chill", "lounge", "folk", "blues", "soul", "piano", "soundtrack", "meditation", "sleep")),
+    ("hiphop", ("hip-hop", "hip hop", "hiphop", "rap", "trap", "r&b", "rnb", "grime", "reggaeton", "afrobeat")),
+    ("rock", ("rock", "metal", "punk", "grunge", "hardcore", "alternative", "indie")),
+    ("party", ("schlager", "volksmusik", "karneval", "kölsch", "koelsch", "party", "ballermann", "mallorca", "après", "apres", "fasching")),
+    ("elektro", ("electro", "elektro", "dance", "house", "techno", "edm", "trance", "drum", "dubstep", "club", "hardstyle", "rave", "garage", "disco", "eurodance")),
+    ("pop", ("pop", "latin", "k-pop", "charts")),
+]
+
+
+def pick_profile(genres, bpm=None, name=""):
+    """Aus den Richtungs-Angaben (und notfalls Titel-Zusatz/Tempo) das Profil wählen → (Schlüssel, Grund)."""
+    text = " | ".join(str(g).lower() for g in genres or [])
+    title = str(name or "").lower()
+    # Remix/Extended/Club-Mix: tanzbare Fassung – auch wenn der Anbieter „Schlager, Pop“ dazuschreibt, gelten harte Beats
+    if any(w in title for w in ("extended", "club mix", "remix", "rmx", "bootleg", "festival mix")) and not any(w in text for w in GENRE_WORDS[0][1]):
+        if any(w in text for w in GENRE_WORDS[3][1]):
+            return "party", "Party-Remix (%s)" % text
+        return "elektro", "Remix/Extended%s" % (" (%s)" % text if text else "")
+    for key, words in GENRE_WORDS:
+        if any(w in text for w in words):
+            return key, text
+    if not text and bpm:
+        if bpm >= 118:
+            return "elektro", "keine Richtung bekannt, Tempo %d" % bpm
+        if bpm < 90:
+            return "ruhig", "keine Richtung bekannt, Tempo %d" % bpm
+    return "standard", text or "keine Richtung bekannt"
+
+
 def mmss(t):
     return "%d:%02d" % (int(t) // 60, int(t) % 60)
 
@@ -135,6 +189,8 @@ class WaveCues:
         self.item = None            # laufender Titel
         self.builds = []            # [(Start, Ende)] in Sekunden
         self.have = False           # Wellenform für den laufenden Titel vorhanden?
+        self.profile = PROFILES["standard"]   # Licht-Profil des laufenden Titels (nach Musikrichtung)
+        self.forced = None          # fest eingestelltes Profil (Option) statt Automatik
         self.playing = False
         self.pos, self.pos_at = 0.0, 0.0   # Stelle im Titel und wann (Uhrzeit) sie galt
         self.task = None
@@ -183,6 +239,13 @@ class WaveCues:
     async def load(self, ci):
         mi = ci.get("media_item") or {}
         sd = ci.get("streamdetails") or {}
+        genres = (mi.get("metadata") or {}).get("genres") or []
+        bpm = (mi.get("audio_metadata") or {}).get("bpm")
+        key, why = pick_profile(genres, bpm, ci.get("name"))
+        if self.forced in PROFILES:
+            key, why = self.forced, "fest eingestellt"
+        self.profile = PROFILES[key]
+        log.info("Licht-Profil „%s“ für „%s“ (%s%s)", self.profile["name"], ci.get("name"), why, ", Tempo %d" % bpm if bpm else "")
         if (mi.get("media_type") or sd.get("media_type")) not in (None, "track"):
             return                                                   # Radio, Podcast …: keine Wellenform
         item_id, prov = sd.get("item_id") or mi.get("item_id"), sd.get("provider") or mi.get("provider")

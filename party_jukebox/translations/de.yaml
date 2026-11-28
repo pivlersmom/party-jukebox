@@ -116,6 +116,9 @@ configuration:
   govee_break:
     name: Govee-Licht – Effekt, wenn der Bass aussetzt
     description: Setzt der Bass aus (Break, Aufbau, ruhige Stelle), zeigt die Lampe diesen Effekt statt des normalen – z. B. „ampel“; der Balken folgt dann Gesang/Melodie. Kommt der Bass zurück, läuft wieder der normale Effekt. Leer = immer der normale Effekt.
+  govee_profile:
+    name: Govee-Licht – Profil
+    description: auto = nach Musikrichtung des Titels (Angabe vom Anbieter, z. B. Tidal). Das Profil bestimmt Farbfolge, wie oft die Farbe wechselt, wie stark es blitzt und ob Strobe erlaubt ist. Elektro – Neonfarben, hart, jeder Takt. Schlager/Party – bunt, jeder Takt. Pop – etwas weicher, alle 2 Takte. Rock – Rot/Amber/Weiß, alle 2 Takte. Hip-Hop – Violett/Blau/Rot, alle 4 Takte, kein Strobe. Ruhig – warme Töne, kaum Blitzen, kein Strobe. Oder ein Profil fest wählen.
   govee_strobe:
     name: Govee-Licht – Strobe beim Drop
     description: Fällt der Bass eine Weile weg und kommt zurück (Drop), blitzt die Lampe ein paar Sekunden weiß. Standard an. Erkennung und Dauer wie beim DMX-Licht (Optionen „DMX-Licht – Drop …“). Test – Licht-Knopf in der Lautsprecherliste lange drücken.

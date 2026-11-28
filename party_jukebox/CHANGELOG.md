@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.17.0
+- **Govee-Licht: Profile nach Musikrichtung.** Das Add-on liest je Titel die Richtung (vom Anbieter, z. B. „Schlager, Pop“) und das Tempo aus Music Assistant und wählt ein Licht-Profil: Elektro, Schlager/Party, Pop, Rock, Hip-Hop, Ruhig oder Standard. Das Profil bestimmt Farbfolge, Farbwechsel (jeder / jeder 2. / jeder 4. Takt), Blitz-Stärke, Nachklingen und ob Strobe erlaubt ist. Remix/Extended-Fassungen zählen als tanzbar. Neue Option „Profil“ (auto oder fest). Das Protokoll nennt je Titel das gewählte Profil und den Grund.
+
 ## 0.16.3
 - Diagnose: `viz_probe: ana` schreibt ins Protokoll, welche Klang-Werte (Sonic Analysis u. a.) Music Assistant je Titel herausgibt (Vorbereitung: Licht-Profile nach Stil/Stimmung).
 

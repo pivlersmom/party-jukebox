@@ -25,6 +25,9 @@ Einstellungen (Add-on-Konfiguration):
                   puls     = wie der DMX-Spot: ganze Lampe blitzt auf jeden Schlag, Farbe wechselt im Takt
   govee_break     Effekt, solange der Bass aussetzt: ampel, balken oder spektrum.
                   Der Balken folgt dann dem, was noch läuft (Mitten: Gesang, Melodie). Leer = immer der normale Effekt. Beispiel: govee_effect puls + govee_break ampel.
+  govee_profile   Licht-Profil: leer/auto = nach Musikrichtung des Titels (Elektro, Schlager/Party, Pop, Rock, Hip-Hop, Ruhig),
+                  sonst fest: standard, elektro, party, pop, rock, hiphop, ruhig. Das Profil bestimmt Farbfolge, wie oft die
+                  Farbe wechselt, wie stark es blitzt und ob Strobe erlaubt ist.
   govee_strobe_early_ms  Strobe aus der Wellenform um so viele Millisekunden vorziehen – Start und Ende (Standard 2000 ≈ ein Takt).
   govee_strobe_seconds  Dauer des Strobes in Sekunden (Standard 8).
   govee_strobe    Strobe im Aufbau: Kennt Music Assistant die Wellenform des Titels, blitzt die Lampe, während die Balken
@@ -51,7 +54,7 @@ import struct
 import time
 from collections import deque
 
-from wavecue import WaveCues
+from wavecue import PROFILES, WaveCues
 from dmxlight import DmxLight, T_BEAT, T_LOUD, T_PEAK, T_SPEC, us
 
 log = logging.getLogger("jukebox")
@@ -130,6 +133,9 @@ class GoveeSync(DmxLight):
             self.cue_early = float(opt.get("govee_strobe_early_ms") if opt.get("govee_strobe_early_ms") is not None else 2000) / 1000.0
         except (TypeError, ValueError):
             self.cue_early = 2.0                # Strobe aus der Wellenform so viel früher (Start und Ende)
+        self.sat, self.bar_no, self.color_no = 1.0, 0, 0   # Sättigung der Takt-Farbe, Takt-Zähler, Platz in der Farbfolge
+        fp = str(opt.get("govee_profile") or "").strip().lower()
+        self.forced_profile = fp if fp in PROFILES else ""
         self.cues, self.cue_on = None, False   # Aufbauten aus der Wellenform des Titels (wavecue.py)
         try:
             self.drop_s = max(1.0, min(30.0, float(opt.get("govee_strobe_seconds") or 8)))   # Dauer des Strobes
@@ -226,8 +232,10 @@ class GoveeSync(DmxLight):
         except Exception as e:
             log.info(self.tag + ": Adresse aus govee_host nicht erreichbar: %s", e)
             return False
-        if self.targets and self.strobe:
+        if self.targets:
             self.cues = WaveCues.get(self.session, self.ma_cmds, self.player)   # je Lautsprecher einmal, alle Lampen teilen sie sich
+            if self.forced_profile:
+                self.cues.forced = self.forced_profile
         return bool(self.targets)
 
     async def test_pattern(self):
@@ -385,6 +393,19 @@ class GoveeSync(DmxLight):
         self.fire_drop({"bass": round(self.bass, 2), "bass_before": round(self.bass, 2)}, manual=True)
         return "Strobe an der Govee-Lampe (%d s)" % int(self.drop_s)
 
+    def prof(self):
+        """Licht-Profil des laufenden Titels (nach Musikrichtung, siehe wavecue.py)."""
+        return self.cues.profile if self.cues else PROFILES["standard"]
+
+    def next_color(self):
+        """Am Taktanfang: nächste Farbe aus der Farbfolge des Profils – je nach Profil nur jeden 2. oder 4. Takt."""
+        p = self.prof()
+        self.bar_no += 1
+        if self.bar_no % p["bars"]:
+            return
+        self.color_no = (self.color_no + 1) % len(p["colors"])
+        self.hue, self.sat = p["colors"][self.color_no]
+
     def strobe_frame(self, now):
         """Weißes Strobe über die ganze Lampe: jedes zweite Bild hell (bei 20 Bildern/s = 10 Blitze pro Sekunde)."""
         # Takt des Blitzens aus der Uhr (nicht je Lampe mitzählen): so blitzen alle Lampen gleichzeitig statt abwechselnd
@@ -393,12 +414,12 @@ class GoveeSync(DmxLight):
 
     def pulse(self, dt):
         """Wie der DMX-Spot: ganze Lampe in der Takt-Farbe, blitzt auf jeden Schlag auf und klingt in ca. 0,2 s ab."""
-        self.env *= math.exp(-dt / 0.18)
+        self.env *= math.exp(-dt / self.prof()["decay"])
         self.hi = max(self.hi * 0.9995, self.loud)
         self.lo = min(self.lo * 1.0005 + 0.00001, self.loud)
         lv = max(0.0, min(1.0, (self.loud - self.lo) / max(0.05, self.hi - self.lo)))
         self.smooth += (lv - self.smooth) * 0.25
-        return [colorsys_rgb(self.hue, max(self.env, 0.10 + 0.25 * self.smooth))] * self.n
+        return [colorsys_rgb(self.hue, max(self.env, 0.10 + 0.25 * self.smooth), self.sat)] * self.n
 
     def parse(self, kind, d):
         if kind == T_SPEC and len(d) >= 2:
@@ -449,15 +470,15 @@ class GoveeSync(DmxLight):
                         self.last_beat = now
                         one = bool(val) or self.find_one()           # ist das die „Eins“ des Takts?
                         # aufblitzen nur, solange wirklich ein Bass-Beat läuft – das Takt-Raster zählt auch in ruhigen Stellen weiter
-                        self.env = 0.0 if self.voc else (1.0 if one else 0.8)
-                        if one:                                      # Taktanfang: nächste Farbe
-                            self.hue = (self.hue + 0.17) % 1.0
+                        self.env = 0.0 if self.voc else (1.0 if one else 0.8) * self.prof()["flash"]
+                        if one:                                      # Taktanfang: je nach Profil jeden, jeden 2. oder 4. Takt die nächste Farbe
+                            self.next_color()
                     elif kind == T_PEAK and now - self.last_beat > 5 and val > 0.35:   # kein Takt-Raster → Bassschläge zählen
                         self.beats += 1
                         if not self.voc:
-                            self.env = max(self.env, val)
+                            self.env = max(self.env, val * self.prof()["flash"])
                         if self.beats % 8 == 0:
-                            self.hue = (self.hue + 0.17) % 1.0
+                            self.next_color()
             if not self.taken:
                 await self.take()
             elif now - self.on_at > KEEP_S:
@@ -468,7 +489,7 @@ class GoveeSync(DmxLight):
                 self.push(wrap(ON))
             # Strobe: während eines Aufbaus laut Wellenform (endet genau auf dem Einsatz) – oder, ohne Wellenform, ein paar
             # Sekunden nach einem mitgehörten Drop – oder von Hand (Drop-Test)
-            cue = bool(self.strobe and self.cues and self.cues.strobe(-self.delay_us / 1e6 + self.cue_early))
+            cue = bool(self.strobe and self.prof()["strobe"] and self.cues and self.cues.strobe(-self.delay_us / 1e6 + self.cue_early))
             if cue != self.cue_on:
                 self.cue_on = cue
                 if cue:
@@ -511,7 +532,7 @@ class GoveeSync(DmxLight):
                 self.was_calm, self.waves = False, []
             self.waves.append([0.0, min(1.0, 0.55 + jump * 4)])
             self.launches += 1
-        self.env *= math.exp(-dt / 0.18)                             # zusätzlich pulsiert die ganze Fläche auf jeden Schlag
+        self.env *= math.exp(-dt / self.prof()["decay"])             # zusätzlich pulsiert die ganze Fläche auf jeden Schlag
         # ohne Bass-Beat: kein Aufblitzen – dafür glimmt die Fläche heller, damit man den Farbwechsel im Takt sieht
         base = max(0.32 if self.voc else 0.10, 0.55 * self.env)
         # Tempo des Lauflichts: Gesang voll da → in ca. 0,45 s einmal durch; Gesang fast weg → nur noch ein Fünftel so schnell
@@ -532,7 +553,7 @@ class GoveeSync(DmxLight):
                 d = pos - i                                          # Impuls: vorn scharf, nach hinten ca. 3 Segmente Schweif
                 if 0 <= d < 3.5:
                     glow = max(glow, power * (1 - d / 3.5))
-            r, g_, b = colorsys_rgb(self.hue, glow)
+            r, g_, b = colorsys_rgb(self.hue, glow, self.sat)
             sp = self.spark[i]
             out.append((r + (255 - r) * sp, g_ + (255 - g_) * sp, b + (255 - b) * sp) if sp > 0.02 else (r, g_, b))
         return out
@@ -559,7 +580,7 @@ class GoveeSync(DmxLight):
             if i == 0:
                 part = max(part, 0.25)                               # unterstes Segment glimmt immer (Lampe wirkt nicht "aus")
             hue = 0.33 * (1 - i / max(1, self.n - 1)) if (eff or self.effect) == "ampel" else self.hue
-            out.append(colorsys_rgb(hue, part))
+            out.append(colorsys_rgb(hue, part, 1.0 if (eff or self.effect) == "ampel" else self.sat))
         return out
 
     def spectrum(self, dt):
@@ -573,5 +594,5 @@ class GoveeSync(DmxLight):
         return out
 
 
-def colorsys_rgb(hue, v=1.0):
-    return tuple(int(round(x * 255)) for x in colorsys.hsv_to_rgb(hue % 1.0, 1.0, max(0.0, min(1.0, v))))
+def colorsys_rgb(hue, v=1.0, sat=1.0):
+    return tuple(int(round(x * 255)) for x in colorsys.hsv_to_rgb(hue % 1.0, max(0.0, min(1.0, sat)), max(0.0, min(1.0, v))))
